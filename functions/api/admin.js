@@ -1,15 +1,43 @@
-// Admin API to view all responses
+// Protected Admin API to view all responses
 export async function onRequestGet(context) {
-  const { env } = context;
+  const { request, env } = context;
 
   const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Content-Type': 'application/json'
   };
 
+  if (request.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
+
   try {
+    // Check for authorization token
+    const authHeader = request.headers.get('Authorization');
+    const token = authHeader?.replace('Bearer ', '');
+
+    if (!token) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized - No token provided' }),
+        { status: 401, headers: corsHeaders }
+      );
+    }
+
+    // Verify token (basic check - in production use proper JWT verification)
+    try {
+      const decoded = atob(token);
+      if (!decoded.startsWith('admin:')) {
+        throw new Error('Invalid token');
+      }
+    } catch (e) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized - Invalid token' }),
+        { status: 401, headers: corsHeaders }
+      );
+    }
+
     // Get all responses
     const { results } = await env.DB.prepare(`
       SELECT
