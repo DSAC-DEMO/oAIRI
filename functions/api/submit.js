@@ -49,12 +49,9 @@ function getReadinessLevel(totalScore) {
 // Auto-initialize database table (for local development)
 async function ensureTableExists(db) {
   try {
-    // Drop existing table to ensure clean schema (local dev only)
-    await db.prepare(`DROP TABLE IF EXISTS responses`).run();
-
-    // Create table with correct schema for 20 questions
+    // Create table only if it doesn't exist (preserves data)
     await db.prepare(`
-      CREATE TABLE responses (
+      CREATE TABLE IF NOT EXISTS responses (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         q1 INTEGER NOT NULL CHECK (q1 BETWEEN 1 AND 5),
         q2 INTEGER NOT NULL CHECK (q2 BETWEEN 1 AND 5),
