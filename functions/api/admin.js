@@ -14,7 +14,6 @@ export async function onRequestGet(context) {
   }
 
   try {
-    // Check for authorization token
     const authHeader = request.headers.get('Authorization');
     const token = authHeader?.replace('Bearer ', '');
 
@@ -25,12 +24,9 @@ export async function onRequestGet(context) {
       );
     }
 
-    // Verify token (basic check - in production use proper JWT verification)
     try {
       const decoded = atob(token);
-      if (!decoded.startsWith('admin:')) {
-        throw new Error('Invalid token');
-      }
+      if (!decoded.startsWith('admin:')) throw new Error('Invalid token');
     } catch (e) {
       return new Response(
         JSON.stringify({ error: 'Unauthorized - Invalid token' }),
@@ -38,21 +34,15 @@ export async function onRequestGet(context) {
       );
     }
 
-    // Get all responses
+    // All responses
     const { results } = await env.DB.prepare(`
-      SELECT
-        id,
-        readiness_level,
-        total_score,
-        score_pct,
-        submitted_at,
+      SELECT id, readiness_level, total_score, score_pct, submitted_at,
         q1, q2, q3, q4, q5, q6, q7, q8, q9, q10,
         q11, q12, q13, q14, q15, q16, q17, q18, q19, q20
-      FROM responses
-      ORDER BY submitted_at DESC
+      FROM responses ORDER BY submitted_at DESC
     `).all();
 
-    // Get statistics
+    // Overall stats
     const stats = await env.DB.prepare(`
       SELECT
         COUNT(*) as total_responses,
@@ -67,10 +57,50 @@ export async function onRequestGet(context) {
       FROM responses
     `).first();
 
+    // Per-question average scores (to identify hardest/easiest scenarios)
+    const questionAvgs = await env.DB.prepare(`
+      SELECT
+        AVG(q1) as q1, AVG(q2) as q2, AVG(q3) as q3, AVG(q4) as q4, AVG(q5) as q5,
+        AVG(q6) as q6, AVG(q7) as q7, AVG(q8) as q8, AVG(q9) as q9, AVG(q10) as q10,
+        AVG(q11) as q11, AVG(q12) as q12, AVG(q13) as q13, AVG(q14) as q14, AVG(q15) as q15,
+        AVG(q16) as q16, AVG(q17) as q17, AVG(q18) as q18, AVG(q19) as q19, AVG(q20) as q20
+      FROM responses
+    `).first();
+
+    // Submissions per day (last 30 days)
+    const { results: dailyTrend } = await env.DB.prepare(`
+      SELECT
+        DATE(submitted_at) as date,
+        COUNT(*) as count
+      FROM responses
+      WHERE submitted_at >= DATE('now', '-30 days')
+      GROUP BY DATE(submitted_at)
+      ORDER BY date ASC
+    `).all();
+
+    // Score distribution buckets
+    const { results: scoreBuckets } = await env.DB.prepare(`
+      SELECT
+        CASE
+          WHEN total_score >= 85 THEN '85-100'
+          WHEN total_score >= 70 THEN '70-84'
+          WHEN total_score >= 55 THEN '55-69'
+          WHEN total_score >= 40 THEN '40-54'
+          ELSE '20-39'
+        END as bucket,
+        COUNT(*) as count
+      FROM responses
+      GROUP BY bucket
+      ORDER BY bucket DESC
+    `).all();
+
     return new Response(
       JSON.stringify({
         success: true,
         stats,
+        questionAvgs,
+        dailyTrend,
+        scoreBuckets,
         responses: results
       }, null, 2),
       { status: 200, headers: corsHeaders }
