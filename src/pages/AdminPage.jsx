@@ -3,11 +3,11 @@ import { useNavigate } from 'react-router-dom';
 
 const SCENARIO_LABELS = [
   'Crisis Management', 'Team Leadership', 'Strategic Planning',
-  'Resource Management', 'Stakeholder Comms', 'Performance Mgmt',
+  'Resource Management', 'Stakeholder Comms', 'Performance Management',
   'Conflict Resolution', 'Change Management', 'Decision Making',
   'Innovation', 'Customer Relations', 'Ethical Dilemma',
   'Time Management', 'Quality vs Speed', 'Delegation',
-  'Learning & Dev', 'Feedback', 'Cross-Functional', 'Risk Mgmt', 'Org Politics'
+  'Learning & Development', 'Feedback', 'Cross-Functional', 'Risk Management', 'Org Politics'
 ];
 
 const LEVEL_COLORS = {
@@ -181,8 +181,13 @@ function AdminPage() {
     pct: questionAvgs ? ((questionAvgs[`q${i + 1}`] || 0) / 5) * 100 : 0
   })).sort((a, b) => a.avg - b.avg);
 
-  const CHART_PX = 96; // fixed chart height in px
-  const trendMax = dailyTrend.length ? Math.max(...dailyTrend.map(d => d.count)) : 1;
+  // Cumulative trend for line chart
+  const cumulativeTrend = dailyTrend.reduce((acc, d, i) => {
+    const prev = i === 0 ? 0 : acc[i - 1].cumulative;
+    acc.push({ ...d, cumulative: prev + d.count });
+    return acc;
+  }, []);
+  const cumulativeMax = cumulativeTrend.length ? cumulativeTrend[cumulativeTrend.length - 1].cumulative : 1;
 
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4">
@@ -282,36 +287,77 @@ function AdminPage() {
 
         {/* Submission Trend */}
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 mb-8">
-          <h2 className="text-lg font-bold text-gray-900 mb-5">Submissions — Last 30 Days</h2>
-          {dailyTrend.length === 0 ? (
+          <h2 className="text-lg font-bold text-gray-900 mb-1">Submissions — Last 30 Days</h2>
+          <p className="text-xs text-gray-500 mb-5">Cumulative total submissions over time</p>
+          {cumulativeTrend.length === 0 ? (
             <p className="text-gray-400 text-sm">No submissions in the last 30 days</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <div className="flex items-end gap-1" style={{ height: `${CHART_PX + 20}px`, minWidth: `${dailyTrend.length * 24}px` }}>
-                {dailyTrend.map((d) => {
-                  const barH = Math.max(Math.round((d.count / trendMax) * CHART_PX), 4);
-                  return (
-                    <div key={d.date} className="flex-1 flex flex-col items-center group relative" style={{ minWidth: '20px' }}>
-                      {/* Tooltip */}
-                      <div className="absolute bg-gray-800 text-white text-xs px-2 py-0.5 rounded opacity-0 group-hover:opacity-100 whitespace-nowrap z-10 pointer-events-none"
-                        style={{ bottom: `${barH + 6}px` }}>
-                        {d.date}: {d.count}
-                      </div>
-                      {/* Bar */}
-                      <div
-                        className="w-full bg-blue-500 hover:bg-blue-400 rounded-t transition-colors"
-                        style={{ height: `${barH}px` }}
-                      />
-                      {/* Label */}
-                      <span className="text-xs text-gray-400 mt-1 hidden sm:block" style={{ fontSize: '10px' }}>
-                        {d.date.slice(5)}
-                      </span>
-                    </div>
-                  );
-                })}
+          ) : (() => {
+            const SVG_H = 140;
+            const PAD = { top: 12, bottom: 28, left: 36, right: 12 };
+            const plotH = SVG_H - PAD.top - PAD.bottom;
+            const pointSpacing = Math.max(20, Math.min(40, 600 / cumulativeTrend.length));
+            const plotW = Math.max((cumulativeTrend.length - 1) * pointSpacing, 200);
+            const SVG_W = plotW + PAD.left + PAD.right;
+
+            const pts = cumulativeTrend.map((d, i) => ({
+              x: PAD.left + (cumulativeTrend.length === 1 ? plotW / 2 : (i / (cumulativeTrend.length - 1)) * plotW),
+              y: PAD.top + plotH - (d.cumulative / cumulativeMax) * plotH,
+              ...d
+            }));
+
+            const linePts = pts.map(p => `${p.x},${p.y}`).join(' ');
+            const fillPath = `M ${pts[0].x} ${PAD.top + plotH} L ${pts.map(p => `${p.x} ${p.y}`).join(' L ')} L ${pts[pts.length - 1].x} ${PAD.top + plotH} Z`;
+
+            // Y-axis labels: 0 and max
+            const yLabels = [
+              { y: PAD.top + plotH, val: 0 },
+              { y: PAD.top, val: cumulativeMax },
+              { y: PAD.top + plotH / 2, val: Math.round(cumulativeMax / 2) },
+            ];
+
+            // X-axis: show up to 6 evenly-spaced date labels
+            const labelStep = Math.max(1, Math.ceil(pts.length / 6));
+            const xLabels = pts.filter((_, i) => i % labelStep === 0 || i === pts.length - 1);
+
+            return (
+              <div className="overflow-x-auto">
+                <svg width={SVG_W} height={SVG_H} style={{ minWidth: SVG_W, display: 'block' }}>
+                  {/* Gridlines */}
+                  {yLabels.map(({ y }) => (
+                    <line key={y} x1={PAD.left} x2={PAD.left + plotW} y1={y} y2={y}
+                      stroke="#f0f0f0" strokeWidth="1" />
+                  ))}
+
+                  {/* Y-axis labels */}
+                  {yLabels.map(({ y, val }) => (
+                    <text key={y} x={PAD.left - 4} y={y + 4} textAnchor="end"
+                      fontSize="10" fill="#9ca3af">{val}</text>
+                  ))}
+
+                  {/* Fill area */}
+                  <path d={fillPath} fill="#3b82f6" fillOpacity="0.1" />
+
+                  {/* Line */}
+                  <polyline fill="none" stroke="#3b82f6" strokeWidth="2"
+                    strokeLinejoin="round" points={linePts} />
+
+                  {/* Data points */}
+                  {pts.map((p, i) => (
+                    <g key={i}>
+                      <circle cx={p.x} cy={p.y} r="4" fill="#3b82f6" stroke="white" strokeWidth="1.5" />
+                      <title>{p.date}: {p.cumulative} total ({p.count} new)</title>
+                    </g>
+                  ))}
+
+                  {/* X-axis labels */}
+                  {xLabels.map((p) => (
+                    <text key={p.date} x={p.x} y={SVG_H - 4} textAnchor="middle"
+                      fontSize="10" fill="#9ca3af">{p.date.slice(5)}</text>
+                  ))}
+                </svg>
               </div>
-            </div>
-          )}
+            );
+          })()}
         </div>
 
         {/* Per-Question Performance */}
