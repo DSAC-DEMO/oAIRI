@@ -1,38 +1,41 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import QuestionCard from '../components/QuestionCard';
 import ProgressBar from '../components/ProgressBar';
-import { scenarios, shuffleOptions } from '../data/scenarios';
 
 function SurveyPage() {
   const navigate = useNavigate();
+  const [questions, setQuestions] = useState([]);
+  const [questionsLoading, setQuestionsLoading] = useState(true);
+  const [questionsError, setQuestionsError] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [answers, setAnswers] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState('');
+  const [submitError, setSubmitError] = useState('');
 
-  // Shuffle options once on mount and keep them consistent
-  const shuffledScenarios = useMemo(() => {
-    return scenarios.map(scenario => ({
-      ...scenario,
-      options: shuffleOptions(scenario.options)
-    }));
+  useEffect(() => {
+    fetch('/api/questions')
+      .then(r => r.json())
+      .then(data => {
+        if (!data.success) throw new Error('Failed to load questions');
+        setQuestions(data.questions);
+      })
+      .catch(err => setQuestionsError(err.message))
+      .finally(() => setQuestionsLoading(false));
   }, []);
 
-  // Pagination
   const questionsPerPage = 10;
-  const totalPages = Math.ceil(scenarios.length / questionsPerPage);
+  const totalPages = Math.ceil(questions.length / questionsPerPage);
   const startIndex = (currentPage - 1) * questionsPerPage;
-  const endIndex = startIndex + questionsPerPage;
-  const currentScenarios = shuffledScenarios.slice(startIndex, endIndex);
+  const currentPageQuestions = questions.slice(startIndex, startIndex + questionsPerPage);
 
-  const handleAnswerChange = (scenarioId, optionId) => {
-    setAnswers(prev => ({ ...prev, [scenarioId]: optionId }));
+  const handleAnswerChange = (questionId, optionId) => {
+    setAnswers(prev => ({ ...prev, [questionId]: parseInt(optionId) }));
   };
 
   const answeredCount = Object.keys(answers).length;
-  const isComplete = answeredCount === scenarios.length;
-  const currentPageAnswered = currentScenarios.every(s => answers[s.id]);
+  const isComplete = answeredCount === questions.length && questions.length > 0;
+  const currentPageAnswered = currentPageQuestions.every(q => answers[q.id] !== undefined);
 
   const handleNext = () => {
     if (currentPage < totalPages) {
@@ -50,18 +53,15 @@ function SurveyPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
     if (!isComplete) return;
 
     setIsSubmitting(true);
-    setError('');
+    setSubmitError('');
 
     try {
       const response = await fetch('/api/submit', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ answers })
       });
 
@@ -71,18 +71,45 @@ function SurveyPage() {
       }
 
       const result = await response.json();
-
-      // Navigate to results page with the readiness data
-      navigate('/results', {
-        state: {
-          readinessData: result.readinessData
-        }
-      });
+      navigate('/results', { state: { readinessData: result.readinessData } });
     } catch (err) {
-      setError(err.message || 'Failed to submit assessment. Please try again.');
+      setSubmitError(err.message || 'Failed to submit. Please try again.');
       setIsSubmitting(false);
     }
   };
+
+  if (questionsLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 flex items-center justify-center">
+        <p className="text-gray-500 text-lg">Loading assessment...</p>
+      </div>
+    );
+  }
+
+  if (questionsError) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 flex items-center justify-center px-4">
+        <div className="text-center">
+          <p className="text-red-600 text-lg font-semibold mb-2">Failed to load assessment</p>
+          <p className="text-gray-500">{questionsError}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="mt-4 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (questions.length === 0) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 flex items-center justify-center">
+        <p className="text-gray-500 text-lg">No questions available yet.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 py-6 sm:py-10 px-3 sm:px-6 lg:px-8">
@@ -100,7 +127,7 @@ function SurveyPage() {
         </div>
 
         <form onSubmit={handleSubmit}>
-          {currentScenarios.map((scenario) => (
+          {currentPageQuestions.map((scenario) => (
             <QuestionCard
               key={scenario.id}
               scenario={scenario}
@@ -109,17 +136,16 @@ function SurveyPage() {
             />
           ))}
 
-          {error && (
+          {submitError && (
             <div className="bg-red-50 border-l-4 border-red-600 text-red-700 px-6 py-4 rounded-lg mb-6">
               <p className="font-semibold">Error</p>
-              <p>{error}</p>
+              <p>{submitError}</p>
             </div>
           )}
 
           <div className="sticky bottom-0 bg-white border-t-2 border-gray-200 p-3 sm:p-4 shadow-lg rounded-t-lg">
-            <ProgressBar answeredCount={answeredCount} totalQuestions={scenarios.length} />
+            <ProgressBar answeredCount={answeredCount} totalQuestions={questions.length} />
             <div className="flex gap-2 sm:gap-3">
-              {/* Previous Button */}
               {currentPage > 1 && (
                 <button
                   type="button"
@@ -130,7 +156,6 @@ function SurveyPage() {
                 </button>
               )}
 
-              {/* Next or Submit Button */}
               {currentPage < totalPages ? (
                 <button
                   type="button"
@@ -159,7 +184,6 @@ function SurveyPage() {
               )}
             </div>
 
-            {/* Progress Message */}
             <div className="mt-2 sm:mt-3 text-center">
               {currentPage < totalPages && !currentPageAnswered && (
                 <p className="text-xs sm:text-sm text-gray-500">
@@ -168,12 +192,12 @@ function SurveyPage() {
               )}
               {currentPage === totalPages && !isComplete && (
                 <p className="text-xs sm:text-sm text-gray-500">
-                  Please answer all {scenarios.length} scenarios to submit
+                  Please answer all {questions.length} scenarios to submit
                 </p>
               )}
               {isComplete && (
                 <p className="text-xs sm:text-sm text-green-600 font-semibold">
-                  ✓ All questions answered! Ready to submit.
+                  All questions answered! Ready to submit.
                 </p>
               )}
             </div>
