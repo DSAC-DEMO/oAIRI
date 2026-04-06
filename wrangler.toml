@@ -4,4 +4,4 @@ compatibility_date = "2024-01-01"
 [[d1_databases]]
 binding = "DB"
 database_name = "survey-db"
-database_id = "65177ce6-74fc-4bc9-90a9-980ae1af36d8"
+database_id = "c9afd80b-4996-4be1-a830-205b3a6a7d12"
