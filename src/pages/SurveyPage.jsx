@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import QuestionCard from '../components/QuestionCard';
 import ProgressBar from '../components/ProgressBar';
@@ -8,7 +8,7 @@ function SurveyPage() {
   const [questions, setQuestions] = useState([]);
   const [questionsLoading, setQuestionsLoading] = useState(true);
   const [questionsError, setQuestionsError] = useState('');
-  const [currentPage, setCurrentPage] = useState(1);
+  const [currentPillarIndex, setCurrentPillarIndex] = useState(0);
   const [answers, setAnswers] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
@@ -24,10 +24,19 @@ function SurveyPage() {
       .finally(() => setQuestionsLoading(false));
   }, []);
 
-  const questionsPerPage = 10;
-  const totalPages = Math.ceil(questions.length / questionsPerPage);
-  const startIndex = (currentPage - 1) * questionsPerPage;
-  const currentPageQuestions = questions.slice(startIndex, startIndex + questionsPerPage);
+  // Group questions by category, preserving order of first appearance
+  const pillars = useMemo(() => {
+    const map = new Map();
+    for (const q of questions) {
+      if (!map.has(q.category)) map.set(q.category, []);
+      map.get(q.category).push(q);
+    }
+    return Array.from(map.entries()).map(([name, qs]) => ({ name, questions: qs }));
+  }, [questions]);
+
+  const totalPillars = pillars.length;
+  const currentPillar = pillars[currentPillarIndex] || { name: '', questions: [] };
+  const currentPillarQuestions = currentPillar.questions;
 
   const handleAnswerChange = (questionId, optionId) => {
     setAnswers(prev => ({ ...prev, [questionId]: parseInt(optionId) }));
@@ -35,18 +44,18 @@ function SurveyPage() {
 
   const answeredCount = Object.keys(answers).length;
   const isComplete = answeredCount === questions.length && questions.length > 0;
-  const currentPageAnswered = currentPageQuestions.every(q => answers[q.id] !== undefined);
+  const currentPillarAnswered = currentPillarQuestions.every(q => answers[q.id] !== undefined);
 
   const handleNext = () => {
-    if (currentPage < totalPages) {
-      setCurrentPage(prev => prev + 1);
+    if (currentPillarIndex < totalPillars - 1) {
+      setCurrentPillarIndex(prev => prev + 1);
       window.scrollTo(0, 0);
     }
   };
 
   const handlePrevious = () => {
-    if (currentPage > 1) {
-      setCurrentPage(prev => prev - 1);
+    if (currentPillarIndex > 0) {
+      setCurrentPillarIndex(prev => prev - 1);
       window.scrollTo(0, 0);
     }
   };
@@ -92,10 +101,7 @@ function SurveyPage() {
         <div className="text-center">
           <p className="text-red-600 text-lg font-semibold mb-2">Failed to load assessment</p>
           <p className="text-gray-500">{questionsError}</p>
-          <button
-            onClick={() => window.location.reload()}
-            className="mt-4 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-          >
+          <button onClick={() => window.location.reload()} className="mt-4 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
             Retry
           </button>
         </div>
@@ -111,23 +117,64 @@ function SurveyPage() {
     );
   }
 
+  const isLastPillar = currentPillarIndex === totalPillars - 1;
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 py-6 sm:py-10 px-3 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto">
+
+        {/* Header */}
         <div className="text-center mb-6 sm:mb-8">
-          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-2 sm:mb-3">
+          <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-2">
             Readiness Assessment
           </h1>
-          <p className="text-sm sm:text-base lg:text-lg text-gray-600 max-w-2xl mx-auto px-4">
+          <p className="text-sm sm:text-base text-gray-600 max-w-2xl mx-auto px-4">
             Read each scenario carefully and select the action that best represents how you would respond.
           </p>
-          <div className="mt-3 text-xs sm:text-sm text-gray-500">
-            Page {currentPage} of {totalPages}
+        </div>
+
+        {/* Pillar progress steps */}
+        <div className="flex items-center justify-center gap-1 sm:gap-2 mb-8 px-2 overflow-x-auto">
+          {pillars.map((pillar, idx) => {
+            const done = idx < currentPillarIndex;
+            const active = idx === currentPillarIndex;
+            return (
+              <div key={pillar.name} className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
+                <div className={`flex flex-col items-center`}>
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold border-2 transition-all ${
+                    done   ? 'bg-blue-600 border-blue-600 text-white' :
+                    active ? 'bg-white border-blue-600 text-blue-600' :
+                             'bg-white border-gray-300 text-gray-400'
+                  }`}>
+                    {done ? '✓' : idx + 1}
+                  </div>
+                  <span className={`text-xs mt-1 max-w-16 text-center leading-tight hidden sm:block ${
+                    active ? 'text-blue-600 font-semibold' : done ? 'text-blue-400' : 'text-gray-400'
+                  }`}>
+                    {pillar.name}
+                  </span>
+                </div>
+                {idx < pillars.length - 1 && (
+                  <div className={`h-0.5 w-6 sm:w-10 mt-0 sm:-mt-4 transition-all ${done ? 'bg-blue-600' : 'bg-gray-200'}`} />
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Current pillar heading */}
+        <div className="mb-5 px-1">
+          <div className="flex items-center gap-3">
+            <div className="flex-1 h-px bg-gray-200" />
+            <span className="text-xs font-bold text-blue-600 uppercase tracking-widest whitespace-nowrap">
+              Pillar {currentPillarIndex + 1} of {totalPillars} — {currentPillar.name}
+            </span>
+            <div className="flex-1 h-px bg-gray-200" />
           </div>
         </div>
 
         <form onSubmit={handleSubmit}>
-          {currentPageQuestions.map((scenario) => (
+          {currentPillarQuestions.map((scenario) => (
             <QuestionCard
               key={scenario.id}
               scenario={scenario}
@@ -143,10 +190,11 @@ function SurveyPage() {
             </div>
           )}
 
+          {/* Sticky bottom bar */}
           <div className="sticky bottom-0 bg-white border-t-2 border-gray-200 p-3 sm:p-4 shadow-lg rounded-t-lg">
             <ProgressBar answeredCount={answeredCount} totalQuestions={questions.length} />
             <div className="flex gap-2 sm:gap-3">
-              {currentPage > 1 && (
+              {currentPillarIndex > 0 && (
                 <button
                   type="button"
                   onClick={handlePrevious}
@@ -156,18 +204,18 @@ function SurveyPage() {
                 </button>
               )}
 
-              {currentPage < totalPages ? (
+              {!isLastPillar ? (
                 <button
                   type="button"
                   onClick={handleNext}
-                  disabled={!currentPageAnswered}
+                  disabled={!currentPillarAnswered}
                   className={`flex-1 py-2.5 sm:py-3 px-4 sm:px-6 rounded-lg font-semibold text-sm sm:text-base text-white transition-all ${
-                    currentPageAnswered
+                    currentPillarAnswered
                       ? 'bg-blue-600 hover:bg-blue-700 cursor-pointer shadow-md'
                       : 'bg-gray-400 cursor-not-allowed'
                   }`}
                 >
-                  Next →
+                  Next Pillar →
                 </button>
               ) : (
                 <button
@@ -185,14 +233,14 @@ function SurveyPage() {
             </div>
 
             <div className="mt-2 sm:mt-3 text-center">
-              {currentPage < totalPages && !currentPageAnswered && (
+              {!isLastPillar && !currentPillarAnswered && (
                 <p className="text-xs sm:text-sm text-gray-500">
-                  Please answer all questions on this page to continue
+                  Answer all questions in this pillar to continue
                 </p>
               )}
-              {currentPage === totalPages && !isComplete && (
+              {isLastPillar && !isComplete && (
                 <p className="text-xs sm:text-sm text-gray-500">
-                  Please answer all {questions.length} scenarios to submit
+                  Answer all remaining questions to submit
                 </p>
               )}
               {isComplete && (
