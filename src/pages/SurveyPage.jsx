@@ -3,6 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import QuestionCard from '../components/QuestionCard';
 import ProgressBar from '../components/ProgressBar';
 
+const SP_DEPARTMENTS = [
+  'SOC', 'EEE', 'MAE', 'BMS', 'SD', 'CLS', 'ABE', 'SH', 'SMC', 'SASS', 'Corp/Admin', 'Others',
+];
+
 function SurveyPage() {
   const navigate = useNavigate();
   const [questions, setQuestions] = useState([]);
@@ -12,6 +16,11 @@ function SurveyPage() {
   const [answers, setAnswers] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
+
+  // Staff info (collected before survey starts)
+  const [infoCollected, setInfoCollected] = useState(false);
+  const [isSPStaff, setIsSPStaff] = useState(null);   // null | true | false
+  const [department, setDepartment] = useState('');
 
   useEffect(() => {
     fetch('/api/questions')
@@ -71,7 +80,7 @@ function SurveyPage() {
       const response = await fetch('/api/submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ answers })
+        body: JSON.stringify({ answers, staffInfo: { isSPStaff: !!isSPStaff, department: isSPStaff ? department : '' } })
       });
 
       if (!response.ok) {
@@ -86,6 +95,65 @@ function SurveyPage() {
       setIsSubmitting(false);
     }
   };
+
+  // ── Staff info pre-screen ─────────────────────────────────────────────────
+  const canProceed = isSPStaff === false || (isSPStaff === true && department !== '');
+
+  if (!infoCollected) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 flex items-center justify-center px-4 py-10">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 max-w-lg w-full">
+          <p className="text-xs font-bold uppercase tracking-widest text-blue-600 mb-2">Before you begin</p>
+          <h1 className="text-2xl font-bold text-gray-900 mb-6">A quick question</h1>
+
+          <p className="text-sm font-semibold text-gray-700 mb-3">Are you a Singapore Polytechnic staff member?</p>
+          <div className="flex gap-3 mb-6">
+            {[true, false].map(val => (
+              <button
+                key={String(val)}
+                type="button"
+                onClick={() => { setIsSPStaff(val); if (!val) setDepartment(''); }}
+                className={`flex-1 py-2.5 rounded-lg border-2 text-sm font-semibold transition-all ${
+                  isSPStaff === val
+                    ? 'bg-blue-600 border-blue-600 text-white'
+                    : 'bg-white border-gray-300 text-gray-600 hover:border-blue-400'
+                }`}
+              >
+                {val ? 'Yes' : 'No'}
+              </button>
+            ))}
+          </div>
+
+          {isSPStaff === true && (
+            <div className="mb-6">
+              <p className="text-sm font-semibold text-gray-700 mb-2">Which school / department are you from?</p>
+              <select
+                className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                value={department}
+                onChange={e => setDepartment(e.target.value)}
+              >
+                <option value="">Select department…</option>
+                {SP_DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
+              </select>
+            </div>
+          )}
+
+          <button
+            type="button"
+            disabled={!canProceed}
+            onClick={() => setInfoCollected(true)}
+            className={`w-full py-3 rounded-lg font-semibold text-sm transition-all ${
+              canProceed
+                ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-md'
+                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+            }`}
+          >
+            Start Assessment →
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (questionsLoading) {
     return (

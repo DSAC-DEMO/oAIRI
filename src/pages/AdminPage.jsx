@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import RadarChart from '../components/RadarChart';
 
 const LEVEL_COLORS = {
   'Expert Ready':     { bg: 'bg-emerald-100', text: 'text-emerald-800', bar: 'bg-emerald-500' },
@@ -475,6 +476,65 @@ function AdminPage() {
                 </div>
               )}
             </div>
+
+            {/* Per-department radar charts */}
+            {(() => {
+              // Build per-dept pillar averages from raw response data (SP staff only)
+              const deptAccum = {}; // { dept: { pillarName: { sum, count, maxSum, minSum } } }
+
+              for (const r of responses) {
+                if (!r.is_sp_staff || !r.department) continue;
+                let ans = {};
+                try { ans = JSON.parse(r.answers_json); } catch {}
+
+                if (!deptAccum[r.department]) deptAccum[r.department] = {};
+
+                for (const q of questions) {
+                  const score = parseFloat(ans[q.id]);
+                  if (isNaN(score)) continue;
+                  const maxW = q.options.length ? Math.max(...q.options.map(o => parseFloat(o.weight))) : 2;
+                  const minW = q.options.length ? Math.min(...q.options.map(o => parseFloat(o.weight))) : 1;
+                  if (!deptAccum[r.department][q.category])
+                    deptAccum[r.department][q.category] = { sum: 0, count: 0, maxSum: 0, minSum: 0 };
+                  deptAccum[r.department][q.category].sum    += score;
+                  deptAccum[r.department][q.category].count  += 1;
+                  deptAccum[r.department][q.category].maxSum += maxW;
+                  deptAccum[r.department][q.category].minSum += minW;
+                }
+              }
+
+              const deptEntries = Object.entries(deptAccum);
+              if (deptEntries.length === 0) return null;
+
+              return (
+                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 mb-8">
+                  <h2 className="text-lg font-bold text-gray-900 mb-1">Department Competency Profiles</h2>
+                  <p className="text-xs text-gray-500 mb-6">Average pillar scores per SP school/department (SP staff only)</p>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6">
+                    {deptEntries.map(([dept, pillarsRaw]) => {
+                      const pillars = Object.entries(pillarsRaw).map(([name, { sum, minSum, maxSum }]) => ({
+                        name,
+                        pct: maxSum > minSum ? Math.round(((sum - minSum) / (maxSum - minSum)) * 100) : 0,
+                      }));
+                      const strongest = [...pillars].sort((a, b) => b.pct - a.pct)[0];
+                      const weakest   = [...pillars].sort((a, b) => a.pct - b.pct)[0];
+                      const responseCount = responses.filter(r => r.is_sp_staff && r.department === dept).length;
+                      return (
+                        <div key={dept} className="flex flex-col items-center">
+                          <p className="text-sm font-bold text-gray-800 mb-0.5">{dept}</p>
+                          <p className="text-xs text-gray-400 mb-2">{responseCount} response{responseCount !== 1 ? 's' : ''}</p>
+                          <RadarChart pillars={pillars} size={180} />
+                          <div className="mt-2 text-center space-y-0.5">
+                            <p className="text-xs text-green-600 font-medium">Strongest: {strongest?.name}</p>
+                            <p className="text-xs text-red-500 font-medium">Weakest: {weakest?.name}</p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* Responses Table */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">

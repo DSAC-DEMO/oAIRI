@@ -1,5 +1,6 @@
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useEffect } from 'react';
+import RadarChart from '../components/RadarChart';
 
 // ── Update these URLs when SP confirms the programme links ──────────────────
 const LINKS = {
@@ -41,8 +42,12 @@ function ResultsPage() {
 
   if (!readinessData) return null;
 
-  const { label, description, color } = readinessData;
+  const { label, description, color, pillarScores } = readinessData;
   const styles = LEVEL_STYLES[color] || LEVEL_STYLES.yellow;
+
+  const radarPillars = pillarScores
+    ? Object.entries(pillarScores).map(([name, { pct }]) => ({ name, pct }))
+    : [];
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 py-10 px-4 sm:px-6 lg:px-8">
@@ -56,6 +61,14 @@ function ResultsPage() {
           </div>
           <p className="text-gray-600 text-base max-w-xl mx-auto">{description}</p>
         </div>
+
+        {/* ── Radar chart ──────────────────────────────────────────── */}
+        {radarPillars.length >= 3 && (
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 flex flex-col items-center">
+            <p className="text-sm font-semibold text-gray-500 uppercase tracking-widest mb-4">Competency Profile</p>
+            <RadarChart pillars={radarPillars} size={280} />
+          </div>
+        )}
 
         {/* ── Main recommendation card ──────────────────────────────── */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8">

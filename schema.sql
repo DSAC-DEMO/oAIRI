@@ -24,6 +24,8 @@ CREATE TABLE responses (
   total_score     INTEGER NOT NULL,
   score_pct       REAL NOT NULL,
   readiness_level TEXT NOT NULL,
+  is_sp_staff     INTEGER NOT NULL DEFAULT 0,
+  department      TEXT NOT NULL DEFAULT '',
   submitted_at    DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 

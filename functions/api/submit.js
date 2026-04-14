@@ -27,7 +27,8 @@ export async function onRequestPost(context) {
   }
 
   try {
-    const { answers } = await request.json();
+    const body = await request.json();
+    const { answers, staffInfo } = body;
 
     if (!answers || typeof answers !== 'object') {
       return new Response(
@@ -138,13 +139,18 @@ export async function onRequestPost(context) {
 
     const readinessData = getReadinessLevel(scorePct);
 
+    const isSPStaff = staffInfo?.isSPStaff ? 1 : 0;
+    const department = (staffInfo?.isSPStaff && staffInfo?.department) ? staffInfo.department.trim() : '';
+
     await env.DB.prepare(
-      'INSERT INTO responses (answers_json, total_score, score_pct, readiness_level) VALUES (?, ?, ?, ?)'
+      'INSERT INTO responses (answers_json, total_score, score_pct, readiness_level, is_sp_staff, department) VALUES (?, ?, ?, ?, ?, ?)'
     ).bind(
       JSON.stringify(answersJson),
       Math.round(totalScore * 100) / 100,
       scorePct,
-      readinessData.label
+      readinessData.label,
+      isSPStaff,
+      department
     ).run();
 
     return new Response(
