@@ -1,9 +1,11 @@
+// Thresholds map to 0-5 scale bands: 4.00-5.00 / 3.00-3.99 / 2.00-2.99 / 1.00-1.99 / 0.00-0.99
+// scorePct = (overallMean / 5) * 100, so band boundaries are at 80 / 60 / 40 / 20 %
 function getReadinessLevel(scorePct) {
   const levels = [
-    { min: 85, label: 'Expert Ready',     description: 'Demonstrates exceptional decision-making and readiness across all scenarios', color: 'emerald' },
-    { min: 70, label: 'Advanced Ready',   description: 'Shows strong readiness with consistent good judgment',                        color: 'green'   },
-    { min: 55, label: 'Moderately Ready', description: 'Displays adequate readiness with room for development',                       color: 'yellow'  },
-    { min: 40, label: 'Developing',       description: 'Shows basic readiness but needs significant improvement',                     color: 'orange'  },
+    { min: 80, label: 'Expert Ready',     description: 'Demonstrates exceptional decision-making and readiness across all scenarios', color: 'emerald' },
+    { min: 60, label: 'Advanced Ready',   description: 'Shows strong readiness with consistent good judgment',                        color: 'green'   },
+    { min: 40, label: 'Moderately Ready', description: 'Displays adequate readiness with room for development',                       color: 'yellow'  },
+    { min: 20, label: 'Developing',       description: 'Shows basic readiness but needs significant improvement',                     color: 'orange'  },
     { min: 0,  label: 'Novice',           description: 'Limited readiness; requires substantial training and support',                color: 'red'     },
   ];
   for (const level of levels) {
@@ -137,6 +139,7 @@ export async function onRequestPost(context) {
       };
     }
 
+    const overallMean = Math.round((totalScore / questionIds.length) * 100) / 100;
     const readinessData = getReadinessLevel(scorePct);
 
     const isSPStaff = staffInfo?.isSPStaff ? 1 : 0;
@@ -158,9 +161,8 @@ export async function onRequestPost(context) {
         success: true,
         readinessData: {
           ...readinessData,
-          score: Math.round(totalScore * 100) / 100,
-          percentage: scorePct,
-          pillarScores
+          overallMean,   // 0-5 raw score, e.g. 3.62
+          pillarScores   // { category: { avg (0-5), pct (0-100 for chart) } }
         }
       }),
       { status: 200, headers: corsHeaders }

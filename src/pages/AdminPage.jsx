@@ -33,7 +33,7 @@ function StatCard({ label, value, sub, color }) {
 
 // ── Question editor form ─────────────────────────────────────────────────────
 function QuestionForm({ initial, onSave, onCancel, existingCategories = [] }) {
-  const empty = { category: '', question: '', options: [{ text: '', weight: 1.00 }, { text: '', weight: 2.00 }] };
+  const empty = { category: '', question: '', options: [{ text: '', weight: 0 }, { text: '', weight: 5.00 }] };
   const [form, setForm] = useState(initial || empty);
   // If the initial category isn't in the existing list, treat it as a custom new one
   const [isNewCategory, setIsNewCategory] = useState(
@@ -122,9 +122,9 @@ function QuestionForm({ initial, onSave, onCancel, existingCategories = [] }) {
               <div className="w-24 flex-shrink-0">
                 <input
                   type="number"
-                  min="1.00"
-                  max="2.00"
-                  step="0.25"
+                  min="0"
+                  max="5"
+                  step="1.25"
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   value={opt.weight}
                   onChange={e => setOption(i, 'weight', parseFloat(e.target.value) || 1.00)}
@@ -144,7 +144,7 @@ function QuestionForm({ initial, onSave, onCancel, existingCategories = [] }) {
             </div>
           ))}
         </div>
-        <p className="text-xs text-gray-400 mt-1">Weight 1.00 = lowest score, 2.00 = highest. Use steps of 0.25.</p>
+        <p className="text-xs text-gray-400 mt-1">Weights: 0, 1.25, 2.50, 3.75, 5.00 (lowest → highest).</p>
       </div>
 
       <div className="flex gap-2 pt-1">
@@ -347,9 +347,9 @@ function AdminPage() {
             {/* KPI Cards */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
               <StatCard label="Total Responses" value={total} color="text-blue-600" />
-              <StatCard label="Average Score" value={`${Math.round(stats.avg_score || 0)}%`} color="text-green-600" />
-              <StatCard label="Highest Score" value={`${Math.round(stats.max_score || 0)}%`} color="text-emerald-600" />
-              <StatCard label="Lowest Score" value={`${Math.round(stats.min_score || 0)}%`} color="text-orange-600" />
+              <StatCard label="Average Score" value={`${((stats.avg_score || 0) / 20).toFixed(2)}`} sub="out of 5.00" color="text-green-600" />
+              <StatCard label="Highest Score"  value={`${((stats.max_score || 0) / 20).toFixed(2)}`} sub="out of 5.00" color="text-emerald-600" />
+              <StatCard label="Lowest Score"   value={`${((stats.min_score || 0) / 20).toFixed(2)}`} sub="out of 5.00" color="text-orange-600" />
             </div>
 
             {/* Distribution + Score Buckets */}
@@ -384,7 +384,7 @@ function AdminPage() {
                 <h2 className="text-lg font-bold text-gray-900 mb-5">Score Distribution</h2>
                 {scoreBuckets.length === 0 ? <p className="text-gray-400 text-sm">No data yet</p> : (
                   <div className="space-y-4">
-                    {['85-100', '70-84', '55-69', '40-54', '0-39'].map(bucket => {
+                    {['4.00-5.00', '3.00-3.99', '2.00-2.99', '1.00-1.99', '0.00-0.99'].map(bucket => {
                       const found = scoreBuckets.find(b => b.bucket === bucket);
                       const count = found?.count || 0;
                       const pct = total ? (count / total) * 100 : 0;
@@ -569,7 +569,7 @@ function AdminPage() {
                               <td className="px-4 py-3">
                                 <span className={`px-2 py-1 text-xs font-semibold rounded-full ${colors.bg} ${colors.text}`}>{r.readiness_level}</span>
                               </td>
-                              <td className="px-4 py-3 text-sm font-semibold text-gray-800">{Math.round(r.score_pct)}%</td>
+                              <td className="px-4 py-3 text-sm font-semibold text-gray-800">{(r.score_pct / 20).toFixed(2)} / 5</td>
                               <td className="px-4 py-3 text-sm text-gray-500">{new Date(r.submitted_at).toLocaleString()}</td>
                               <td className="px-4 py-3">
                                 <button onClick={() => setExpandedRow(isExpanded ? null : r.id)} className="text-xs text-blue-600 hover:underline">
@@ -650,7 +650,7 @@ function AdminPage() {
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-blue-200">
                   <h3 className="text-base font-bold text-gray-900 mb-4">New Question</h3>
                   <QuestionForm
-                    initial={addFormCategory ? { category: addFormCategory, question: '', options: [{ text: '', weight: 1.00 }, { text: '', weight: 2.00 }] } : undefined}
+                    initial={addFormCategory ? { category: addFormCategory, question: '', options: [{ text: '', weight: 0 }, { text: '', weight: 5.00 }] } : undefined}
                     existingCategories={existingCategories}
                     onSave={form => questionAction('create', form)}
                     onCancel={closeAddForm}

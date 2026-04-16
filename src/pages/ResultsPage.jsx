@@ -42,7 +42,7 @@ function ResultsPage() {
 
   if (!readinessData) return null;
 
-  const { label, description, color, pillarScores } = readinessData;
+  const { label, description, color, pillarScores, overallMean } = readinessData;
   const styles = LEVEL_STYLES[color] || LEVEL_STYLES.yellow;
 
   const radarPillars = pillarScores
@@ -59,6 +59,11 @@ function ResultsPage() {
           <div className={`inline-block px-6 py-3 rounded-full border-2 text-2xl font-bold mb-3 ${styles.badge}`}>
             {label}
           </div>
+          {overallMean !== undefined && (
+            <p className={`text-4xl font-bold mb-2 ${styles.icon}`}>
+              {overallMean.toFixed(2)} <span className="text-lg font-normal text-gray-400">/ 5.00</span>
+            </p>
+          )}
           <p className="text-gray-600 text-base max-w-xl mx-auto">{description}</p>
         </div>
 

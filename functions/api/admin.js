@@ -48,11 +48,11 @@ export async function onRequestGet(context) {
     const { results: scoreBuckets } = await env.DB.prepare(`
       SELECT
         CASE
-          WHEN score_pct >= 85 THEN '85-100'
-          WHEN score_pct >= 70 THEN '70-84'
-          WHEN score_pct >= 55 THEN '55-69'
-          WHEN score_pct >= 40 THEN '40-54'
-          ELSE '0-39'
+          WHEN score_pct >= 80 THEN '4.00-5.00'
+          WHEN score_pct >= 60 THEN '3.00-3.99'
+          WHEN score_pct >= 40 THEN '2.00-2.99'
+          WHEN score_pct >= 20 THEN '1.00-1.99'
+          ELSE '0.00-0.99'
         END as bucket,
         COUNT(*) as count
       FROM responses
