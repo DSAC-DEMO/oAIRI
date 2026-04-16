@@ -321,6 +321,30 @@ function AdminPage() {
     ? [...questions].sort((a, b) => (questionAvgs[a.id]?.avg || 0) - (questionAvgs[b.id]?.avg || 0))
     : [];
 
+  // Per-pillar performance (avg of question avgs within each pillar)
+  const pillarPerfMap = {};
+  for (const q of (questions || [])) {
+    if (!pillarPerfMap[q.category]) pillarPerfMap[q.category] = { sum: 0, count: 0 };
+    pillarPerfMap[q.category].sum   += (questionAvgs[q.id]?.avg || 0);
+    pillarPerfMap[q.category].count += 1;
+  }
+  const pillarPerfList = Object.entries(pillarPerfMap)
+    .map(([name, { sum, count }]) => ({ name, avg: count > 0 ? sum / count : 0 }))
+    .sort((a, b) => a.avg - b.avg);
+
+  // Per-dimension performance (avg of question avgs within each dimension)
+  const dimensionPerfMap = {};
+  for (const q of (questions || [])) {
+    if (!q.dimension) continue;
+    if (!dimensionPerfMap[q.dimension]) dimensionPerfMap[q.dimension] = { sum: 0, count: 0, pillars: new Set() };
+    dimensionPerfMap[q.dimension].sum   += (questionAvgs[q.id]?.avg || 0);
+    dimensionPerfMap[q.dimension].count += 1;
+    dimensionPerfMap[q.dimension].pillars.add(q.category);
+  }
+  const dimensionPerfList = Object.entries(dimensionPerfMap)
+    .map(([name, { sum, count, pillars }]) => ({ name, avg: count > 0 ? sum / count : 0, pillars: [...pillars] }))
+    .sort((a, b) => a.avg - b.avg);
+
   // Cumulative trend for line chart
   const cumulativeTrend = dailyTrend.reduce((acc, d, i) => {
     const prev = i === 0 ? 0 : acc[i - 1].cumulative;
@@ -473,10 +497,62 @@ function AdminPage() {
               })()}
             </div>
 
+            {/* Performance by Pillar + Dimension side by side */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                <h2 className="text-lg font-bold text-gray-900 mb-1">Performance by Pillar</h2>
+                <p className="text-xs text-gray-500 mb-5">Average score per pillar (sorted hardest → easiest)</p>
+                {total === 0 ? <p className="text-gray-400 text-sm">No data yet</p> : (
+                  <div className="space-y-3">
+                    {pillarPerfList.map(({ name, avg }) => {
+                      const pct = (avg / 5) * 100;
+                      const barColor = pct >= 70 ? 'bg-green-500' : pct >= 50 ? 'bg-yellow-500' : 'bg-red-500';
+                      return (
+                        <div key={name}>
+                          <div className="flex justify-between text-xs mb-1">
+                            <span className="font-semibold text-gray-700">{name}</span>
+                            <span className="text-gray-500">{avg.toFixed(2)} / 5</span>
+                          </div>
+                          <Bar pct={pct} colorClass={barColor} />
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                <h2 className="text-lg font-bold text-gray-900 mb-1">Performance by Dimension</h2>
+                <p className="text-xs text-gray-500 mb-5">Average score per dimension (sorted hardest → easiest)</p>
+                {total === 0 ? <p className="text-gray-400 text-sm">No data yet</p> : dimensionPerfList.length === 0 ? (
+                  <p className="text-gray-400 text-sm">No dimensions set on questions yet</p>
+                ) : (
+                  <div className="space-y-3">
+                    {dimensionPerfList.map(({ name, avg, pillars }) => {
+                      const pct = (avg / 5) * 100;
+                      const barColor = pct >= 70 ? 'bg-green-500' : pct >= 50 ? 'bg-yellow-500' : 'bg-red-500';
+                      return (
+                        <div key={name}>
+                          <div className="flex justify-between text-xs mb-1">
+                            <div>
+                              <span className="font-semibold text-gray-700">{name}</span>
+                              <span className="text-gray-400 ml-2">{pillars.join(', ')}</span>
+                            </div>
+                            <span className="text-gray-500 flex-shrink-0 ml-2">{avg.toFixed(2)} / 5</span>
+                          </div>
+                          <Bar pct={pct} colorClass={barColor} />
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+
             {/* Per-Question Performance */}
             <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 mb-8">
-              <h2 className="text-lg font-bold text-gray-900 mb-1">Scenario Performance</h2>
-              <p className="text-xs text-gray-500 mb-5">Average score per scenario (sorted hardest → easiest). Lower = respondents struggled more.</p>
+              <h2 className="text-lg font-bold text-gray-900 mb-1">Performance by Question</h2>
+              <p className="text-xs text-gray-500 mb-5">Average score per question (sorted hardest → easiest)</p>
               {total === 0 ? <p className="text-gray-400 text-sm">No data yet</p> : (
                 <div className="space-y-3">
                   {questionDifficulty.map(q => {
@@ -486,8 +562,12 @@ function AdminPage() {
                     return (
                       <div key={q.id}>
                         <div className="flex justify-between text-xs mb-1">
-                          <span className="font-medium text-gray-700">{q.category}</span>
-                          <span className="text-gray-500">{avg.toFixed(2)}/{maxWeight} avg</span>
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="font-semibold text-gray-700 flex-shrink-0">{q.category}</span>
+                            {q.dimension && <span className="text-blue-500 flex-shrink-0">{q.dimension}</span>}
+                            {q.q_id && <span className="font-mono text-gray-400 truncate">{q.q_id}</span>}
+                          </div>
+                          <span className="text-gray-500 flex-shrink-0 ml-2">{avg.toFixed(2)} / 5</span>
                         </div>
                         <Bar pct={pct} colorClass={barColor} />
                       </div>
