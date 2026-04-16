@@ -4,7 +4,7 @@ import QuestionCard from '../components/QuestionCard';
 import ProgressBar from '../components/ProgressBar';
 
 const SP_DEPARTMENTS = [
-  'SOC', 'EEE', 'MAE', 'BMS', 'SD', 'CLS', 'ABE', 'SH', 'SMC', 'SASS', 'Corp/Admin', 'Others',
+  'ACAD', 'ADMIN', 'BC', 'BEM', 'CC', 'CCLS', 'DEV', 'ED', 'ENGG', 'HR', 'PACE', 'PODS', 'REG', 'SAA', 'QSM'
 ];
 
 function SurveyPage() {
