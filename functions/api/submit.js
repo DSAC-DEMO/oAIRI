@@ -1,17 +1,10 @@
-// Thresholds map to 0-5 scale bands: 4.00-5.00 / 3.00-3.99 / 2.00-2.99 / 1.00-1.99 / 0.00-0.99
-// scorePct = (overallMean / 5) * 100, so band boundaries are at 80 / 60 / 40 / 20 %
-function getReadinessLevel(scorePct) {
-  const levels = [
-    { min: 80, label: 'Expert Ready',     description: 'Demonstrates exceptional decision-making and readiness across all scenarios', color: 'emerald' },
-    { min: 60, label: 'Advanced Ready',   description: 'Shows strong readiness with consistent good judgment',                        color: 'green'   },
-    { min: 40, label: 'Moderately Ready', description: 'Displays adequate readiness with room for development',                       color: 'yellow'  },
-    { min: 20, label: 'Developing',       description: 'Shows basic readiness but needs significant improvement',                     color: 'orange'  },
-    { min: 0,  label: 'Novice',           description: 'Limited readiness; requires substantial training and support',                color: 'red'     },
-  ];
-  for (const level of levels) {
-    if (scorePct >= level.min) return level;
-  }
-  return levels[levels.length - 1];
+// score is the raw 0-5 mean
+function getReadinessLevel(score) {
+  if (score >= 4) return { label: 'Expert Ready',     description: 'Demonstrates exceptional decision-making and readiness across all scenarios', color: 'emerald' };
+  if (score >= 3) return { label: 'Advanced Ready',   description: 'Shows strong readiness with consistent good judgment',                        color: 'green'   };
+  if (score >= 2) return { label: 'Moderately Ready', description: 'Displays adequate readiness with room for development',                       color: 'yellow'  };
+  if (score >= 1) return { label: 'Developing',       description: 'Shows basic readiness but needs significant improvement',                     color: 'orange'  };
+  return           { label: 'Novice',                 description: 'Limited readiness; requires substantial training and support',                color: 'red'     };
 }
 
 export async function onRequestPost(context) {
@@ -39,7 +32,7 @@ export async function onRequestPost(context) {
       );
     }
 
-    // Fetch questions (with category for pillar grouping) + options
+    // Fetch questions + options
     const { results: questions } = await env.DB.prepare(
       'SELECT id, category FROM questions ORDER BY order_num ASC, id ASC'
     ).all();
@@ -56,19 +49,12 @@ export async function onRequestPost(context) {
     }
 
     // Build lookups
-    const optionMap = {};          // optionId -> { weight, questionId }
-    const maxWeightByQ = {};       // questionId -> max weight
-    const minWeightByQ = {};       // questionId -> min weight
-    const categoryByQ = {};        // questionId -> category
+    const optionMap  = {};   // optionId -> { weight, questionId }
+    const categoryByQ = {};  // questionId -> category
 
     for (const opt of options) {
       optionMap[opt.id] = { weight: parseFloat(opt.weight), questionId: opt.question_id };
-      if (maxWeightByQ[opt.question_id] === undefined || opt.weight > maxWeightByQ[opt.question_id])
-        maxWeightByQ[opt.question_id] = parseFloat(opt.weight);
-      if (minWeightByQ[opt.question_id] === undefined || opt.weight < minWeightByQ[opt.question_id])
-        minWeightByQ[opt.question_id] = parseFloat(opt.weight);
     }
-
     for (const q of questions) {
       categoryByQ[q.id] = q.category;
     }
@@ -85,13 +71,9 @@ export async function onRequestPost(context) {
     }
 
     // Score calculation
-    let totalScore  = 0;
-    let maxPossible = 0;
-    let minPossible = 0;
+    let totalScore = 0;
     const answersJson = {};
-
-    // Pillar accumulators: category -> { sum, count, maxSum, minSum }
-    const pillars = {};
+    const pillars = {}; // category -> { sum, count }
 
     for (const qId of questionIds) {
       const optionId = parseInt(answers[qId]);
@@ -104,45 +86,34 @@ export async function onRequestPost(context) {
         );
       }
 
-      const score  = opt.weight;
-      const maxW   = maxWeightByQ[qId];
-      const minW   = minWeightByQ[qId];
-      const cat    = categoryByQ[qId];
+      const score = opt.weight;
+      const cat   = categoryByQ[qId];
 
       answersJson[qId] = score;
-      totalScore  += score;
-      maxPossible += maxW;
-      minPossible += minW;
+      totalScore += score;
 
-      if (!pillars[cat]) pillars[cat] = { sum: 0, count: 0, maxSum: 0, minSum: 0 };
-      pillars[cat].sum    += score;
-      pillars[cat].count  += 1;
-      pillars[cat].maxSum += maxW;
-      pillars[cat].minSum += minW;
+      if (!pillars[cat]) pillars[cat] = { sum: 0, count: 0 };
+      pillars[cat].sum   += score;
+      pillars[cat].count += 1;
     }
 
-    // Normalize overall score to 0-100 using min-max of actual weight range
-    const scorePct = (maxPossible > minPossible)
-      ? Math.round(((totalScore - minPossible) / (maxPossible - minPossible)) * 100)
-      : 0;
+    // Overall mean (mean of all individual question scores, 0-5)
+    const overallMean = Math.round((totalScore / questionIds.length) * 100) / 100;
 
-    // Per-pillar average score (raw, e.g. 1.00–2.00) and normalized percentage
+    // Per-pillar scores
     const pillarScores = {};
-    for (const [cat, { sum, count, maxSum, minSum }] of Object.entries(pillars)) {
-      const avg = sum / count;
-      const pct = (maxSum > minSum)
-        ? Math.round(((sum - minSum) / (maxSum - minSum)) * 100)
-        : 0;
+    for (const [cat, { sum, count }] of Object.entries(pillars)) {
+      const avg = Math.round((sum / count) * 100) / 100;
       pillarScores[cat] = {
-        avg: Math.round(avg * 100) / 100,  // e.g. 1.75
-        pct                                 // 0-100
+        avg,                                      // 0-5 raw, e.g. 3.25
+        pct: Math.round((avg / 5) * 100),         // 0-100 for radar chart
+        level: getReadinessLevel(avg),
       };
     }
 
-    const overallMean = Math.round((totalScore / questionIds.length) * 100) / 100;
-    const readinessData = getReadinessLevel(scorePct);
+    const readinessData = getReadinessLevel(overallMean);
 
-    const isSPStaff = staffInfo?.isSPStaff ? 1 : 0;
+    const isSPStaff  = staffInfo?.isSPStaff ? 1 : 0;
     const department = (staffInfo?.isSPStaff && staffInfo?.department) ? staffInfo.department.trim() : '';
 
     await env.DB.prepare(
@@ -150,7 +121,7 @@ export async function onRequestPost(context) {
     ).bind(
       JSON.stringify(answersJson),
       Math.round(totalScore * 100) / 100,
-      scorePct,
+      overallMean,        // stored as raw 0-5 (column repurposed from %)
       readinessData.label,
       isSPStaff,
       department
@@ -161,8 +132,8 @@ export async function onRequestPost(context) {
         success: true,
         readinessData: {
           ...readinessData,
-          overallMean,   // 0-5 raw score, e.g. 3.62
-          pillarScores   // { category: { avg (0-5), pct (0-100 for chart) } }
+          overallMean,
+          pillarScores,
         }
       }),
       { status: 200, headers: corsHeaders }

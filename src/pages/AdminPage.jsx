@@ -347,9 +347,9 @@ function AdminPage() {
             {/* KPI Cards */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
               <StatCard label="Total Responses" value={total} color="text-blue-600" />
-              <StatCard label="Average Score" value={`${((stats.avg_score || 0) / 20).toFixed(2)}`} sub="out of 5.00" color="text-green-600" />
-              <StatCard label="Highest Score"  value={`${((stats.max_score || 0) / 20).toFixed(2)}`} sub="out of 5.00" color="text-emerald-600" />
-              <StatCard label="Lowest Score"   value={`${((stats.min_score || 0) / 20).toFixed(2)}`} sub="out of 5.00" color="text-orange-600" />
+              <StatCard label="Average Score" value={(stats.avg_score || 0).toFixed(2)} sub="out of 5.00" color="text-green-600" />
+              <StatCard label="Highest Score"  value={(stats.max_score || 0).toFixed(2)} sub="out of 5.00" color="text-emerald-600" />
+              <StatCard label="Lowest Score"   value={(stats.min_score || 0).toFixed(2)} sub="out of 5.00" color="text-orange-600" />
             </div>
 
             {/* Distribution + Score Buckets */}
@@ -492,14 +492,10 @@ function AdminPage() {
                 for (const q of questions) {
                   const score = parseFloat(ans[q.id]);
                   if (isNaN(score)) continue;
-                  const maxW = q.options.length ? Math.max(...q.options.map(o => parseFloat(o.weight))) : 2;
-                  const minW = q.options.length ? Math.min(...q.options.map(o => parseFloat(o.weight))) : 1;
                   if (!deptAccum[r.department][q.category])
-                    deptAccum[r.department][q.category] = { sum: 0, count: 0, maxSum: 0, minSum: 0 };
-                  deptAccum[r.department][q.category].sum    += score;
-                  deptAccum[r.department][q.category].count  += 1;
-                  deptAccum[r.department][q.category].maxSum += maxW;
-                  deptAccum[r.department][q.category].minSum += minW;
+                    deptAccum[r.department][q.category] = { sum: 0, count: 0 };
+                  deptAccum[r.department][q.category].sum   += score;
+                  deptAccum[r.department][q.category].count += 1;
                 }
               }
 
@@ -512,9 +508,9 @@ function AdminPage() {
                   <p className="text-xs text-gray-500 mb-6">Average pillar scores per SP school/department (SP staff only)</p>
                   <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6">
                     {deptEntries.map(([dept, pillarsRaw]) => {
-                      const pillars = Object.entries(pillarsRaw).map(([name, { sum, minSum, maxSum }]) => ({
+                      const pillars = Object.entries(pillarsRaw).map(([name, { sum, count }]) => ({
                         name,
-                        pct: maxSum > minSum ? Math.round(((sum - minSum) / (maxSum - minSum)) * 100) : 0,
+                        pct: Math.round(((sum / count) / 5) * 100),
                       }));
                       const strongest = [...pillars].sort((a, b) => b.pct - a.pct)[0];
                       const weakest   = [...pillars].sort((a, b) => a.pct - b.pct)[0];
@@ -569,7 +565,7 @@ function AdminPage() {
                               <td className="px-4 py-3">
                                 <span className={`px-2 py-1 text-xs font-semibold rounded-full ${colors.bg} ${colors.text}`}>{r.readiness_level}</span>
                               </td>
-                              <td className="px-4 py-3 text-sm font-semibold text-gray-800">{(r.score_pct / 20).toFixed(2)} / 5</td>
+                              <td className="px-4 py-3 text-sm font-semibold text-gray-800">{(r.score_pct || 0).toFixed(2)} / 5</td>
                               <td className="px-4 py-3 text-sm text-gray-500">{new Date(r.submitted_at).toLocaleString()}</td>
                               <td className="px-4 py-3">
                                 <button onClick={() => setExpandedRow(isExpanded ? null : r.id)} className="text-xs text-blue-600 hover:underline">

@@ -67,11 +67,29 @@ function ResultsPage() {
           <p className="text-gray-600 text-base max-w-xl mx-auto">{description}</p>
         </div>
 
-        {/* ── Radar chart ──────────────────────────────────────────── */}
+        {/* ── Radar + Pillar Breakdown ─────────────────────────────── */}
         {radarPillars.length >= 3 && (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 flex flex-col items-center">
-            <p className="text-sm font-semibold text-gray-500 uppercase tracking-widest mb-4">Competency Profile</p>
-            <RadarChart pillars={radarPillars} size={280} />
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+            <p className="text-sm font-semibold text-gray-500 uppercase tracking-widest mb-4 text-center">Competency Profile</p>
+            <div className="flex justify-center mb-6">
+              <RadarChart pillars={radarPillars} size={280} />
+            </div>
+
+            {/* Per-pillar scores */}
+            <div className="space-y-3">
+              {Object.entries(pillarScores).map(([pillar, { avg, level }]) => {
+                const s = LEVEL_STYLES[level.color] || LEVEL_STYLES.yellow;
+                return (
+                  <div key={pillar} className="flex items-center gap-3">
+                    <span className="text-sm text-gray-700 flex-1 font-medium">{pillar}</span>
+                    <span className="text-sm font-bold text-gray-900 tabular-nums">{avg.toFixed(2)}<span className="text-xs font-normal text-gray-400"> / 5</span></span>
+                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${s.badge} w-32 text-center flex-shrink-0`}>
+                      {level.label}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
 
