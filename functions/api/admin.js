@@ -37,11 +37,11 @@ export async function onRequestGet(context) {
         AVG(score_pct) as avg_score,
         MAX(score_pct) as max_score,
         MIN(score_pct) as min_score,
-        COUNT(CASE WHEN readiness_level = 'Expert Ready'     THEN 1 END) as expert_count,
-        COUNT(CASE WHEN readiness_level = 'Advanced Ready'   THEN 1 END) as advanced_count,
-        COUNT(CASE WHEN readiness_level = 'Moderately Ready' THEN 1 END) as moderate_count,
-        COUNT(CASE WHEN readiness_level = 'Developing'       THEN 1 END) as developing_count,
-        COUNT(CASE WHEN readiness_level = 'Novice'           THEN 1 END) as novice_count
+        COUNT(CASE WHEN score_pct >= 4 THEN 1 END) as expert_count,
+        COUNT(CASE WHEN score_pct >= 3 AND score_pct < 4 THEN 1 END) as advanced_count,
+        COUNT(CASE WHEN score_pct >= 2 AND score_pct < 3 THEN 1 END) as moderate_count,
+        COUNT(CASE WHEN score_pct >= 1 AND score_pct < 2 THEN 1 END) as developing_count,
+        COUNT(CASE WHEN score_pct < 1 THEN 1 END) as novice_count
       FROM responses
     `).first();
 
@@ -87,8 +87,18 @@ export async function onRequestGet(context) {
     }
     const questionsWithOptions = questions.map(q => ({ ...q, options: optsByQuestion[q.id] || [] }));
 
+    const levelsRow = await env.DB.prepare(
+      "SELECT value FROM settings WHERE key = 'option_levels'"
+    ).first();
+    const levels = levelsRow ? JSON.parse(levelsRow.value) : ['Unaware', 'Aware', 'Ready', 'Competent', 'Catalyst'];
+
+    const rlRow = await env.DB.prepare(
+      "SELECT value FROM settings WHERE key = 'readiness_levels'"
+    ).first();
+    const readinessLevels = rlRow ? JSON.parse(rlRow.value) : ['Expert Ready', 'Advanced Ready', 'Moderately Ready', 'Developing', 'Novice'];
+
     return new Response(
-      JSON.stringify({ success: true, stats, scoreBuckets, dailyTrend, responses, questions: questionsWithOptions }, null, 2),
+      JSON.stringify({ success: true, stats, scoreBuckets, dailyTrend, responses, questions: questionsWithOptions, levels, readinessLevels }, null, 2),
       { status: 200, headers: cors }
     );
 

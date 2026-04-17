@@ -2,13 +2,22 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import RadarChart from '../components/RadarChart';
 
-const LEVEL_COLORS = {
-  'Expert Ready':     { bg: 'bg-emerald-100', text: 'text-emerald-800', bar: 'bg-emerald-500' },
-  'Advanced Ready':   { bg: 'bg-green-100',   text: 'text-green-800',   bar: 'bg-green-500'   },
-  'Moderately Ready': { bg: 'bg-yellow-100',  text: 'text-yellow-800',  bar: 'bg-yellow-500'  },
-  'Developing':       { bg: 'bg-orange-100',  text: 'text-orange-800',  bar: 'bg-orange-500'  },
-  'Novice':           { bg: 'bg-red-100',     text: 'text-red-800',     bar: 'bg-red-500'     },
-};
+const OPTION_LEVEL_COLORS = [
+  'bg-red-100 text-red-700',
+  'bg-orange-100 text-orange-700',
+  'bg-yellow-100 text-yellow-700',
+  'bg-green-100 text-green-700',
+  'bg-emerald-100 text-emerald-700',
+];
+
+// Indexed by position: 0=highest(≥4) … 4=lowest(<1)
+const READINESS_LEVEL_STYLES = [
+  { bg: 'bg-emerald-100', text: 'text-emerald-800', bar: 'bg-emerald-500' },
+  { bg: 'bg-green-100',   text: 'text-green-800',   bar: 'bg-green-500'   },
+  { bg: 'bg-yellow-100',  text: 'text-yellow-800',  bar: 'bg-yellow-500'  },
+  { bg: 'bg-orange-100',  text: 'text-orange-800',  bar: 'bg-orange-500'  },
+  { bg: 'bg-red-100',     text: 'text-red-800',     bar: 'bg-red-500'     },
+];
 
 function Bar({ pct, colorClass }) {
   return (
@@ -32,7 +41,7 @@ function StatCard({ label, value, sub, color }) {
 }
 
 // ── Question editor form ─────────────────────────────────────────────────────
-function QuestionForm({ initial, onSave, onCancel, existingCategories = [] }) {
+function QuestionForm({ initial, onSave, onCancel, existingCategories = [], levels = [] }) {
   const empty = { category: '', question: '', dimension: '', q_id: '', options: [{ text: '', weight: 0 }, { text: '', weight: 5.00 }] };
   const [form, setForm] = useState(initial || empty);
   // If the initial category isn't in the existing list, treat it as a custom new one
@@ -132,6 +141,11 @@ function QuestionForm({ initial, onSave, onCancel, existingCategories = [] }) {
           {form.options.map((opt, i) => (
             <div key={i} className="flex gap-2 items-start">
               <div className="flex-1">
+                {levels[i] && (
+                  <span className={`inline-block text-xs font-semibold px-2 py-0.5 rounded-full mb-1 ${OPTION_LEVEL_COLORS[i]}`}>
+                    {levels[i]}
+                  </span>
+                )}
                 <input
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   value={opt.text}
@@ -203,10 +217,16 @@ function AdminPage() {
   const [activeTab, setActiveTab] = useState('analytics');
 
   // Question management state
-  const [editingId, setEditingId] = useState(null);       // question id being edited
-  const [addFormCategory, setAddFormCategory] = useState(''); // pre-filled pillar for new question
+  const [editingId, setEditingId] = useState(null);
+  const [addFormCategory, setAddFormCategory] = useState('');
   const [showAddForm, setShowAddForm] = useState(false);
   const [qSaving, setQSaving] = useState(false);
+
+  // Settings state
+  const [editLevels, setEditLevels] = useState(null);
+  const [levelsSaving, setLevelsSaving] = useState(false);
+  const [editReadinessLevels, setEditReadinessLevels] = useState(null);
+  const [readinessSaving, setReadinessSaving] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem('adminToken');
@@ -298,7 +318,11 @@ function AdminPage() {
   if (loading) return <div className="min-h-screen bg-gray-50 flex items-center justify-center"><div className="text-lg text-gray-500">Loading analytics...</div></div>;
   if (error) return <div className="min-h-screen bg-gray-50 flex items-center justify-center"><div className="text-lg text-red-600">Error: {error}</div></div>;
 
-  const { stats, scoreBuckets, dailyTrend, responses, questions } = data;
+  const {
+    stats, scoreBuckets, dailyTrend, responses, questions,
+    levels = ['Unaware', 'Aware', 'Ready', 'Competent', 'Catalyst'],
+    readinessLevels = ['Expert Ready', 'Advanced Ready', 'Moderately Ready', 'Developing', 'Novice'],
+  } = data;
   const total = stats.total_responses || 0;
 
   // Per-question averages (computed client-side from answers_json)
@@ -372,7 +396,7 @@ function AdminPage() {
 
         {/* Tabs */}
         <div className="flex gap-1 mb-8 bg-gray-200 rounded-xl p-1 w-fit">
-          {['analytics', 'questions'].map(tab => (
+          {['analytics', 'questions', 'settings'].map(tab => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -380,7 +404,7 @@ function AdminPage() {
                 activeTab === tab ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
               }`}
             >
-              {tab === 'questions' ? `Questions (${questions?.length ?? 0})` : 'Analytics'}
+              {tab === 'questions' ? `Questions (${questions?.length ?? 0})` : tab.charAt(0).toUpperCase() + tab.slice(1)}
             </button>
           ))}
         </div>
@@ -402,19 +426,18 @@ function AdminPage() {
                 <h2 className="text-lg font-bold text-gray-900 mb-5">Readiness Level Distribution</h2>
                 <div className="space-y-4">
                   {[
-                    { key: 'Expert Ready',     count: stats.expert_count },
-                    { key: 'Advanced Ready',   count: stats.advanced_count },
-                    { key: 'Moderately Ready', count: stats.moderate_count },
-                    { key: 'Developing',       count: stats.developing_count },
-                    { key: 'Novice',           count: stats.novice_count },
-                  ].map(({ key, count }) => {
+                    { label: readinessLevels[0], count: stats.expert_count,     colors: READINESS_LEVEL_STYLES[0] },
+                    { label: readinessLevels[1], count: stats.advanced_count,   colors: READINESS_LEVEL_STYLES[1] },
+                    { label: readinessLevels[2], count: stats.moderate_count,   colors: READINESS_LEVEL_STYLES[2] },
+                    { label: readinessLevels[3], count: stats.developing_count, colors: READINESS_LEVEL_STYLES[3] },
+                    { label: readinessLevels[4], count: stats.novice_count,     colors: READINESS_LEVEL_STYLES[4] },
+                  ].map(({ label, count, colors }) => {
                     const c = count || 0;
                     const pct = total ? (c / total) * 100 : 0;
-                    const colors = LEVEL_COLORS[key];
                     return (
-                      <div key={key}>
+                      <div key={label}>
                         <div className="flex justify-between text-sm mb-1">
-                          <span className={`font-semibold ${colors.text}`}>{key}</span>
+                          <span className={`font-semibold ${colors.text}`}>{label}</span>
                           <span className="text-gray-500">{c} ({pct.toFixed(1)}%)</span>
                         </div>
                         <Bar pct={pct} colorClass={colors.bar} />
@@ -654,7 +677,8 @@ function AdminPage() {
                     </thead>
                     <tbody className="divide-y divide-gray-100">
                       {responses.map(r => {
-                        const colors = LEVEL_COLORS[r.readiness_level] || LEVEL_COLORS['Novice'];
+                        const rlIdx = r.score_pct >= 4 ? 0 : r.score_pct >= 3 ? 1 : r.score_pct >= 2 ? 2 : r.score_pct >= 1 ? 3 : 4;
+                        const colors = READINESS_LEVEL_STYLES[rlIdx];
                         const isExpanded = expandedRow === r.id;
                         let parsedAnswers = {};
                         try { parsedAnswers = JSON.parse(r.answers_json); } catch {}
@@ -663,7 +687,7 @@ function AdminPage() {
                             <tr key={r.id} className="hover:bg-gray-50 transition-colors">
                               <td className="px-4 py-3 text-sm text-gray-500">{r.id}</td>
                               <td className="px-4 py-3">
-                                <span className={`px-2 py-1 text-xs font-semibold rounded-full ${colors.bg} ${colors.text}`}>{r.readiness_level}</span>
+                                <span className={`px-2 py-1 text-xs font-semibold rounded-full ${colors.bg} ${colors.text}`}>{readinessLevels[rlIdx]}</span>
                               </td>
                               <td className="px-4 py-3 text-sm font-semibold text-gray-800">{(r.score_pct || 0).toFixed(2)} / 5</td>
                               <td className="px-4 py-3 text-sm text-gray-500">{new Date(r.submitted_at).toLocaleString()}</td>
@@ -709,6 +733,148 @@ function AdminPage() {
           </>
         )}
 
+        {/* ── Settings Tab ──────────────────────────────────────────────── */}
+        {activeTab === 'settings' && (() => {
+          const workingOptionLevels = editLevels ?? levels;
+          const optionLevelsValid = workingOptionLevels.every(l => l.trim().length > 0);
+
+          const saveOptionLevels = async () => {
+            setLevelsSaving(true);
+            try {
+              const res = await fetch('/api/admin/settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('adminToken')}` },
+                body: JSON.stringify({ action: 'update_levels', levels: workingOptionLevels })
+              });
+              const result = await res.json();
+              if (!result.success) throw new Error(result.error);
+              setEditLevels(null);
+              await fetchData(localStorage.getItem('adminToken'));
+            } catch (err) { alert(`Failed: ${err.message}`); }
+            finally { setLevelsSaving(false); }
+          };
+
+          const workingReadiness = editReadinessLevels ?? readinessLevels;
+          const readinessValid = workingReadiness.every(l => l.trim().length > 0);
+
+          const saveReadinessLevels = async () => {
+            setReadinessSaving(true);
+            try {
+              const res = await fetch('/api/admin/settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('adminToken')}` },
+                body: JSON.stringify({ action: 'update_readiness_levels', readinessLevels: workingReadiness })
+              });
+              const result = await res.json();
+              if (!result.success) throw new Error(result.error);
+              setEditReadinessLevels(null);
+              await fetchData(localStorage.getItem('adminToken'));
+            } catch (err) { alert(`Failed: ${err.message}`); }
+            finally { setReadinessSaving(false); }
+          };
+
+          return (
+            <div className="max-w-lg space-y-6">
+
+              {/* Readiness level names */}
+              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                <h2 className="text-lg font-bold text-gray-900 mb-1">Overall Readiness Level Names</h2>
+                <p className="text-xs text-gray-500 mb-5">
+                  These labels appear on the results page and analytics. Ordered from highest score (≥ 4.0) to lowest (&lt; 1.0).
+                </p>
+                <div className="space-y-3">
+                  {workingReadiness.map((name, i) => (
+                    <div key={i} className="flex items-center gap-3">
+                      <span className={`w-8 text-xs font-semibold text-center flex-shrink-0 ${READINESS_LEVEL_STYLES[i].text}`}>
+                        {['≥4', '≥3', '≥2', '≥1', '<1'][i]}
+                      </span>
+                      <span className={`text-xs font-semibold px-2 py-1 rounded-full w-28 text-center flex-shrink-0 ${READINESS_LEVEL_STYLES[i].bg} ${READINESS_LEVEL_STYLES[i].text}`}>
+                        {name || '…'}
+                      </span>
+                      <input
+                        className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        value={name}
+                        onChange={e => {
+                          const next = [...workingReadiness];
+                          next[i] = e.target.value;
+                          setEditReadinessLevels(next);
+                        }}
+                        placeholder={`Level ${i + 1} name`}
+                      />
+                    </div>
+                  ))}
+                </div>
+                <div className="flex gap-2 mt-5">
+                  <button
+                    disabled={!readinessValid || readinessSaving}
+                    onClick={saveReadinessLevels}
+                    className={`px-5 py-2 rounded-lg text-sm font-semibold text-white transition-colors ${
+                      readinessValid && !readinessSaving ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-300 cursor-not-allowed'
+                    }`}
+                  >
+                    {readinessSaving ? 'Saving…' : 'Save'}
+                  </button>
+                  {editReadinessLevels && (
+                    <button
+                      onClick={() => setEditReadinessLevels(null)}
+                      className="px-5 py-2 rounded-lg text-sm font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200 transition-colors"
+                    >
+                      Reset
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Option level names */}
+              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                <h2 className="text-lg font-bold text-gray-900 mb-1">Answer Option Level Names</h2>
+                <p className="text-xs text-gray-500 mb-5">
+                  These labels are shown on each answer option in the admin question view, ordered from lowest (option 1) to highest (option 5).
+                </p>
+                <div className="space-y-3">
+                  {workingOptionLevels.map((name, i) => (
+                    <div key={i} className="flex items-center gap-3">
+                      <span className={`w-24 text-xs font-semibold px-2 py-1 rounded-full text-center flex-shrink-0 ${OPTION_LEVEL_COLORS[i]}`}>
+                        {name || '…'}
+                      </span>
+                      <input
+                        className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        value={name}
+                        onChange={e => {
+                          const next = [...workingOptionLevels];
+                          next[i] = e.target.value;
+                          setEditLevels(next);
+                        }}
+                        placeholder={`Level ${i + 1} name`}
+                      />
+                    </div>
+                  ))}
+                </div>
+                <div className="flex gap-2 mt-5">
+                  <button
+                    disabled={!optionLevelsValid || levelsSaving}
+                    onClick={saveOptionLevels}
+                    className={`px-5 py-2 rounded-lg text-sm font-semibold text-white transition-colors ${
+                      optionLevelsValid && !levelsSaving ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-300 cursor-not-allowed'
+                    }`}
+                  >
+                    {levelsSaving ? 'Saving…' : 'Save'}
+                  </button>
+                  {editLevels && (
+                    <button
+                      onClick={() => setEditLevels(null)}
+                      className="px-5 py-2 rounded-lg text-sm font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200 transition-colors"
+                    >
+                      Reset
+                    </button>
+                  )}
+                </div>
+              </div>
+
+            </div>
+          );
+        })()}
+
         {/* ── Questions Tab ─────────────────────────────────────────────── */}
         {activeTab === 'questions' && (() => {
           // Group questions by pillar, preserving order of first appearance
@@ -750,6 +916,7 @@ function AdminPage() {
                     existingCategories={existingCategories}
                     onSave={form => questionAction('create', form)}
                     onCancel={closeAddForm}
+                    levels={levels}
                   />
                 </div>
               )}
@@ -803,6 +970,7 @@ function AdminPage() {
                               existingCategories={existingCategories}
                               onSave={form => questionAction('update', { id: q.id, ...form })}
                               onCancel={() => setEditingId(null)}
+                              levels={levels}
                             />
                           </div>
                         ) : (
@@ -829,9 +997,14 @@ function AdminPage() {
                               </div>
                             </div>
                             <div className="mt-2 flex flex-wrap gap-1">
-                              {q.options.map(opt => (
-                                <span key={opt.id} className="text-xs bg-gray-100 text-gray-600 rounded-full px-2 py-0.5">
-                                  {opt.weight}: {opt.text.slice(0, 45)}{opt.text.length > 45 ? '…' : ''}
+                              {q.options.map((opt, optIdx) => (
+                                <span key={opt.id} className="text-xs bg-gray-100 text-gray-600 rounded-full px-2 py-0.5 flex items-center gap-1">
+                                  {levels[optIdx] && (
+                                    <span className={`text-xs font-semibold px-1.5 py-0.5 rounded-full ${OPTION_LEVEL_COLORS[optIdx]}`}>
+                                      {levels[optIdx]}
+                                    </span>
+                                  )}
+                                  {opt.text.slice(0, 45)}{opt.text.length > 45 ? '…' : ''}
                                 </span>
                               ))}
                             </div>

@@ -10,6 +10,7 @@ const SP_DEPARTMENTS = [
 function SurveyPage() {
   const navigate = useNavigate();
   const [questions, setQuestions] = useState([]);
+  const [levels, setLevels] = useState([]);
   const [questionsLoading, setQuestionsLoading] = useState(true);
   const [questionsError, setQuestionsError] = useState('');
   const [currentPillarIndex, setCurrentPillarIndex] = useState(0);
@@ -28,6 +29,7 @@ function SurveyPage() {
       .then(data => {
         if (!data.success) throw new Error('Failed to load questions');
         setQuestions(data.questions);
+        if (data.levels) setLevels(data.levels);
       })
       .catch(err => setQuestionsError(err.message))
       .finally(() => setQuestionsLoading(false));
@@ -248,6 +250,7 @@ function SurveyPage() {
               scenario={scenario}
               value={answers[scenario.id]}
               onChange={handleAnswerChange}
+              levels={levels}
             />
           ))}
 

@@ -1,4 +1,12 @@
-function QuestionCard({ scenario, value, onChange }) {
+const LEVEL_COLORS = [
+  'bg-red-100 text-red-700',
+  'bg-orange-100 text-orange-700',
+  'bg-yellow-100 text-yellow-700',
+  'bg-green-100 text-green-700',
+  'bg-emerald-100 text-emerald-700',
+];
+
+function QuestionCard({ scenario, value, onChange, levels = [] }) {
   const { id, category, question, options } = scenario;
 
   return (
@@ -19,7 +27,7 @@ function QuestionCard({ scenario, value, onChange }) {
       </div>
 
       <div className="space-y-2">
-        {options.map((option) => (
+        {options.map((option, i) => (
           <label
             key={option.id}
             className={`flex items-start p-3 border-2 rounded-lg cursor-pointer transition-all ${
@@ -37,6 +45,11 @@ function QuestionCard({ scenario, value, onChange }) {
               className="w-4 h-4 text-blue-600 focus:ring-blue-500 mt-0.5 flex-shrink-0"
             />
             <div className="ml-2.5 flex-1">
+              {levels[i] && (
+                <span className={`inline-block text-xs font-semibold px-2 py-0.5 rounded-full mb-1 ${LEVEL_COLORS[i]}`}>
+                  {levels[i]}
+                </span>
+              )}
               <span className="text-sm text-gray-900 leading-snug block">
                 {option.text}
               </span>

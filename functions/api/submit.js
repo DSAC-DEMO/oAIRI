@@ -1,10 +1,17 @@
-// score is the raw 0-5 mean
-function getReadinessLevel(score) {
-  if (score >= 4) return { label: 'Expert Ready',     description: 'Demonstrates exceptional decision-making and readiness across all scenarios', color: 'emerald' };
-  if (score >= 3) return { label: 'Advanced Ready',   description: 'Shows strong readiness with consistent good judgment',                        color: 'green'   };
-  if (score >= 2) return { label: 'Moderately Ready', description: 'Displays adequate readiness with room for development',                       color: 'yellow'  };
-  if (score >= 1) return { label: 'Developing',       description: 'Shows basic readiness but needs significant improvement',                     color: 'orange'  };
-  return           { label: 'Novice',                 description: 'Limited readiness; requires substantial training and support',                color: 'red'     };
+const DEFAULT_READINESS_LEVELS = ['Expert Ready', 'Advanced Ready', 'Moderately Ready', 'Developing', 'Novice'];
+const READINESS_DESCRIPTIONS   = [
+  'Demonstrates exceptional decision-making and readiness across all scenarios',
+  'Shows strong readiness with consistent good judgment',
+  'Displays adequate readiness with room for development',
+  'Shows basic readiness but needs significant improvement',
+  'Limited readiness; requires substantial training and support',
+];
+const READINESS_COLORS = ['emerald', 'green', 'yellow', 'orange', 'red'];
+
+// names: array of 5 labels ordered highest→lowest (index 0 = score≥4, index 4 = score<1)
+function getReadinessLevel(score, names = DEFAULT_READINESS_LEVELS) {
+  const i = score >= 4 ? 0 : score >= 3 ? 1 : score >= 2 ? 2 : score >= 1 ? 3 : 4;
+  return { label: names[i], description: READINESS_DESCRIPTIONS[i], color: READINESS_COLORS[i] };
 }
 
 export async function onRequestPost(context) {
@@ -31,6 +38,12 @@ export async function onRequestPost(context) {
         { status: 400, headers: corsHeaders }
       );
     }
+
+    // Load readiness level names from settings
+    const rlRow = await env.DB.prepare(
+      "SELECT value FROM settings WHERE key = 'readiness_levels'"
+    ).first();
+    const readinessLevelNames = rlRow ? JSON.parse(rlRow.value) : DEFAULT_READINESS_LEVELS;
 
     // Fetch questions + options
     const { results: questions } = await env.DB.prepare(
@@ -107,11 +120,11 @@ export async function onRequestPost(context) {
       pillarScores[cat] = {
         avg,                                      // 0-5 raw, e.g. 3.25
         pct: Math.round((avg / 5) * 100),         // 0-100 for radar chart
-        level: getReadinessLevel(avg),
+        level: getReadinessLevel(avg, readinessLevelNames),
       };
     }
 
-    const readinessData = getReadinessLevel(overallMean);
+    const readinessData = getReadinessLevel(overallMean, readinessLevelNames);
 
     const isSPStaff  = staffInfo?.isSPStaff ? 1 : 0;
     const department = (staffInfo?.isSPStaff && staffInfo?.department) ? staffInfo.department.trim() : '';

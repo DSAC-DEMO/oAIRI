@@ -2,6 +2,7 @@
 DROP TABLE IF EXISTS question_options;
 DROP TABLE IF EXISTS questions;
 DROP TABLE IF EXISTS responses;
+DROP TABLE IF EXISTS settings;
 
 CREATE TABLE questions (
   id        INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -17,6 +18,15 @@ CREATE TABLE question_options (
   weight      REAL NOT NULL,
   FOREIGN KEY (question_id) REFERENCES questions(id) ON DELETE CASCADE
 );
+
+CREATE TABLE settings (
+  key   TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+);
+
+INSERT INTO settings (key, value) VALUES
+  ('option_levels',     '["Unaware","Aware","Ready","Competent","Catalyst"]'),
+  ('readiness_levels',  '["Expert Ready","Advanced Ready","Moderately Ready","Developing","Novice"]');
 
 CREATE TABLE responses (
   id              INTEGER PRIMARY KEY AUTOINCREMENT,

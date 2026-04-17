@@ -48,14 +48,6 @@ function ResultsPage() {
   const pillarEntries = pillarScores ? Object.entries(pillarScores) : [];
   const radarPillars  = pillarEntries.map(([name, { pct }]) => ({ name, pct: pct ?? 0 }));
 
-  // Simple level lookup used for per-pillar badges (mirrors server logic)
-  function levelFromScore(score) {
-    if (score >= 4) return { label: 'Expert Ready',     color: 'emerald' };
-    if (score >= 3) return { label: 'Advanced Ready',   color: 'green'   };
-    if (score >= 2) return { label: 'Moderately Ready', color: 'yellow'  };
-    if (score >= 1) return { label: 'Developing',       color: 'orange'  };
-    return           { label: 'Novice',                 color: 'red'     };
-  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 py-10 px-4 sm:px-6 lg:px-8">
@@ -74,9 +66,8 @@ function ResultsPage() {
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
             <p className="text-sm font-semibold text-gray-500 uppercase tracking-widest mb-4">Score by Pillar</p>
             <div className="space-y-3">
-              {pillarEntries.map(([pillar, { avg }]) => {
-                const level = levelFromScore(avg ?? 0);
-                const s = LEVEL_STYLES[level.color] || LEVEL_STYLES.yellow;
+              {pillarEntries.map(([pillar, { avg, level }]) => {
+                const s = LEVEL_STYLES[(level?.color) || 'yellow'] || LEVEL_STYLES.yellow;
                 return (
                   <div key={pillar} className="flex items-center gap-3">
                     <span className="text-sm text-gray-700 flex-1 font-medium">{pillar}</span>

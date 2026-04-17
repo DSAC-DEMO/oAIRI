@@ -22,6 +22,10 @@ export async function onRequestGet(context) {
       'SELECT id, question_id, text, weight FROM question_options ORDER BY weight ASC'
     ).all();
 
+    const levelsRow = await env.DB.prepare(
+      "SELECT value FROM settings WHERE key = 'option_levels'"
+    ).first();
+
     const optsByQuestion = {};
     for (const opt of options) {
       if (!optsByQuestion[opt.question_id]) optsByQuestion[opt.question_id] = [];
@@ -30,8 +34,10 @@ export async function onRequestGet(context) {
 
     const result = questions.map(q => ({ ...q, options: optsByQuestion[q.id] || [] }));
 
+    const levels = levelsRow ? JSON.parse(levelsRow.value) : ['Unaware', 'Aware', 'Ready', 'Competent', 'Catalyst'];
+
     return new Response(
-      JSON.stringify({ success: true, questions: result }),
+      JSON.stringify({ success: true, questions: result, levels }),
       { status: 200, headers: corsHeaders }
     );
   } catch (error) {
