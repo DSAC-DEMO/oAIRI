@@ -1,3 +1,15 @@
+const DEFAULT_OPTION_LEVELS = ['Unaware', 'Aware', 'Ready', 'Competent', 'Catalyst'];
+const OPTION_LEVEL_COLORS   = ['red', 'orange', 'yellow', 'green', 'emerald'];
+
+// Map a 0-5 avg score to the nearest option level index (0=Unaware … 4=Catalyst)
+function getCompetencyIndex(score) {
+  if (score >= 4.375) return 4;
+  if (score >= 3.125) return 3;
+  if (score >= 1.875) return 2;
+  if (score >= 0.625) return 1;
+  return 0;
+}
+
 const DEFAULT_READINESS_LEVELS = [
   { name: 'Expert Ready',     persona: 'Disciplined' },
   { name: 'Advanced Ready',   persona: 'Crafter'     },
@@ -46,13 +58,16 @@ export async function onRequestPost(context) {
       );
     }
 
-    // Load readiness level names from settings (fall back to defaults if table missing)
+    // Load level names from settings (fall back to defaults if table missing)
     let readinessLevelNames = DEFAULT_READINESS_LEVELS;
+    let optionLevelNames = DEFAULT_OPTION_LEVELS;
     try {
-      const rlRow = await env.DB.prepare(
-        "SELECT value FROM settings WHERE key = 'readiness_levels'"
-      ).first();
+      const [rlRow, olRow] = await Promise.all([
+        env.DB.prepare("SELECT value FROM settings WHERE key = 'readiness_levels'").first(),
+        env.DB.prepare("SELECT value FROM settings WHERE key = 'option_levels'").first(),
+      ]);
       if (rlRow?.value) readinessLevelNames = JSON.parse(rlRow.value);
+      if (olRow?.value) optionLevelNames = JSON.parse(olRow.value);
     } catch {}
 
     // Fetch questions + options
@@ -127,14 +142,20 @@ export async function onRequestPost(context) {
     const pillarScores = {};
     for (const [cat, { sum, count }] of Object.entries(pillars)) {
       const avg = Math.round((sum / count) * 100) / 100;
+      const ci = getCompetencyIndex(avg);
       pillarScores[cat] = {
-        avg,                                      // 0-5 raw, e.g. 3.25
-        pct: Math.round((avg / 5) * 100),         // 0-100 for radar chart
+        avg,
+        pct: Math.round((avg / 5) * 100),
         level: getReadinessLevel(avg, readinessLevelNames),
+        competency: { label: optionLevelNames[ci] ?? DEFAULT_OPTION_LEVELS[ci], color: OPTION_LEVEL_COLORS[ci] },
       };
     }
 
-    const readinessData = getReadinessLevel(overallMean, readinessLevelNames);
+    const overallCI = getCompetencyIndex(overallMean);
+    const readinessData = {
+      ...getReadinessLevel(overallMean, readinessLevelNames),
+      competency: { label: optionLevelNames[overallCI] ?? DEFAULT_OPTION_LEVELS[overallCI], color: OPTION_LEVEL_COLORS[overallCI] },
+    };
 
     const isSPStaff  = staffInfo?.isSPStaff ? 1 : 0;
     const department = (staffInfo?.isSPStaff && staffInfo?.department) ? staffInfo.department.trim() : '';

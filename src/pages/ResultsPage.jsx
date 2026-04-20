@@ -42,7 +42,7 @@ function ResultsPage() {
 
   if (!readinessData) return null;
 
-  const { label, persona, description, color, pillarScores, overallMean } = readinessData;
+  const { label, persona, description, color, pillarScores, overallMean, competency } = readinessData;
   const styles = LEVEL_STYLES[color] || LEVEL_STYLES.yellow;
 
   const pillarEntries = pillarScores ? Object.entries(pillarScores) : [];
@@ -66,33 +66,35 @@ function ResultsPage() {
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
             <p className="text-sm font-semibold text-gray-500 uppercase tracking-widest mb-4">Score by Pillar</p>
             <div className="space-y-3">
-              {pillarEntries.map(([pillar, { avg, level }]) => {
-                const s = LEVEL_STYLES[(level?.color) || 'yellow'] || LEVEL_STYLES.yellow;
+              {pillarEntries.map(([pillar, { avg, competency: pc }]) => {
+                const s = LEVEL_STYLES[pc?.color || 'yellow'] || LEVEL_STYLES.yellow;
                 return (
                   <div key={pillar} className="flex items-center gap-3">
                     <span className="text-sm text-gray-700 flex-1 font-medium">{pillar}</span>
                     <span className="text-sm font-bold text-gray-900 tabular-nums w-14 text-right">
                       {(avg ?? 0).toFixed(2)}<span className="text-xs font-normal text-gray-400"> / 5</span>
                     </span>
-                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${s.badge} w-32 text-center flex-shrink-0`}>
-                      {level.label}
+                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${s.badge} w-28 text-center flex-shrink-0`}>
+                      {pc?.label ?? '—'}
                     </span>
                   </div>
                 );
               })}
 
               {/* Overall row */}
-              <div className={`border-t-2 border-gray-200 mt-2 pt-4 flex items-center gap-3 rounded-lg px-3 py-3 ${styles.badge} bg-opacity-30`}>
+              <div className="border-t-2 border-gray-200 mt-2 pt-4 flex items-center gap-3">
                 <div className="flex-1">
-                  <span className="text-base font-bold block">Overall Score</span>
+                  <span className="text-base font-bold block">Overall</span>
                   {persona && <span className={`text-xs font-semibold ${styles.icon}`}>{persona}</span>}
                 </div>
-                <span className="text-2xl font-bold tabular-nums">
-                  {(overallMean ?? 0).toFixed(2)}<span className="text-sm font-normal opacity-60"> / 5</span>
+                <span className="text-2xl font-bold tabular-nums text-gray-900">
+                  {(overallMean ?? 0).toFixed(2)}<span className="text-sm font-normal text-gray-400"> / 5</span>
                 </span>
-                <span className={`px-3 py-1 rounded-full text-xs font-bold border-2 ${styles.badge} w-32 text-center flex-shrink-0`}>
-                  {label}
-                </span>
+                {competency && (
+                  <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${(LEVEL_STYLES[competency.color] || LEVEL_STYLES.yellow).badge} w-28 text-center flex-shrink-0`}>
+                    {competency.label}
+                  </span>
+                )}
               </div>
             </div>
           </div>
