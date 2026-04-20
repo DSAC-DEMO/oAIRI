@@ -159,9 +159,8 @@ export async function onRequestPost(context) {
     );
 
   } catch (error) {
-    console.error('Error processing submission:', error);
     return new Response(
-      JSON.stringify({ error: 'Internal server error', details: error.message }),
+      JSON.stringify({ error: error.message, stack: error.stack }),
       { status: 500, headers: corsHeaders }
     );
   }
