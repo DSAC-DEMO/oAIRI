@@ -992,7 +992,7 @@ function AdminPage() {
                       <span className="w-7 h-7 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center flex-shrink-0">
                         {pillarIdx + 1}
                       </span>
-                      <span className="font-bold text-gray-800 text-sm">{pillarName}</span>
+                      <span className="font-bold text-gray-800 text-base">{pillarName}</span>
                       <span className="text-xs text-gray-400">{pillarQs.length} question{pillarQs.length !== 1 ? 's' : ''}</span>
                     </div>
                     {!showAddForm && (
