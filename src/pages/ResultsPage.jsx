@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import RadarChart from '../components/RadarChart';
 
 // ── Update these URLs when SP confirms the programme links ──────────────────
@@ -9,6 +9,16 @@ const LINKS = {
   pastYears:  'https://www.sp.edu.sg',   // AIAP Technical Assessment Past Years Series
   aiip:       'https://www.sp.edu.sg',   // AI Internship Programme (AIIP)
 };
+
+const OPTION_LEVEL_COLORS = ['red', 'orange', 'yellow', 'green', 'emerald'];
+
+function getCompetencyIndex(score) {
+  if (score >= 4.375) return 4;
+  if (score >= 3.125) return 3;
+  if (score >= 1.875) return 2;
+  if (score >= 0.625) return 1;
+  return 0;
+}
 
 const LEVEL_STYLES = {
   emerald: { badge: 'bg-emerald-100 text-emerald-800 border-emerald-300', icon: 'text-emerald-600' },
@@ -35,14 +45,25 @@ function ResultsPage() {
   const location = useLocation();
   const navigate = useNavigate();
   const { readinessData } = location.state || {};
+  const [optionLevels, setOptionLevels] = useState(['Unaware', 'Aware', 'Ready', 'Competent', 'Catalyst']);
 
   useEffect(() => {
-    if (!readinessData) navigate('/');
+    if (!readinessData) { navigate('/'); return; }
+    fetch('/api/questions')
+      .then(r => r.json())
+      .then(d => { if (d.levels?.length === 5) setOptionLevels(d.levels); })
+      .catch(() => {});
   }, [readinessData, navigate]);
 
   if (!readinessData) return null;
 
-  const { label, persona, description, color, pillarScores, overallMean, competency } = readinessData;
+  const { label, persona, description, color, pillarScores, overallMean } = readinessData;
+
+  function competencyBadge(avg) {
+    const i = getCompetencyIndex(avg ?? 0);
+    const s = LEVEL_STYLES[OPTION_LEVEL_COLORS[i]] || LEVEL_STYLES.yellow;
+    return <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${s.badge} w-28 text-center flex-shrink-0`}>{optionLevels[i]}</span>;
+  }
   const styles = LEVEL_STYLES[color] || LEVEL_STYLES.yellow;
 
   const pillarEntries = pillarScores ? Object.entries(pillarScores) : [];
@@ -66,20 +87,15 @@ function ResultsPage() {
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
             <p className="text-sm font-semibold text-gray-500 uppercase tracking-widest mb-4">Score by Pillar</p>
             <div className="space-y-3">
-              {pillarEntries.map(([pillar, { avg, competency: pc }]) => {
-                const s = LEVEL_STYLES[pc?.color || 'yellow'] || LEVEL_STYLES.yellow;
-                return (
-                  <div key={pillar} className="flex items-center gap-3">
-                    <span className="text-sm text-gray-700 flex-1 font-medium">{pillar}</span>
-                    <span className="text-sm font-bold text-gray-900 tabular-nums w-14 text-right">
-                      {(avg ?? 0).toFixed(2)}<span className="text-xs font-normal text-gray-400"> / 5</span>
-                    </span>
-                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${s.badge} w-28 text-center flex-shrink-0`}>
-                      {pc?.label ?? '—'}
-                    </span>
-                  </div>
-                );
-              })}
+              {pillarEntries.map(([pillar, { avg }]) => (
+                <div key={pillar} className="flex items-center gap-3">
+                  <span className="text-sm text-gray-700 flex-1 font-medium">{pillar}</span>
+                  <span className="text-sm font-bold text-gray-900 tabular-nums w-14 text-right">
+                    {(avg ?? 0).toFixed(2)}<span className="text-xs font-normal text-gray-400"> / 5</span>
+                  </span>
+                  {competencyBadge(avg)}
+                </div>
+              ))}
 
               {/* Overall row */}
               <div className="border-t-2 border-gray-200 mt-2 pt-4 flex items-center gap-3">
@@ -90,11 +106,7 @@ function ResultsPage() {
                 <span className="text-2xl font-bold tabular-nums text-gray-900">
                   {(overallMean ?? 0).toFixed(2)}<span className="text-sm font-normal text-gray-400"> / 5</span>
                 </span>
-                {competency && (
-                  <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${(LEVEL_STYLES[competency.color] || LEVEL_STYLES.yellow).badge} w-28 text-center flex-shrink-0`}>
-                    {competency.label}
-                  </span>
-                )}
+                {competencyBadge(overallMean)}
               </div>
             </div>
           </div>
