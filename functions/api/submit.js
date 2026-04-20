@@ -17,7 +17,8 @@ const READINESS_COLORS = ['emerald', 'green', 'yellow', 'orange', 'red'];
 // levels: array of {name, persona} ordered highest→lowest
 function getReadinessLevel(score, levels = DEFAULT_READINESS_LEVELS) {
   const i = score >= 4 ? 0 : score >= 3 ? 1 : score >= 2 ? 2 : score >= 1 ? 3 : 4;
-  return { label: levels[i].name, persona: levels[i].persona, description: READINESS_DESCRIPTIONS[i], color: READINESS_COLORS[i] };
+  const lvl = levels[i] ?? DEFAULT_READINESS_LEVELS[i];
+  return { label: lvl.name, persona: lvl.persona, description: READINESS_DESCRIPTIONS[i], color: READINESS_COLORS[i] };
 }
 
 export async function onRequestPost(context) {
@@ -142,9 +143,9 @@ export async function onRequestPost(context) {
       'INSERT INTO responses (answers_json, total_score, score_pct, readiness_level, is_sp_staff, department) VALUES (?, ?, ?, ?, ?, ?)'
     ).bind(
       JSON.stringify(answersJson),
-      Math.round(totalScore * 100) / 100,
-      overallMean,        // stored as raw 0-5 (column repurposed from %)
-      readinessData.label,
+      Math.round(totalScore * 100) / 100 || 0,
+      overallMean || 0,
+      readinessData.label ?? 'Novice',
       isSPStaff,
       department
     ).run();
