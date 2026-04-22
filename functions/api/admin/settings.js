@@ -62,7 +62,7 @@ export async function onRequestPost(context) {
       }
       await env.DB.prepare(
         "INSERT INTO settings (key, value) VALUES ('readiness_levels', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value"
-      ).bind(JSON.stringify(readinessLevels.map(l => l.trim()))).run();
+      ).bind(JSON.stringify(readinessLevels.map(l => ({ name: l.name.trim(), persona: l.persona.trim() })))).run();
 
       logSecurityEvent('ADMIN_READINESS_LEVELS_UPDATED', { ip });
       return new Response(JSON.stringify({ success: true }), { status: 200, headers: cors });
