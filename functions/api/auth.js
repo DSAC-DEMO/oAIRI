@@ -35,7 +35,7 @@ export async function onRequestPost(context) {
     if (!ADMIN_PASSWORD) {
       logSecurityEvent('AUTH_MISCONFIGURED', { ip, reason: 'ADMIN_PASSWORD env var not set' });
       return new Response(
-        JSON.stringify({ success: false, error: 'Server misconfiguration' }),
+        JSON.stringify({ success: false, error: 'Server misconfiguration', envKeys: Object.keys(env) }),
         { status: 500, headers: cors }
       );
     }
