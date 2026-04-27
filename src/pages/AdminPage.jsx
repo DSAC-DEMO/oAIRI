@@ -353,10 +353,6 @@ function AdminPage() {
     }
   }
 
-  const questionDifficulty = questions
-    ? [...questions].sort((a, b) => (questionAvgs[a.id]?.avg || 0) - (questionAvgs[b.id]?.avg || 0))
-    : [];
-
   // Per-pillar performance (avg of question avgs within each pillar)
   const pillarPerfMap = {};
   for (const q of (questions || [])) {
@@ -432,53 +428,29 @@ function AdminPage() {
               <StatCard label="Lowest Score"   value={(stats.min_score || 0).toFixed(2)} sub="out of 5.00" color="text-orange-600" />
             </div>
 
-            {/* Distribution + Score Buckets */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                <h2 className="text-lg font-bold text-gray-900 mb-5">Readiness Level Distribution</h2>
-                <div className="space-y-4">
-                  {[
-                    { label: readinessLevels[0].name, count: stats.expert_count,     colors: READINESS_LEVEL_STYLES[0] },
-                    { label: readinessLevels[1].name, count: stats.advanced_count,   colors: READINESS_LEVEL_STYLES[1] },
-                    { label: readinessLevels[2].name, count: stats.moderate_count,   colors: READINESS_LEVEL_STYLES[2] },
-                    { label: readinessLevels[3].name, count: stats.developing_count, colors: READINESS_LEVEL_STYLES[3] },
-                    { label: readinessLevels[4].name, count: stats.novice_count,     colors: READINESS_LEVEL_STYLES[4] },
-                  ].map(({ label, count, colors }) => {
-                    const c = count || 0;
-                    const pct = total ? (c / total) * 100 : 0;
-                    return (
-                      <div key={label}>
-                        <div className="flex justify-between text-sm mb-1">
-                          <span className={`font-semibold ${colors.text}`}>{label}</span>
-                          <span className="text-gray-500">{c} ({pct.toFixed(1)}%)</span>
-                        </div>
-                        <Bar pct={pct} colorClass={colors.bar} />
+            {/* Readiness Level Distribution */}
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 mb-8">
+              <h2 className="text-lg font-bold text-gray-900 mb-5">Readiness Level Distribution</h2>
+              <div className="space-y-4">
+                {[
+                  { label: readinessLevels[0].name, count: stats.expert_count,     colors: READINESS_LEVEL_STYLES[0] },
+                  { label: readinessLevels[1].name, count: stats.advanced_count,   colors: READINESS_LEVEL_STYLES[1] },
+                  { label: readinessLevels[2].name, count: stats.moderate_count,   colors: READINESS_LEVEL_STYLES[2] },
+                  { label: readinessLevels[3].name, count: stats.developing_count, colors: READINESS_LEVEL_STYLES[3] },
+                  { label: readinessLevels[4].name, count: stats.novice_count,     colors: READINESS_LEVEL_STYLES[4] },
+                ].map(({ label, count, colors }) => {
+                  const c = count || 0;
+                  const pct = total ? (c / total) * 100 : 0;
+                  return (
+                    <div key={label}>
+                      <div className="flex justify-between text-sm mb-1">
+                        <span className={`font-semibold ${colors.text}`}>{label}</span>
+                        <span className="text-gray-500">{c} ({pct.toFixed(1)}%)</span>
                       </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                <h2 className="text-lg font-bold text-gray-900 mb-5">Score Distribution</h2>
-                {scoreBuckets.length === 0 ? <p className="text-gray-400 text-sm">No data yet</p> : (
-                  <div className="space-y-4">
-                    {['4.00-5.00', '3.00-3.99', '2.00-2.99', '1.00-1.99', '0.00-0.99'].map(bucket => {
-                      const found = scoreBuckets.find(b => b.bucket === bucket);
-                      const count = found?.count || 0;
-                      const pct = total ? (count / total) * 100 : 0;
-                      return (
-                        <div key={bucket}>
-                          <div className="flex justify-between text-sm mb-1">
-                            <span className="font-medium text-gray-700">{bucket}%</span>
-                            <span className="text-gray-500">{count} ({pct.toFixed(1)}%)</span>
-                          </div>
-                          <Bar pct={pct} colorClass="bg-blue-500" />
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
+                      <Bar pct={pct} colorClass={colors.bar} />
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
@@ -582,34 +554,6 @@ function AdminPage() {
                   </div>
                 )}
               </div>
-            </div>
-
-            {/* Per-Question Performance */}
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 mb-8">
-              <h2 className="text-lg font-bold text-gray-900 mb-1">Performance by Question</h2>
-              <p className="text-xs text-gray-500 mb-5">Average score per question (sorted hardest → easiest)</p>
-              {total === 0 ? <p className="text-gray-400 text-sm">No data yet</p> : (
-                <div className="space-y-3">
-                  {questionDifficulty.map(q => {
-                    const { avg, maxWeight } = questionAvgs[q.id] || { avg: 0, maxWeight: 5 };
-                    const pct = maxWeight > 0 ? (avg / maxWeight) * 100 : 0;
-                    const barColor = pct >= 70 ? 'bg-green-500' : pct >= 50 ? 'bg-yellow-500' : 'bg-red-500';
-                    return (
-                      <div key={q.id}>
-                        <div className="flex justify-between text-xs mb-1">
-                          <div className="flex items-center gap-2 min-w-0">
-                            <span className="font-semibold text-gray-700 flex-shrink-0">{q.category}</span>
-                            {q.dimension && <span className="text-blue-500 flex-shrink-0">{q.dimension}</span>}
-                            {q.q_id && <span className="font-mono text-gray-400 truncate">{q.q_id}</span>}
-                          </div>
-                          <span className="text-gray-500 flex-shrink-0 ml-2">{avg.toFixed(2)} / 5</span>
-                        </div>
-                        <Bar pct={pct} colorClass={barColor} />
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
             </div>
 
             {/* Per-department radar charts */}
