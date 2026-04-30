@@ -97,8 +97,13 @@ export async function onRequestGet(context) {
     ).first();
     const readinessLevels = rlRow ? JSON.parse(rlRow.value) : ['Expert Ready', 'Advanced Ready', 'Moderately Ready', 'Developing', 'Novice'];
 
+    const companiesRow = await env.DB.prepare(
+      "SELECT value FROM settings WHERE key = 'companies'"
+    ).first();
+    const companies = companiesRow ? JSON.parse(companiesRow.value) : [];
+
     return new Response(
-      JSON.stringify({ success: true, stats, scoreBuckets, dailyTrend, responses, questions: questionsWithOptions, levels, readinessLevels }, null, 2),
+      JSON.stringify({ success: true, stats, scoreBuckets, dailyTrend, responses, questions: questionsWithOptions, levels, readinessLevels, companies }, null, 2),
       { status: 200, headers: cors }
     );
 

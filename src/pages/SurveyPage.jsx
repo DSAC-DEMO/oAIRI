@@ -11,6 +11,7 @@ function SurveyPage() {
   const navigate = useNavigate();
   const [questions, setQuestions] = useState([]);
   const [levels, setLevels] = useState([]);
+  const [companies, setCompanies] = useState([]);
   const [questionsLoading, setQuestionsLoading] = useState(true);
   const [questionsError, setQuestionsError] = useState('');
   const [currentPillarIndex, setCurrentPillarIndex] = useState(0);
@@ -22,6 +23,7 @@ function SurveyPage() {
   const [infoCollected, setInfoCollected] = useState(false);
   const [isSPStaff, setIsSPStaff] = useState(null);   // null | true | false
   const [department, setDepartment] = useState('');
+  const [company, setCompany] = useState('');
 
   useEffect(() => {
     fetch('/api/questions')
@@ -30,6 +32,7 @@ function SurveyPage() {
         if (!data.success) throw new Error('Failed to load questions');
         setQuestions(data.questions);
         if (data.levels) setLevels(data.levels);
+        if (data.companies) setCompanies(data.companies);
       })
       .catch(err => setQuestionsError(err.message))
       .finally(() => setQuestionsLoading(false));
@@ -82,7 +85,7 @@ function SurveyPage() {
       const response = await fetch('/api/submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ answers, staffInfo: { isSPStaff: !!isSPStaff, department: isSPStaff ? department : '' } })
+        body: JSON.stringify({ answers, staffInfo: { isSPStaff: !!isSPStaff, department: isSPStaff ? department : company } })
       });
 
       if (!response.ok) {
@@ -99,7 +102,8 @@ function SurveyPage() {
   };
 
   // ── Staff info pre-screen ─────────────────────────────────────────────────
-  const canProceed = isSPStaff === false || (isSPStaff === true && department !== '');
+  const canProceed = (isSPStaff === true && department !== '') ||
+                     (isSPStaff === false && (companies.length === 0 || company !== ''));
 
   if (!infoCollected) {
     return (
@@ -114,7 +118,7 @@ function SurveyPage() {
               <button
                 key={String(val)}
                 type="button"
-                onClick={() => { setIsSPStaff(val); if (!val) setDepartment(''); }}
+                onClick={() => { setIsSPStaff(val); if (!val) setDepartment(''); else setCompany(''); }}
                 className={`flex-1 py-2.5 rounded-lg border-2 text-sm font-semibold transition-all ${
                   isSPStaff === val
                     ? 'bg-blue-600 border-blue-600 text-white'
@@ -136,6 +140,20 @@ function SurveyPage() {
               >
                 <option value="">Select department…</option>
                 {SP_DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
+              </select>
+            </div>
+          )}
+
+          {isSPStaff === false && companies.length > 0 && (
+            <div className="mb-6">
+              <p className="text-sm font-semibold text-gray-700 mb-2">Which organisation are you from?</p>
+              <select
+                className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                value={company}
+                onChange={e => setCompany(e.target.value)}
+              >
+                <option value="">Select organisation…</option>
+                {companies.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
           )}

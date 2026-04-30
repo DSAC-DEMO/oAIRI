@@ -68,6 +68,22 @@ export async function onRequestPost(context) {
       return new Response(JSON.stringify({ success: true }), { status: 200, headers: cors });
     }
 
+    if (action === 'update_companies') {
+      const { companies } = body;
+      if (!Array.isArray(companies) || companies.some(c => typeof c !== 'string' || !c.trim())) {
+        return new Response(
+          JSON.stringify({ error: 'companies must be an array of non-empty strings' }),
+          { status: 400, headers: cors }
+        );
+      }
+      await env.DB.prepare(
+        "INSERT INTO settings (key, value) VALUES ('companies', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value"
+      ).bind(JSON.stringify(companies.map(c => c.trim()))).run();
+
+      logSecurityEvent('ADMIN_COMPANIES_UPDATED', { ip });
+      return new Response(JSON.stringify({ success: true }), { status: 200, headers: cors });
+    }
+
     return new Response(JSON.stringify({ error: `Unknown action: ${action}` }), { status: 400, headers: cors });
   } catch (error) {
     logSecurityEvent('ADMIN_SETTINGS_ERROR', { ip, error: error.message });

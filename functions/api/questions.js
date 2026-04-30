@@ -23,11 +23,14 @@ export async function onRequestGet(context) {
     ).all();
 
     let levels = ['Unaware', 'Aware', 'Ready', 'Competent', 'Catalyst'];
+    let companies = [];
     try {
-      const levelsRow = await env.DB.prepare(
-        "SELECT value FROM settings WHERE key = 'option_levels'"
-      ).first();
+      const [levelsRow, companiesRow] = await Promise.all([
+        env.DB.prepare("SELECT value FROM settings WHERE key = 'option_levels'").first(),
+        env.DB.prepare("SELECT value FROM settings WHERE key = 'companies'").first(),
+      ]);
       if (levelsRow?.value) levels = JSON.parse(levelsRow.value);
+      if (companiesRow?.value) companies = JSON.parse(companiesRow.value);
     } catch {}
 
     const optsByQuestion = {};
@@ -39,7 +42,7 @@ export async function onRequestGet(context) {
     const result = questions.map(q => ({ ...q, options: optsByQuestion[q.id] || [] }));
 
     return new Response(
-      JSON.stringify({ success: true, questions: result, levels }),
+      JSON.stringify({ success: true, questions: result, levels, companies }),
       { status: 200, headers: corsHeaders }
     );
   } catch (error) {

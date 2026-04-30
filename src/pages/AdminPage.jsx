@@ -233,6 +233,9 @@ function AdminPage() {
   const [levelsSaving, setLevelsSaving] = useState(false);
   const [editReadinessLevels, setEditReadinessLevels] = useState(null);
   const [readinessSaving, setReadinessSaving] = useState(false);
+  const [editCompanies, setEditCompanies] = useState(null);
+  const [companiesSaving, setCompaniesSaving] = useState(false);
+  const [newCompany, setNewCompany] = useState('');
 
   useEffect(() => {
     const token = localStorage.getItem('adminToken');
@@ -334,6 +337,7 @@ function AdminPage() {
       { name: 'Developing',       persona: 'Learner'     },
       { name: 'Novice',           persona: 'Observer'    },
     ],
+    companies: companiesData = [],
   } = data;
   const total = stats.total_responses || 0;
 
@@ -693,6 +697,24 @@ function AdminPage() {
         {activeTab === 'settings' && (() => {
           const workingOptionLevels = editLevels ?? levels;
           const optionLevelsValid = workingOptionLevels.every(l => l.trim().length > 0);
+          const workingCompanies = editCompanies ?? companiesData;
+
+          const saveCompanies = async (list) => {
+            setCompaniesSaving(true);
+            try {
+              const res = await fetch('/api/admin/settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('adminToken')}` },
+                body: JSON.stringify({ action: 'update_companies', companies: list })
+              });
+              const result = await res.json();
+              if (!result.success) throw new Error(result.error);
+              setEditCompanies(null);
+              setNewCompany('');
+              await fetchData(localStorage.getItem('adminToken'));
+            } catch (err) { alert(`Failed: ${err.message}`); }
+            finally { setCompaniesSaving(false); }
+          };
 
           const saveOptionLevels = async () => {
             setLevelsSaving(true);
@@ -835,6 +857,58 @@ function AdminPage() {
                       Reset
                     </button>
                   )}
+                </div>
+              </div>
+
+              {/* External organisations */}
+              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                <h2 className="text-lg font-bold text-gray-900 mb-1">External Organisations</h2>
+                <p className="text-xs text-gray-500 mb-5">
+                  Non-SP participants will choose from this list. Add each organisation before the session.
+                </p>
+
+                {workingCompanies.length === 0 ? (
+                  <p className="text-sm text-gray-400 mb-4">No organisations added yet.</p>
+                ) : (
+                  <ul className="space-y-2 mb-4">
+                    {workingCompanies.map((c, i) => (
+                      <li key={i} className="flex items-center justify-between gap-3 bg-gray-50 rounded-lg px-3 py-2">
+                        <span className="text-sm text-gray-800 font-medium">{c}</span>
+                        <button
+                          type="button"
+                          onClick={() => saveCompanies(workingCompanies.filter((_, j) => j !== i))}
+                          disabled={companiesSaving}
+                          className="text-red-400 hover:text-red-600 text-lg leading-none flex-shrink-0"
+                          title="Remove"
+                        >×</button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+
+                <div className="flex gap-2">
+                  <input
+                    className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    value={newCompany}
+                    onChange={e => setNewCompany(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter' && newCompany.trim()) {
+                        e.preventDefault();
+                        saveCompanies([...workingCompanies, newCompany.trim()]);
+                      }
+                    }}
+                    placeholder="Organisation name…"
+                  />
+                  <button
+                    type="button"
+                    disabled={!newCompany.trim() || companiesSaving}
+                    onClick={() => saveCompanies([...workingCompanies, newCompany.trim()])}
+                    className={`px-4 py-2 rounded-lg text-sm font-semibold text-white transition-colors ${
+                      newCompany.trim() && !companiesSaving ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-300 cursor-not-allowed'
+                    }`}
+                  >
+                    {companiesSaving ? 'Saving…' : 'Add'}
+                  </button>
                 </div>
               </div>
 
