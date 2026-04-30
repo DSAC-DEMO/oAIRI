@@ -147,10 +147,10 @@ function SurveyPage() {
           <p className="text-xs font-bold uppercase tracking-widest text-blue-600 mb-2">Before you begin</p>
           <h1 className="text-2xl font-bold text-gray-900 mb-6">A quick question</h1>
 
-          {/* Session code */}
+          {/* Company code */}
           <div className="mb-6">
             <p className="text-sm font-semibold text-gray-700 mb-2">
-              Session code <span className="font-normal text-gray-400">(optional — enter if your organisation provided one)</span>
+              Company code <span className="font-normal text-gray-400">(optional — enter if your organisation provided one)</span>
             </p>
             <div className="flex gap-2">
               <input

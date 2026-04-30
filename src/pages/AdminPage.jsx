@@ -918,16 +918,16 @@ function AdminPage() {
                 </div>
               </div>
 
-              {/* Survey Sessions */}
+              {/* Company Codes */}
               <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                <h2 className="text-lg font-bold text-gray-900 mb-1">Survey Sessions</h2>
+                <h2 className="text-lg font-bold text-gray-900 mb-1">Company Codes</h2>
                 <p className="text-xs text-gray-500 mb-5">
-                  Create a session for an external company. Share the session code with their staff — they enter it before the survey, and the company can view their consolidated dashboard at <span className="font-mono text-blue-600">/dashboard</span>.
+                  Create a code for an external company. Share it with their staff — they enter it before the survey so their responses are grouped under that company. The company can view their consolidated results at <span className="font-mono text-blue-600">/dashboard</span>.
                 </p>
 
                 {/* Existing sessions */}
                 {sessionsData.length === 0 ? (
-                  <p className="text-sm text-gray-400 mb-4">No sessions yet.</p>
+                  <p className="text-sm text-gray-400 mb-4">No company codes yet.</p>
                 ) : (
                   <div className="space-y-2 mb-5">
                     {sessionsData.map(s => (
@@ -942,7 +942,7 @@ function AdminPage() {
                           type="button"
                           disabled={sessionSaving}
                           onClick={async () => {
-                            if (!window.confirm(`Delete session "${s.name}"? This will disassociate its ${s.response_count} response(s) but not delete them.`)) return;
+                            if (!window.confirm(`Delete company code "${s.name}"? This will disassociate its ${s.response_count} response(s) but not delete them.`)) return;
                             setSessionSaving(true);
                             try {
                               const res = await fetch('/api/sessions', {
@@ -967,7 +967,7 @@ function AdminPage() {
 
                 {/* Create new session */}
                 <div className="border-t border-gray-100 pt-4">
-                  <p className="text-xs font-semibold text-gray-600 mb-2">Create new session</p>
+                  <p className="text-xs font-semibold text-gray-600 mb-2">Create new company code</p>
                   <div className="flex gap-2 mb-2">
                     <input
                       className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -979,7 +979,7 @@ function AdminPage() {
                       className="w-40 border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       value={newSessionCode}
                       onChange={e => setNewSessionCode(e.target.value)}
-                      placeholder="Session code"
+                      placeholder="Access code"
                     />
                   </div>
                   <button
@@ -1007,7 +1007,7 @@ function AdminPage() {
                         : 'bg-gray-300 cursor-not-allowed'
                     }`}
                   >
-                    {sessionSaving ? 'Creating…' : 'Create Session'}
+                    {sessionSaving ? 'Creating…' : 'Create Code'}
                   </button>
                 </div>
               </div>

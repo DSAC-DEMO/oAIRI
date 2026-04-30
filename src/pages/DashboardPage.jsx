@@ -82,15 +82,15 @@ function LoginScreen({ onLogin }) {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
           </div>
-          <h1 className="text-xl font-bold text-white">Dashboard Access</h1>
-          <p className="text-sm text-gray-400 mt-1">Enter your session code to view results</p>
+          <h1 className="text-xl font-bold text-white">Company Dashboard</h1>
+          <p className="text-sm text-gray-400 mt-1">Enter your company code to view results</p>
         </div>
         <form onSubmit={submit}>
           <input
             type="text"
             value={code}
             onChange={e => setCode(e.target.value)}
-            placeholder="Session code"
+            placeholder="Company code"
             className="w-full bg-gray-900 border border-gray-600 text-white rounded-lg px-4 py-3 text-sm font-mono focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none mb-3"
             autoFocus
           />
@@ -242,12 +242,12 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
           </div>
           <div>
             <h1 className="text-sm font-bold text-white leading-tight">{session.name}</h1>
-            <p className="text-xs text-gray-400">AI Readiness — Consolidated Report</p>
+            <p className="text-xs text-gray-400">AI Readiness — Company Report</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
           <span className="text-xs text-gray-500">
-            Session since {new Date(session.created_at).toLocaleDateString()}
+            Code created {new Date(session.created_at).toLocaleDateString()}
           </span>
           <button
             onClick={onRefresh}
@@ -271,7 +271,7 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
           <div className="text-center">
             <div className="text-4xl mb-3">📊</div>
             <p className="text-gray-400 text-sm">No responses yet for this session.</p>
-            <p className="text-gray-600 text-xs mt-1">Share the session code with participants to begin.</p>
+            <p className="text-gray-600 text-xs mt-1">Share the company code with participants to begin collecting responses.</p>
           </div>
         </div>
       ) : (
