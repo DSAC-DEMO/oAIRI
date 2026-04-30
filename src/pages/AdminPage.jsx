@@ -233,14 +233,11 @@ function AdminPage() {
   const [levelsSaving, setLevelsSaving] = useState(false);
   const [editReadinessLevels, setEditReadinessLevels] = useState(null);
   const [readinessSaving, setReadinessSaving] = useState(false);
-  const [editCompanies, setEditCompanies] = useState(null);
-  const [companiesSaving, setCompaniesSaving] = useState(false);
-  const [newCompany, setNewCompany] = useState('');
-
-  // Sessions state
+  // Company codes state
   const [newSessionName, setNewSessionName] = useState('');
-  const [newSessionCode, setNewSessionCode] = useState('');
   const [sessionSaving, setSessionSaving] = useState(false);
+  const [generatedCode, setGeneratedCode] = useState(null); // shown once after creation
+  const [codeCopied, setCodeCopied] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem('adminToken');
@@ -342,7 +339,6 @@ function AdminPage() {
       { name: 'Developing',       persona: 'Learner'     },
       { name: 'Novice',           persona: 'Observer'    },
     ],
-    companies: companiesData = [],
     sessions: sessionsData = [],
   } = data;
   const total = stats.total_responses || 0;
@@ -703,24 +699,6 @@ function AdminPage() {
         {activeTab === 'settings' && (() => {
           const workingOptionLevels = editLevels ?? levels;
           const optionLevelsValid = workingOptionLevels.every(l => l.trim().length > 0);
-          const workingCompanies = editCompanies ?? companiesData;
-
-          const saveCompanies = async (list) => {
-            setCompaniesSaving(true);
-            try {
-              const res = await fetch('/api/admin/settings', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('adminToken')}` },
-                body: JSON.stringify({ action: 'update_companies', companies: list })
-              });
-              const result = await res.json();
-              if (!result.success) throw new Error(result.error);
-              setEditCompanies(null);
-              setNewCompany('');
-              await fetchData(localStorage.getItem('adminToken'));
-            } catch (err) { alert(`Failed: ${err.message}`); }
-            finally { setCompaniesSaving(false); }
-          };
 
           const saveOptionLevels = async () => {
             setLevelsSaving(true);
@@ -866,68 +844,40 @@ function AdminPage() {
                 </div>
               </div>
 
-              {/* External organisations */}
-              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                <h2 className="text-lg font-bold text-gray-900 mb-1">External Organisations</h2>
-                <p className="text-xs text-gray-500 mb-5">
-                  Non-SP participants will choose from this list. Add each organisation before the session.
-                </p>
-
-                {workingCompanies.length === 0 ? (
-                  <p className="text-sm text-gray-400 mb-4">No organisations added yet.</p>
-                ) : (
-                  <ul className="space-y-2 mb-4">
-                    {workingCompanies.map((c, i) => (
-                      <li key={i} className="flex items-center justify-between gap-3 bg-gray-50 rounded-lg px-3 py-2">
-                        <span className="text-sm text-gray-800 font-medium">{c}</span>
-                        <button
-                          type="button"
-                          onClick={() => saveCompanies(workingCompanies.filter((_, j) => j !== i))}
-                          disabled={companiesSaving}
-                          className="text-red-400 hover:text-red-600 text-lg leading-none flex-shrink-0"
-                          title="Remove"
-                        >×</button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-
-                <div className="flex gap-2">
-                  <input
-                    className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    value={newCompany}
-                    onChange={e => setNewCompany(e.target.value)}
-                    onKeyDown={e => {
-                      if (e.key === 'Enter' && newCompany.trim()) {
-                        e.preventDefault();
-                        saveCompanies([...workingCompanies, newCompany.trim()]);
-                      }
-                    }}
-                    placeholder="Organisation name…"
-                  />
-                  <button
-                    type="button"
-                    disabled={!newCompany.trim() || companiesSaving}
-                    onClick={() => saveCompanies([...workingCompanies, newCompany.trim()])}
-                    className={`px-4 py-2 rounded-lg text-sm font-semibold text-white transition-colors ${
-                      newCompany.trim() && !companiesSaving ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-300 cursor-not-allowed'
-                    }`}
-                  >
-                    {companiesSaving ? 'Saving…' : 'Add'}
-                  </button>
-                </div>
-              </div>
-
               {/* Company Codes */}
               <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                 <h2 className="text-lg font-bold text-gray-900 mb-1">Company Codes</h2>
                 <p className="text-xs text-gray-500 mb-5">
-                  Create a code for an external company. Share it with their staff — they enter it before the survey so their responses are grouped under that company. The company can view their consolidated results at <span className="font-mono text-blue-600">/dashboard</span>.
+                  Add a company by name — a code is generated automatically. Share the code with their staff so their survey responses are grouped together. The company can view their consolidated results at <span className="font-mono text-blue-600">/dashboard</span>.
                 </p>
 
-                {/* Existing sessions */}
+                {/* Generated code banner */}
+                {generatedCode && (
+                  <div className="mb-5 bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <p className="text-xs font-semibold text-blue-700 mb-1">Code generated — share this with the company. It won't be shown again.</p>
+                    <div className="flex items-center gap-3 mt-2">
+                      <span className="font-mono text-xl font-bold text-blue-800 tracking-widest">{generatedCode}</span>
+                      <button
+                        type="button"
+                        onClick={() => { navigator.clipboard.writeText(generatedCode); setCodeCopied(true); setTimeout(() => setCodeCopied(false), 2000); }}
+                        className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg font-semibold transition-colors"
+                      >
+                        {codeCopied ? 'Copied!' : 'Copy'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setGeneratedCode(null)}
+                        className="text-xs text-blue-500 hover:underline ml-auto"
+                      >
+                        Dismiss
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Existing codes */}
                 {sessionsData.length === 0 ? (
-                  <p className="text-sm text-gray-400 mb-4">No company codes yet.</p>
+                  <p className="text-sm text-gray-400 mb-4">No companies added yet.</p>
                 ) : (
                   <div className="space-y-2 mb-5">
                     {sessionsData.map(s => (
@@ -935,14 +885,14 @@ function AdminPage() {
                         <div>
                           <p className="text-sm font-semibold text-gray-800">{s.name}</p>
                           <p className="text-xs text-gray-400 mt-0.5">
-                            {s.response_count} response{s.response_count !== 1 ? 's' : ''} · Created {new Date(s.created_at).toLocaleDateString()}
+                            {s.response_count} response{s.response_count !== 1 ? 's' : ''} · Added {new Date(s.created_at).toLocaleDateString()}
                           </p>
                         </div>
                         <button
                           type="button"
                           disabled={sessionSaving}
                           onClick={async () => {
-                            if (!window.confirm(`Delete company code "${s.name}"? This will disassociate its ${s.response_count} response(s) but not delete them.`)) return;
+                            if (!window.confirm(`Remove "${s.name}"? Their ${s.response_count} response(s) will be kept but unlinked.`)) return;
                             setSessionSaving(true);
                             try {
                               const res = await fetch('/api/sessions', {
@@ -958,56 +908,48 @@ function AdminPage() {
                           }}
                           className="text-xs text-red-500 hover:underline font-medium flex-shrink-0"
                         >
-                          Delete
+                          Remove
                         </button>
                       </div>
                     ))}
                   </div>
                 )}
 
-                {/* Create new session */}
-                <div className="border-t border-gray-100 pt-4">
-                  <p className="text-xs font-semibold text-gray-600 mb-2">Create new company code</p>
-                  <div className="flex gap-2 mb-2">
-                    <input
-                      className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      value={newSessionName}
-                      onChange={e => setNewSessionName(e.target.value)}
-                      placeholder="Company / organisation name"
-                    />
-                    <input
-                      className="w-40 border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      value={newSessionCode}
-                      onChange={e => setNewSessionCode(e.target.value)}
-                      placeholder="Access code"
-                    />
-                  </div>
+                {/* Add company */}
+                <div className="border-t border-gray-100 pt-4 flex gap-2">
+                  <input
+                    className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    value={newSessionName}
+                    onChange={e => setNewSessionName(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && newSessionName.trim() && !sessionSaving && document.getElementById('btn-gen-code').click()}
+                    placeholder="Company / organisation name"
+                  />
                   <button
+                    id="btn-gen-code"
                     type="button"
-                    disabled={!newSessionName.trim() || !newSessionCode.trim() || sessionSaving}
+                    disabled={!newSessionName.trim() || sessionSaving}
                     onClick={async () => {
                       setSessionSaving(true);
+                      setGeneratedCode(null);
                       try {
                         const res = await fetch('/api/sessions', {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('adminToken')}` },
-                          body: JSON.stringify({ action: 'create', name: newSessionName.trim(), code: newSessionCode.trim() })
+                          body: JSON.stringify({ action: 'create', name: newSessionName.trim() })
                         });
                         const result = await res.json();
                         if (!result.success) throw new Error(result.error);
+                        setGeneratedCode(result.code);
                         setNewSessionName('');
-                        setNewSessionCode('');
                         await fetchData(localStorage.getItem('adminToken'));
                       } catch (err) { alert(`Failed: ${err.message}`); }
                       finally { setSessionSaving(false); }
                     }}
-                    className={`px-5 py-2 rounded-lg text-sm font-semibold text-white transition-colors ${
-                      newSessionName.trim() && newSessionCode.trim() && !sessionSaving
-                        ? 'bg-blue-600 hover:bg-blue-700'
-                        : 'bg-gray-300 cursor-not-allowed'
+                    className={`px-4 py-2 rounded-lg text-sm font-semibold text-white transition-colors flex-shrink-0 ${
+                      newSessionName.trim() && !sessionSaving ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-300 cursor-not-allowed'
                     }`}
                   >
-                    {sessionSaving ? 'Creating…' : 'Create Code'}
+                    {sessionSaving ? 'Generating…' : 'Generate Code'}
                   </button>
                 </div>
               </div>

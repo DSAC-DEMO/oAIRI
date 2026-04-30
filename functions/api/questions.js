@@ -25,12 +25,12 @@ export async function onRequestGet(context) {
     let levels = ['Unaware', 'Aware', 'Ready', 'Competent', 'Catalyst'];
     let companies = [];
     try {
-      const [levelsRow, companiesRow] = await Promise.all([
+      const [levelsRow, { results: sessionRows }] = await Promise.all([
         env.DB.prepare("SELECT value FROM settings WHERE key = 'option_levels'").first(),
-        env.DB.prepare("SELECT value FROM settings WHERE key = 'companies'").first(),
+        env.DB.prepare('SELECT id, name FROM sessions ORDER BY name ASC').all(),
       ]);
       if (levelsRow?.value) levels = JSON.parse(levelsRow.value);
-      if (companiesRow?.value) companies = JSON.parse(companiesRow.value);
+      companies = sessionRows; // [{ id, name }, ...]
     } catch {}
 
     const optsByQuestion = {};

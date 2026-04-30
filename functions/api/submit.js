@@ -165,9 +165,18 @@ export async function onRequestPost(context) {
     const isSPStaff  = staffInfo?.isSPStaff ? 1 : 0;
     const department = staffInfo?.department?.trim() || '';
 
-    // Resolve optional session code → session_id
+    // Resolve optional session → session_id
+    // Accept either a direct sessionId (integer, from dropdown selection)
+    // or a sessionCode string (from manual entry / dashboard login)
     let sessionId = null;
-    if (sessionCode?.trim()) {
+    if (body.sessionId && Number.isInteger(body.sessionId) && body.sessionId > 0) {
+      try {
+        const session = await env.DB.prepare(
+          'SELECT id FROM sessions WHERE id = ?'
+        ).bind(body.sessionId).first();
+        if (session) sessionId = session.id;
+      } catch {}
+    } else if (sessionCode?.trim()) {
       try {
         const codeHash = await hashCode(sessionCode.trim());
         const session = await env.DB.prepare(

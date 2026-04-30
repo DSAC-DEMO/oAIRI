@@ -1,5 +1,14 @@
 import { verifyToken, logSecurityEvent, corsHeaders } from '../_lib/auth.js';
 
+// Unambiguous chars — no 0/O, 1/I/L
+const CODE_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+
+async function generateCode() {
+  const arr = new Uint8Array(8);
+  crypto.getRandomValues(arr);
+  return Array.from(arr).map(b => CODE_CHARS[b % CODE_CHARS.length]).join('');
+}
+
 async function hashCode(code) {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(code));
   return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
@@ -56,14 +65,16 @@ export async function onRequestPost(context) {
 
   try {
     if (action === 'create') {
-      const { name, code } = body;
-      if (!name?.trim() || !code?.trim()) {
-        return new Response(JSON.stringify({ error: 'name and code are required' }), { status: 400, headers: cors });
+      const { name } = body;
+      if (!name?.trim()) {
+        return new Response(JSON.stringify({ error: 'name is required' }), { status: 400, headers: cors });
       }
-      const codeHash = await hashCode(code.trim());
+      const code = await generateCode();
+      const codeHash = await hashCode(code);
       await env.DB.prepare('INSERT INTO sessions (name, code_hash) VALUES (?, ?)').bind(name.trim(), codeHash).run();
       logSecurityEvent('SESSION_CREATED', { ip, name: name.trim() });
-      return new Response(JSON.stringify({ success: true }), { status: 200, headers: cors });
+      // Return the plain code once — admin must save it
+      return new Response(JSON.stringify({ success: true, code }), { status: 200, headers: cors });
     }
 
     if (action === 'delete') {

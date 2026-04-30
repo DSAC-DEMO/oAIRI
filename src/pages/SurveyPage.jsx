@@ -23,13 +23,7 @@ function SurveyPage() {
   const [infoCollected, setInfoCollected] = useState(false);
   const [isSPStaff, setIsSPStaff] = useState(null);   // null | true | false
   const [department, setDepartment] = useState('');
-  const [company, setCompany] = useState('');
-
-  // Session code (optional)
-  const [sessionCodeInput, setSessionCodeInput] = useState('');
-  const [sessionVerified, setSessionVerified] = useState(null); // null | { id, name }
-  const [sessionVerifying, setSessionVerifying] = useState(false);
-  const [sessionError, setSessionError] = useState('');
+  const [selectedCompany, setSelectedCompany] = useState(null); // null | { id, name }
 
   useEffect(() => {
     fetch('/api/questions')
@@ -93,8 +87,8 @@ function SurveyPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           answers,
-          staffInfo: { isSPStaff: !!isSPStaff, department: isSPStaff ? department : company },
-          sessionCode: sessionVerified ? sessionCodeInput : undefined,
+          staffInfo: { isSPStaff: !!isSPStaff, department: isSPStaff ? department : (selectedCompany?.name ?? '') },
+          sessionId: selectedCompany?.id ?? undefined,
         })
       });
 
@@ -111,34 +105,9 @@ function SurveyPage() {
     }
   };
 
-  const verifySessionCode = async () => {
-    const code = sessionCodeInput.trim();
-    if (!code) return;
-    setSessionVerifying(true);
-    setSessionError('');
-    setSessionVerified(null);
-    try {
-      const res = await fetch('/api/session/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        setSessionVerified({ id: data.id, name: data.name });
-      } else {
-        setSessionError('Invalid session code');
-      }
-    } catch {
-      setSessionError('Could not verify code');
-    } finally {
-      setSessionVerifying(false);
-    }
-  };
-
   // ── Staff info pre-screen ─────────────────────────────────────────────────
   const canProceed = (isSPStaff === true && department !== '') ||
-                     (isSPStaff === false && (companies.length === 0 || company !== ''));
+                     (isSPStaff === false && (companies.length === 0 || selectedCompany !== null));
 
   if (!infoCollected) {
     return (
@@ -147,47 +116,13 @@ function SurveyPage() {
           <p className="text-xs font-bold uppercase tracking-widest text-blue-600 mb-2">Before you begin</p>
           <h1 className="text-2xl font-bold text-gray-900 mb-6">A quick question</h1>
 
-          {/* Company code */}
-          <div className="mb-6">
-            <p className="text-sm font-semibold text-gray-700 mb-2">
-              Company code <span className="font-normal text-gray-400">(optional — enter if your organisation provided one)</span>
-            </p>
-            <div className="flex gap-2">
-              <input
-                className="flex-1 border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono"
-                value={sessionCodeInput}
-                onChange={e => { setSessionCodeInput(e.target.value); setSessionVerified(null); setSessionError(''); }}
-                onKeyDown={e => e.key === 'Enter' && verifySessionCode()}
-                placeholder="Enter session code…"
-              />
-              <button
-                type="button"
-                onClick={verifySessionCode}
-                disabled={!sessionCodeInput.trim() || sessionVerifying}
-                className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all flex-shrink-0 ${
-                  sessionCodeInput.trim() && !sessionVerifying
-                    ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                    : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                }`}
-              >
-                {sessionVerifying ? '…' : 'Verify'}
-              </button>
-            </div>
-            {sessionVerified && (
-              <p className="mt-1.5 text-xs text-green-600 font-semibold">✓ Verified: {sessionVerified.name}</p>
-            )}
-            {sessionError && (
-              <p className="mt-1.5 text-xs text-red-500">{sessionError}</p>
-            )}
-          </div>
-
           <p className="text-sm font-semibold text-gray-700 mb-3">Are you a Singapore Polytechnic staff member?</p>
           <div className="flex gap-3 mb-6">
             {[true, false].map(val => (
               <button
                 key={String(val)}
                 type="button"
-                onClick={() => { setIsSPStaff(val); if (!val) setDepartment(''); else setCompany(''); }}
+                onClick={() => { setIsSPStaff(val); setDepartment(''); setSelectedCompany(null); }}
                 className={`flex-1 py-2.5 rounded-lg border-2 text-sm font-semibold transition-all ${
                   isSPStaff === val
                     ? 'bg-blue-600 border-blue-600 text-white'
@@ -218,11 +153,14 @@ function SurveyPage() {
               <p className="text-sm font-semibold text-gray-700 mb-2">Which organisation are you from?</p>
               <select
                 className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
-                value={company}
-                onChange={e => setCompany(e.target.value)}
+                value={selectedCompany?.id ?? ''}
+                onChange={e => {
+                  const found = companies.find(c => String(c.id) === e.target.value);
+                  setSelectedCompany(found ?? null);
+                }}
               >
                 <option value="">Select organisation…</option>
-                {companies.map(c => <option key={c} value={c}>{c}</option>)}
+                {companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </div>
           )}
