@@ -11,7 +11,6 @@ function SurveyPage() {
   const navigate = useNavigate();
   const [questions, setQuestions] = useState([]);
   const [levels, setLevels] = useState([]);
-  const [companies, setCompanies] = useState([]);
   const [questionsLoading, setQuestionsLoading] = useState(true);
   const [questionsError, setQuestionsError] = useState('');
   const [currentPillarIndex, setCurrentPillarIndex] = useState(0);
@@ -23,7 +22,12 @@ function SurveyPage() {
   const [infoCollected, setInfoCollected] = useState(false);
   const [isSPStaff, setIsSPStaff] = useState(null);   // null | true | false
   const [department, setDepartment] = useState('');
-  const [selectedCompany, setSelectedCompany] = useState(null); // null | { id, name }
+
+  // Non-SP: company code verification
+  const [codeInput, setCodeInput] = useState('');
+  const [verifiedCompany, setVerifiedCompany] = useState(null); // null | { id, name }
+  const [codeVerifying, setCodeVerifying] = useState(false);
+  const [codeError, setCodeError] = useState('');
 
   useEffect(() => {
     fetch('/api/questions')
@@ -32,7 +36,6 @@ function SurveyPage() {
         if (!data.success) throw new Error('Failed to load questions');
         setQuestions(data.questions);
         if (data.levels) setLevels(data.levels);
-        if (data.companies) setCompanies(data.companies);
       })
       .catch(err => setQuestionsError(err.message))
       .finally(() => setQuestionsLoading(false));
@@ -87,8 +90,8 @@ function SurveyPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           answers,
-          staffInfo: { isSPStaff: !!isSPStaff, department: isSPStaff ? department : (selectedCompany?.name ?? '') },
-          sessionId: selectedCompany?.id ?? undefined,
+          staffInfo: { isSPStaff: !!isSPStaff, department: isSPStaff ? department : (verifiedCompany?.name ?? '') },
+          sessionId: verifiedCompany?.id ?? undefined,
         })
       });
 
@@ -106,8 +109,33 @@ function SurveyPage() {
   };
 
   // ── Staff info pre-screen ─────────────────────────────────────────────────
+  const verifyCode = async () => {
+    const code = codeInput.trim();
+    if (!code) return;
+    setCodeVerifying(true);
+    setCodeError('');
+    setVerifiedCompany(null);
+    try {
+      const res = await fetch('/api/session/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setVerifiedCompany({ id: data.id, name: data.name });
+      } else {
+        setCodeError('Invalid code. Please check with your organisation.');
+      }
+    } catch {
+      setCodeError('Could not verify code. Please try again.');
+    } finally {
+      setCodeVerifying(false);
+    }
+  };
+
   const canProceed = (isSPStaff === true && department !== '') ||
-                     (isSPStaff === false && (companies.length === 0 || selectedCompany !== null));
+                     (isSPStaff === false && verifiedCompany !== null);
 
   if (!infoCollected) {
     return (
@@ -122,7 +150,7 @@ function SurveyPage() {
               <button
                 key={String(val)}
                 type="button"
-                onClick={() => { setIsSPStaff(val); setDepartment(''); setSelectedCompany(null); }}
+                onClick={() => { setIsSPStaff(val); setDepartment(''); setCodeInput(''); setVerifiedCompany(null); setCodeError(''); }}
                 className={`flex-1 py-2.5 rounded-lg border-2 text-sm font-semibold transition-all ${
                   isSPStaff === val
                     ? 'bg-blue-600 border-blue-600 text-white'
@@ -148,20 +176,51 @@ function SurveyPage() {
             </div>
           )}
 
-          {isSPStaff === false && companies.length > 0 && (
+          {isSPStaff === false && (
             <div className="mb-6">
-              <p className="text-sm font-semibold text-gray-700 mb-2">Which organisation are you from?</p>
-              <select
-                className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
-                value={selectedCompany?.id ?? ''}
-                onChange={e => {
-                  const found = companies.find(c => String(c.id) === e.target.value);
-                  setSelectedCompany(found ?? null);
-                }}
-              >
-                <option value="">Select organisation…</option>
-                {companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
+              <p className="text-sm font-semibold text-gray-700 mb-2">Enter your company code</p>
+              <p className="text-xs text-gray-400 mb-3">You need a valid code provided by your organisation to access the assessment.</p>
+              {verifiedCompany ? (
+                <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded-lg px-4 py-3">
+                  <div>
+                    <p className="text-sm font-semibold text-green-700">✓ {verifiedCompany.name}</p>
+                    <p className="text-xs text-green-500 mt-0.5">Code verified</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => { setVerifiedCompany(null); setCodeInput(''); setCodeError(''); }}
+                    className="text-xs text-green-600 hover:underline"
+                  >
+                    Change
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <div className="flex gap-2">
+                    <input
+                      className="flex-1 border border-gray-300 rounded-lg px-3 py-2.5 text-sm font-mono focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      value={codeInput}
+                      onChange={e => { setCodeInput(e.target.value.toUpperCase()); setCodeError(''); }}
+                      onKeyDown={e => e.key === 'Enter' && verifyCode()}
+                      placeholder="e.g. X7K2HPNB"
+                      autoFocus
+                    />
+                    <button
+                      type="button"
+                      onClick={verifyCode}
+                      disabled={!codeInput.trim() || codeVerifying}
+                      className={`px-4 py-2 rounded-lg text-sm font-semibold flex-shrink-0 transition-all ${
+                        codeInput.trim() && !codeVerifying
+                          ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                          : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                      }`}
+                    >
+                      {codeVerifying ? '…' : 'Verify'}
+                    </button>
+                  </div>
+                  {codeError && <p className="mt-2 text-xs text-red-500">{codeError}</p>}
+                </>
+              )}
             </div>
           )}
 
