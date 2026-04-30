@@ -237,6 +237,11 @@ function AdminPage() {
   const [companiesSaving, setCompaniesSaving] = useState(false);
   const [newCompany, setNewCompany] = useState('');
 
+  // Sessions state
+  const [newSessionName, setNewSessionName] = useState('');
+  const [newSessionCode, setNewSessionCode] = useState('');
+  const [sessionSaving, setSessionSaving] = useState(false);
+
   useEffect(() => {
     const token = localStorage.getItem('adminToken');
     if (token) { setIsAuthenticated(true); fetchData(token); }
@@ -338,6 +343,7 @@ function AdminPage() {
       { name: 'Novice',           persona: 'Observer'    },
     ],
     companies: companiesData = [],
+    sessions: sessionsData = [],
   } = data;
   const total = stats.total_responses || 0;
 
@@ -908,6 +914,100 @@ function AdminPage() {
                     }`}
                   >
                     {companiesSaving ? 'Saving…' : 'Add'}
+                  </button>
+                </div>
+              </div>
+
+              {/* Survey Sessions */}
+              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                <h2 className="text-lg font-bold text-gray-900 mb-1">Survey Sessions</h2>
+                <p className="text-xs text-gray-500 mb-5">
+                  Create a session for an external company. Share the session code with their staff — they enter it before the survey, and the company can view their consolidated dashboard at <span className="font-mono text-blue-600">/dashboard</span>.
+                </p>
+
+                {/* Existing sessions */}
+                {sessionsData.length === 0 ? (
+                  <p className="text-sm text-gray-400 mb-4">No sessions yet.</p>
+                ) : (
+                  <div className="space-y-2 mb-5">
+                    {sessionsData.map(s => (
+                      <div key={s.id} className="flex items-center justify-between gap-3 bg-gray-50 rounded-lg px-4 py-3 border border-gray-100">
+                        <div>
+                          <p className="text-sm font-semibold text-gray-800">{s.name}</p>
+                          <p className="text-xs text-gray-400 mt-0.5">
+                            {s.response_count} response{s.response_count !== 1 ? 's' : ''} · Created {new Date(s.created_at).toLocaleDateString()}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          disabled={sessionSaving}
+                          onClick={async () => {
+                            if (!window.confirm(`Delete session "${s.name}"? This will disassociate its ${s.response_count} response(s) but not delete them.`)) return;
+                            setSessionSaving(true);
+                            try {
+                              const res = await fetch('/api/sessions', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('adminToken')}` },
+                                body: JSON.stringify({ action: 'delete', id: s.id })
+                              });
+                              const result = await res.json();
+                              if (!result.success) throw new Error(result.error);
+                              await fetchData(localStorage.getItem('adminToken'));
+                            } catch (err) { alert(`Failed: ${err.message}`); }
+                            finally { setSessionSaving(false); }
+                          }}
+                          className="text-xs text-red-500 hover:underline font-medium flex-shrink-0"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Create new session */}
+                <div className="border-t border-gray-100 pt-4">
+                  <p className="text-xs font-semibold text-gray-600 mb-2">Create new session</p>
+                  <div className="flex gap-2 mb-2">
+                    <input
+                      className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      value={newSessionName}
+                      onChange={e => setNewSessionName(e.target.value)}
+                      placeholder="Company / organisation name"
+                    />
+                    <input
+                      className="w-40 border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      value={newSessionCode}
+                      onChange={e => setNewSessionCode(e.target.value)}
+                      placeholder="Session code"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    disabled={!newSessionName.trim() || !newSessionCode.trim() || sessionSaving}
+                    onClick={async () => {
+                      setSessionSaving(true);
+                      try {
+                        const res = await fetch('/api/sessions', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('adminToken')}` },
+                          body: JSON.stringify({ action: 'create', name: newSessionName.trim(), code: newSessionCode.trim() })
+                        });
+                        const result = await res.json();
+                        if (!result.success) throw new Error(result.error);
+                        setNewSessionName('');
+                        setNewSessionCode('');
+                        await fetchData(localStorage.getItem('adminToken'));
+                      } catch (err) { alert(`Failed: ${err.message}`); }
+                      finally { setSessionSaving(false); }
+                    }}
+                    className={`px-5 py-2 rounded-lg text-sm font-semibold text-white transition-colors ${
+                      newSessionName.trim() && newSessionCode.trim() && !sessionSaving
+                        ? 'bg-blue-600 hover:bg-blue-700'
+                        : 'bg-gray-300 cursor-not-allowed'
+                    }`}
+                  >
+                    {sessionSaving ? 'Creating…' : 'Create Session'}
                   </button>
                 </div>
               </div>

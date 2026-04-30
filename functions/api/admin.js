@@ -102,8 +102,16 @@ export async function onRequestGet(context) {
     ).first();
     const companies = companiesRow ? JSON.parse(companiesRow.value) : [];
 
+    const { results: sessions } = await env.DB.prepare(`
+      SELECT s.id, s.name, s.created_at, COUNT(r.id) AS response_count
+      FROM sessions s
+      LEFT JOIN responses r ON r.session_id = s.id
+      GROUP BY s.id
+      ORDER BY s.created_at DESC
+    `).all();
+
     return new Response(
-      JSON.stringify({ success: true, stats, scoreBuckets, dailyTrend, responses, questions: questionsWithOptions, levels, readinessLevels, companies }, null, 2),
+      JSON.stringify({ success: true, stats, scoreBuckets, dailyTrend, responses, questions: questionsWithOptions, levels, readinessLevels, companies, sessions }, null, 2),
       { status: 200, headers: cors }
     );
 

@@ -33,6 +33,11 @@ function getReadinessLevel(score, levels = DEFAULT_READINESS_LEVELS) {
   return { label: lvl.name, persona: lvl.persona, description: READINESS_DESCRIPTIONS[i], color: READINESS_COLORS[i] };
 }
 
+async function hashCode(code) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(code));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
 export async function onRequestPost(context) {
   const { request, env } = context;
 
@@ -49,7 +54,7 @@ export async function onRequestPost(context) {
 
   try {
     const body = await request.json();
-    const { answers, staffInfo } = body;
+    const { answers, staffInfo, sessionCode } = body;
 
     if (!answers || typeof answers !== 'object') {
       return new Response(
@@ -158,17 +163,30 @@ export async function onRequestPost(context) {
     };
 
     const isSPStaff  = staffInfo?.isSPStaff ? 1 : 0;
-    const department = (staffInfo?.isSPStaff && staffInfo?.department) ? staffInfo.department.trim() : '';
+    const department = staffInfo?.department?.trim() || '';
+
+    // Resolve optional session code → session_id
+    let sessionId = null;
+    if (sessionCode?.trim()) {
+      try {
+        const codeHash = await hashCode(sessionCode.trim());
+        const session = await env.DB.prepare(
+          'SELECT id FROM sessions WHERE code_hash = ?'
+        ).bind(codeHash).first();
+        if (session) sessionId = session.id;
+      } catch {}
+    }
 
     await env.DB.prepare(
-      'INSERT INTO responses (answers_json, total_score, score_pct, readiness_level, is_sp_staff, department) VALUES (?, ?, ?, ?, ?, ?)'
+      'INSERT INTO responses (answers_json, total_score, score_pct, readiness_level, is_sp_staff, department, session_id) VALUES (?, ?, ?, ?, ?, ?, ?)'
     ).bind(
       JSON.stringify(answersJson),
       Math.round(totalScore * 100) / 100 || 0,
       overallMean || 0,
       readinessData.label ?? 'Novice',
       isSPStaff,
-      department
+      department,
+      sessionId
     ).run();
 
     return new Response(

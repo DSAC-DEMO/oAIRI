@@ -2,6 +2,7 @@
 DROP TABLE IF EXISTS question_options;
 DROP TABLE IF EXISTS questions;
 DROP TABLE IF EXISTS responses;
+DROP TABLE IF EXISTS sessions;
 DROP TABLE IF EXISTS settings;
 
 CREATE TABLE questions (
@@ -28,6 +29,13 @@ INSERT INTO settings (key, value) VALUES
   ('option_levels',     '["Unaware","Aware","Ready","Competent","Catalyst"]'),
   ('readiness_levels',  '[{"name":"Expert Ready","persona":"Disciplined"},{"name":"Advanced Ready","persona":"Crafter"},{"name":"Moderately Ready","persona":"Explorer"},{"name":"Developing","persona":"Learner"},{"name":"Novice","persona":"Observer"}]');
 
+CREATE TABLE sessions (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  name       TEXT NOT NULL,
+  code_hash  TEXT NOT NULL UNIQUE,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE responses (
   id              INTEGER PRIMARY KEY AUTOINCREMENT,
   answers_json    TEXT NOT NULL,
@@ -36,6 +44,7 @@ CREATE TABLE responses (
   readiness_level TEXT NOT NULL,
   is_sp_staff     INTEGER NOT NULL DEFAULT 0,
   department      TEXT NOT NULL DEFAULT '',
+  session_id      INTEGER REFERENCES sessions(id),
   submitted_at    DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 

@@ -25,6 +25,12 @@ function SurveyPage() {
   const [department, setDepartment] = useState('');
   const [company, setCompany] = useState('');
 
+  // Session code (optional)
+  const [sessionCodeInput, setSessionCodeInput] = useState('');
+  const [sessionVerified, setSessionVerified] = useState(null); // null | { id, name }
+  const [sessionVerifying, setSessionVerifying] = useState(false);
+  const [sessionError, setSessionError] = useState('');
+
   useEffect(() => {
     fetch('/api/questions')
       .then(r => r.json())
@@ -85,7 +91,11 @@ function SurveyPage() {
       const response = await fetch('/api/submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ answers, staffInfo: { isSPStaff: !!isSPStaff, department: isSPStaff ? department : company } })
+        body: JSON.stringify({
+          answers,
+          staffInfo: { isSPStaff: !!isSPStaff, department: isSPStaff ? department : company },
+          sessionCode: sessionVerified ? sessionCodeInput : undefined,
+        })
       });
 
       if (!response.ok) {
@@ -101,6 +111,31 @@ function SurveyPage() {
     }
   };
 
+  const verifySessionCode = async () => {
+    const code = sessionCodeInput.trim();
+    if (!code) return;
+    setSessionVerifying(true);
+    setSessionError('');
+    setSessionVerified(null);
+    try {
+      const res = await fetch('/api/session/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setSessionVerified({ id: data.id, name: data.name });
+      } else {
+        setSessionError('Invalid session code');
+      }
+    } catch {
+      setSessionError('Could not verify code');
+    } finally {
+      setSessionVerifying(false);
+    }
+  };
+
   // ── Staff info pre-screen ─────────────────────────────────────────────────
   const canProceed = (isSPStaff === true && department !== '') ||
                      (isSPStaff === false && (companies.length === 0 || company !== ''));
@@ -111,6 +146,40 @@ function SurveyPage() {
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 max-w-lg w-full">
           <p className="text-xs font-bold uppercase tracking-widest text-blue-600 mb-2">Before you begin</p>
           <h1 className="text-2xl font-bold text-gray-900 mb-6">A quick question</h1>
+
+          {/* Session code */}
+          <div className="mb-6">
+            <p className="text-sm font-semibold text-gray-700 mb-2">
+              Session code <span className="font-normal text-gray-400">(optional — enter if your organisation provided one)</span>
+            </p>
+            <div className="flex gap-2">
+              <input
+                className="flex-1 border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono"
+                value={sessionCodeInput}
+                onChange={e => { setSessionCodeInput(e.target.value); setSessionVerified(null); setSessionError(''); }}
+                onKeyDown={e => e.key === 'Enter' && verifySessionCode()}
+                placeholder="Enter session code…"
+              />
+              <button
+                type="button"
+                onClick={verifySessionCode}
+                disabled={!sessionCodeInput.trim() || sessionVerifying}
+                className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all flex-shrink-0 ${
+                  sessionCodeInput.trim() && !sessionVerifying
+                    ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                    : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                }`}
+              >
+                {sessionVerifying ? '…' : 'Verify'}
+              </button>
+            </div>
+            {sessionVerified && (
+              <p className="mt-1.5 text-xs text-green-600 font-semibold">✓ Verified: {sessionVerified.name}</p>
+            )}
+            {sessionError && (
+              <p className="mt-1.5 text-xs text-red-500">{sessionError}</p>
+            )}
+          </div>
 
           <p className="text-sm font-semibold text-gray-700 mb-3">Are you a Singapore Polytechnic staff member?</p>
           <div className="flex gap-3 mb-6">

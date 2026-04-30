@@ -12,6 +12,7 @@
     "start": "npm run build && npm run db:init && npm run wrangler:dev"
   },
   "dependencies": {
+    "plotly.js-dist-min": "^3.5.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.26.0"
