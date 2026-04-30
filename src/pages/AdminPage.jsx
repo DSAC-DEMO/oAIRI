@@ -451,7 +451,7 @@ function AdminPage() {
                     <div key={label}>
                       <div className="flex justify-between text-sm mb-1">
                         <span className={`font-semibold ${colors.text}`}>{label}</span>
-                        <span className="text-gray-500">{c} ({pct.toFixed(1)}%)</span>
+                        <span className="text-gray-500">{c}</span>
                       </div>
                       <Bar pct={pct} colorClass={colors.bar} />
                     </div>

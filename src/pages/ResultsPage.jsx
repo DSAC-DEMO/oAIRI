@@ -74,6 +74,19 @@ function ResultsPage() {
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 py-10 px-4 sm:px-6 lg:px-8">
       <div className="max-w-3xl mx-auto space-y-6">
 
+        {/* ── Overall score ─────────────────────────────────────────── */}
+        <div className={`rounded-xl shadow-sm border p-8 text-center ${styles.badge}`}>
+          <p className="text-xs font-bold uppercase tracking-widest mb-3 opacity-70">Overall AI Readiness Score</p>
+          <div className="flex items-end justify-center gap-2 mb-2">
+            <span className="text-7xl font-extrabold tabular-nums leading-none">
+              {(overallMean ?? 0).toFixed(2)}
+            </span>
+            <span className="text-2xl font-semibold opacity-60 mb-2">/ 5</span>
+          </div>
+          <p className="text-lg font-bold mt-1">{label}</p>
+          {persona && <p className="text-sm opacity-70 mt-0.5">{persona}</p>}
+        </div>
+
         {/* ── Radar chart ──────────────────────────────────────────── */}
         {radarPillars.length >= 3 && (
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 flex flex-col items-center">
