@@ -47,6 +47,13 @@ function ResultsPage() {
   const { readinessData } = location.state || {};
   const [optionLevels, setOptionLevels] = useState(['Unaware', 'Aware', 'Ready', 'Competent', 'Catalyst']);
   const [courses, setCourses] = useState([]);
+  const [readinessLevels, setReadinessLevels] = useState([
+    { name: 'Expert Ready',     persona: 'Disciplined' },
+    { name: 'Advanced Ready',   persona: 'Crafter'     },
+    { name: 'Moderately Ready', persona: 'Explorer'    },
+    { name: 'Developing',       persona: 'Learner'     },
+    { name: 'Novice',           persona: 'Observer'    },
+  ]);
 
   useEffect(() => {
     if (!readinessData) { navigate('/'); return; }
@@ -55,6 +62,7 @@ function ResultsPage() {
       .then(d => {
         if (d.levels?.length === 5) setOptionLevels(d.levels);
         if (Array.isArray(d.courses)) setCourses(d.courses);
+        if (Array.isArray(d.readinessLevels) && d.readinessLevels.length === 5) setReadinessLevels(d.readinessLevels);
       })
       .catch(() => {});
   }, [readinessData, navigate]);
@@ -86,14 +94,17 @@ function ResultsPage() {
         <div className={`rounded-xl shadow-sm border p-8 text-center ${styles.badge}`}>
           <p className="text-xs font-bold uppercase tracking-widest mb-5 opacity-60">Overall AI Readiness</p>
 
-          {/* Step dots */}
-          <div className="flex justify-center gap-2.5 mb-5">
-            {[1, 2, 3, 4, 5].map(i => (
-              <div
+          {/* Level name steps — Novice → Expert */}
+          <div className="flex justify-center flex-wrap gap-2 mb-5">
+            {[4, 3, 2, 1, 0].map(i => (
+              <span
                 key={i}
-                className={`rounded-full transition-all ${i <= levelPosition ? 'w-4 h-4 opacity-90' : 'w-3 h-3 opacity-20 self-center'}`}
-                style={{ backgroundColor: 'currentColor' }}
-              />
+                className={`px-3 py-1 rounded-full text-xs font-bold border transition-all ${
+                  i === levelIdx ? 'opacity-100 border-current' : 'opacity-20 border-transparent'
+                }`}
+              >
+                {readinessLevels[i]?.name}
+              </span>
             ))}
           </div>
 

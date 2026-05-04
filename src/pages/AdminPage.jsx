@@ -3,20 +3,20 @@ import { useNavigate } from 'react-router-dom';
 import RadarChart from '../components/RadarChart';
 
 const OPTION_LEVEL_COLORS = [
-  'bg-red-100 text-red-700',
-  'bg-orange-100 text-orange-700',
-  'bg-yellow-100 text-yellow-700',
-  'bg-green-100 text-green-700',
-  'bg-emerald-100 text-emerald-700',
+  'bg-slate-100 text-slate-600',   // 0: Unaware  (lightest)
+  'bg-blue-100 text-blue-600',     // 1: Aware
+  'bg-blue-200 text-blue-700',     // 2: Ready
+  'bg-blue-300 text-blue-800',     // 3: Competent
+  'bg-blue-500 text-white',        // 4: Catalyst (darkest)
 ];
 
-// Indexed by position: 0=highest(≥4) … 4=lowest(<1)
+// Indexed by position: 0=highest(≥4) … 4=lowest(<1) — blue intensity scale
 const READINESS_LEVEL_STYLES = [
-  { bg: 'bg-emerald-100', text: 'text-emerald-800', bar: 'bg-emerald-500' },
-  { bg: 'bg-green-100',   text: 'text-green-800',   bar: 'bg-green-500'   },
-  { bg: 'bg-yellow-100',  text: 'text-yellow-800',  bar: 'bg-yellow-500'  },
-  { bg: 'bg-orange-100',  text: 'text-orange-800',  bar: 'bg-orange-500'  },
-  { bg: 'bg-red-100',     text: 'text-red-800',     bar: 'bg-red-500'     },
+  { bg: 'bg-blue-100', text: 'text-blue-900', bar: 'bg-blue-800' },  // 0: Expert   (darkest)
+  { bg: 'bg-blue-100', text: 'text-blue-700', bar: 'bg-blue-600' },  // 1: Advanced
+  { bg: 'bg-blue-50',  text: 'text-blue-600', bar: 'bg-blue-400' },  // 2: Moderate
+  { bg: 'bg-blue-50',  text: 'text-blue-500', bar: 'bg-blue-300' },  // 3: Developing
+  { bg: 'bg-slate-50', text: 'text-slate-500', bar: 'bg-blue-200'},  // 4: Novice   (lightest)
 ];
 
 function Bar({ pct, colorClass }) {
@@ -523,7 +523,7 @@ function AdminPage() {
                   <div className="space-y-3">
                     {pillarPerfList.map(({ name, avg }) => {
                       const pct = (avg / 5) * 100;
-                      const barColor = pct >= 70 ? 'bg-green-500' : pct >= 50 ? 'bg-yellow-500' : 'bg-red-500';
+                      const barColor = pct >= 70 ? 'bg-blue-600' : pct >= 50 ? 'bg-blue-400' : 'bg-blue-200';
                       return (
                         <div key={name}>
                           <div className="flex justify-between text-xs mb-1">
@@ -547,7 +547,7 @@ function AdminPage() {
                   <div className="space-y-3">
                     {dimensionPerfList.map(({ name, avg, pillars }) => {
                       const pct = (avg / 5) * 100;
-                      const barColor = pct >= 70 ? 'bg-green-500' : pct >= 50 ? 'bg-yellow-500' : 'bg-red-500';
+                      const barColor = pct >= 70 ? 'bg-blue-600' : pct >= 50 ? 'bg-blue-400' : 'bg-blue-200';
                       return (
                         <div key={name}>
                           <div className="flex justify-between text-xs mb-1">
