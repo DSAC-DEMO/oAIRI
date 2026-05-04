@@ -84,6 +84,25 @@ export async function onRequestPost(context) {
       return new Response(JSON.stringify({ success: true }), { status: 200, headers: cors });
     }
 
+    if (action === 'update_courses') {
+      const { courses } = body;
+      if (
+        !Array.isArray(courses) ||
+        courses.some(c => !c?.name?.trim() || !Array.isArray(c.levels) || c.levels.some(l => !Number.isInteger(l) || l < 0 || l > 4))
+      ) {
+        return new Response(
+          JSON.stringify({ error: 'courses must be an array of {name: string, levels: number[]}' }),
+          { status: 400, headers: cors }
+        );
+      }
+      await env.DB.prepare(
+        "INSERT INTO settings (key, value) VALUES ('courses', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value"
+      ).bind(JSON.stringify(courses.map(c => ({ name: c.name.trim(), levels: c.levels })))).run();
+
+      logSecurityEvent('ADMIN_COURSES_UPDATED', { ip });
+      return new Response(JSON.stringify({ success: true }), { status: 200, headers: cors });
+    }
+
     return new Response(JSON.stringify({ error: `Unknown action: ${action}` }), { status: 400, headers: cors });
   } catch (error) {
     logSecurityEvent('ADMIN_SETTINGS_ERROR', { ip, error: error.message });

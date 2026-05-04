@@ -238,6 +238,9 @@ function AdminPage() {
   const [sessionSaving, setSessionSaving] = useState(false);
   const [generatedCode, setGeneratedCode] = useState(null); // shown once after creation
   const [codeCopied, setCodeCopied] = useState(false);
+  // Courses state
+  const [editCourses, setEditCourses] = useState(null);
+  const [coursesSaving, setCoursesSaving] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem('adminToken');
@@ -340,6 +343,7 @@ function AdminPage() {
       { name: 'Novice',           persona: 'Observer'    },
     ],
     sessions: sessionsData = [],
+    courses: coursesData = [],
   } = data;
   const total = stats.total_responses || 0;
 
@@ -735,8 +739,27 @@ function AdminPage() {
             finally { setReadinessSaving(false); }
           };
 
+          const workingCourses = editCourses ?? coursesData;
+          const coursesValid = workingCourses.every(c => c.name?.trim().length > 0);
+
+          const saveCourses = async () => {
+            setCoursesSaving(true);
+            try {
+              const res = await fetch('/api/admin/settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('adminToken')}` },
+                body: JSON.stringify({ action: 'update_courses', courses: workingCourses })
+              });
+              const result = await res.json();
+              if (!result.success) throw new Error(result.error);
+              setEditCourses(null);
+              await fetchData(localStorage.getItem('adminToken'));
+            } catch (err) { alert(`Failed: ${err.message}`); }
+            finally { setCoursesSaving(false); }
+          };
+
           return (
-            <div className="max-w-lg space-y-6">
+            <div className="max-w-2xl space-y-6">
 
               {/* Readiness level names */}
               <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
@@ -951,6 +974,106 @@ function AdminPage() {
                   >
                     {sessionSaving ? 'Generating…' : 'Generate Code'}
                   </button>
+                </div>
+              </div>
+
+              {/* Skills & Training Courses */}
+              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                <h2 className="text-lg font-bold text-gray-900 mb-1">Skills &amp; Training Courses</h2>
+                <p className="text-xs text-gray-500 mb-5">
+                  Define courses shown on the results page. Tick the readiness levels each course applies to (highest → lowest).
+                </p>
+
+                {/* Column headers */}
+                {workingCourses.length > 0 && (
+                  <div className="flex items-end gap-2 mb-1 px-4">
+                    <span className="flex-1 text-xs font-semibold text-gray-400">Course name</span>
+                    {workingReadiness.map((lvl, i) => (
+                      <div key={i} className="w-12 text-center flex-shrink-0">
+                        <span className={`text-xs font-semibold ${READINESS_LEVEL_STYLES[i].text}`} title={lvl.name}>
+                          {lvl.name.split(' ')[0].slice(0, 5)}
+                        </span>
+                      </div>
+                    ))}
+                    <div className="w-6" />
+                  </div>
+                )}
+
+                {/* Course rows */}
+                <div className="space-y-2 mb-4">
+                  {workingCourses.length === 0 && (
+                    <p className="text-sm text-gray-400">No courses added yet. Click "+ Add Course" below.</p>
+                  )}
+                  {workingCourses.map((course, ci) => (
+                    <div key={ci} className="flex items-center gap-2 bg-gray-50 rounded-lg px-4 py-3 border border-gray-100">
+                      <input
+                        className="flex-1 border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                        value={course.name}
+                        onChange={e => {
+                          const next = workingCourses.map((c, j) => j === ci ? { ...c, name: e.target.value } : c);
+                          setEditCourses(next);
+                        }}
+                        placeholder="Course name"
+                      />
+                      {[0, 1, 2, 3, 4].map(li => (
+                        <div key={li} className="w-12 flex justify-center flex-shrink-0">
+                          <input
+                            type="checkbox"
+                            checked={course.levels?.includes(li) ?? false}
+                            onChange={e => {
+                              const next = workingCourses.map((c, j) => {
+                                if (j !== ci) return c;
+                                const newLevels = e.target.checked
+                                  ? [...(c.levels ?? []), li].sort((a, b) => a - b)
+                                  : (c.levels ?? []).filter(l => l !== li);
+                                return { ...c, levels: newLevels };
+                              });
+                              setEditCourses(next);
+                            }}
+                            className="w-4 h-4 text-blue-600 rounded accent-blue-600"
+                          />
+                        </div>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => setEditCourses(workingCourses.filter((_, j) => j !== ci))}
+                        className="w-6 text-red-400 hover:text-red-600 text-xl leading-none flex-shrink-0 text-center"
+                        title="Remove course"
+                      >×</button>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Add + Save */}
+                <div className="flex items-center justify-between border-t border-gray-100 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => setEditCourses([...workingCourses, { name: '', levels: [] }])}
+                    className="text-sm text-blue-600 hover:underline font-semibold"
+                  >
+                    + Add Course
+                  </button>
+                  <div className="flex gap-2">
+                    {editCourses && (
+                      <button
+                        type="button"
+                        onClick={() => setEditCourses(null)}
+                        className="px-4 py-2 rounded-lg text-sm font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200 transition-colors"
+                      >
+                        Reset
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      disabled={!coursesValid || coursesSaving}
+                      onClick={saveCourses}
+                      className={`px-5 py-2 rounded-lg text-sm font-semibold text-white transition-colors ${
+                        coursesValid && !coursesSaving ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-300 cursor-not-allowed'
+                      }`}
+                    >
+                      {coursesSaving ? 'Saving…' : 'Save'}
+                    </button>
+                  </div>
                 </div>
               </div>
 

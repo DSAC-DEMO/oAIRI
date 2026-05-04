@@ -46,12 +46,16 @@ function ResultsPage() {
   const navigate = useNavigate();
   const { readinessData } = location.state || {};
   const [optionLevels, setOptionLevels] = useState(['Unaware', 'Aware', 'Ready', 'Competent', 'Catalyst']);
+  const [courses, setCourses] = useState([]);
 
   useEffect(() => {
     if (!readinessData) { navigate('/'); return; }
     fetch('/api/questions')
       .then(r => r.json())
-      .then(d => { if (d.levels?.length === 5) setOptionLevels(d.levels); })
+      .then(d => {
+        if (d.levels?.length === 5) setOptionLevels(d.levels);
+        if (Array.isArray(d.courses)) setCourses(d.courses);
+      })
       .catch(() => {});
   }, [readinessData, navigate]);
 
@@ -141,6 +145,28 @@ function ResultsPage() {
             </div>
           </div>
         )}
+
+        {/* ── Recommended courses ──────────────────────────────────── */}
+        {(() => {
+          const relevant = courses.filter(c => Array.isArray(c.levels) && c.levels.includes(levelIdx));
+          if (relevant.length === 0) return null;
+          return (
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8">
+              <h2 className="text-xl font-bold text-gray-900 mb-2">Recommended Skills &amp; Training</h2>
+              <p className="text-gray-600 text-sm mb-5">
+                Based on your readiness level, the following courses are recommended for you:
+              </p>
+              <ul className="space-y-3">
+                {relevant.map((course, i) => (
+                  <li key={i} className="flex gap-3 items-start">
+                    <span className={`mt-0.5 font-bold flex-shrink-0 ${styles.icon}`}>→</span>
+                    <span className="text-gray-800 text-sm font-medium">{course.name}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          );
+        })()}
 
         {/* ── Main recommendation card ──────────────────────────────── */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8">
