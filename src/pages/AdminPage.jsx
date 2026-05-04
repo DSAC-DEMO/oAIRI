@@ -243,6 +243,8 @@ function AdminPage() {
   const [coursesSaving, setCoursesSaving] = useState(false);
   // Slicer filter state (null = All)
   const [levelFilter, setLevelFilter] = useState(null);
+  // Company code visibility state { [id]: boolean }
+  const [shownCodes, setShownCodes] = useState({});
 
   useEffect(() => {
     const token = localStorage.getItem('adminToken');
@@ -349,11 +351,19 @@ function AdminPage() {
   } = data;
   const total = stats.total_responses || 0;
 
+  const filteredResponses = levelFilter === null
+    ? responses
+    : responses.filter(r => {
+        const idx = r.score_pct >= 4 ? 0 : r.score_pct >= 3 ? 1 : r.score_pct >= 2 ? 2 : r.score_pct >= 1 ? 3 : 4;
+        return idx === levelFilter;
+      });
+  const filteredTotal = filteredResponses.length;
+
   // Per-question averages (computed client-side from answers_json)
   const questionAvgs = {};
-  if (questions && responses) {
+  if (questions && filteredResponses) {
     for (const q of questions) {
-      const scores = responses
+      const scores = filteredResponses
         .map(r => { try { return JSON.parse(r.answers_json)[q.id]; } catch { return undefined; } })
         .filter(s => s !== undefined);
       const maxWeight = q.options.length ? Math.max(...q.options.map(o => o.weight)) : 5;
@@ -432,38 +442,89 @@ function AdminPage() {
         {/* ── Analytics Tab ─────────────────────────────────────────────── */}
         {activeTab === 'analytics' && (
           <>
+            {/* Slicer */}
+            {(() => {
+              const levelCounts = readinessLevels.map((_, i) =>
+                responses.filter(r => {
+                  const idx = r.score_pct >= 4 ? 0 : r.score_pct >= 3 ? 1 : r.score_pct >= 2 ? 2 : r.score_pct >= 1 ? 3 : 4;
+                  return idx === i;
+                }).length
+              );
+              return (
+                <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 mb-6">
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Filter by Readiness Level</p>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      onClick={() => setLevelFilter(null)}
+                      className={`px-4 py-1.5 rounded-full text-sm font-semibold border transition-colors ${
+                        levelFilter === null
+                          ? 'bg-blue-600 text-white border-blue-600'
+                          : 'bg-white text-gray-500 border-gray-200 hover:border-blue-400 hover:text-blue-500'
+                      }`}
+                    >
+                      All ({responses.length})
+                    </button>
+                    {readinessLevels.map((lvl, i) => (
+                      <button
+                        key={i}
+                        onClick={() => setLevelFilter(levelFilter === i ? null : i)}
+                        className={`px-4 py-1.5 rounded-full text-sm font-semibold border transition-colors ${
+                          levelFilter === i
+                            ? `${READINESS_LEVEL_STYLES[i].bg} ${READINESS_LEVEL_STYLES[i].text} border-current`
+                            : 'bg-white text-gray-500 border-gray-200 hover:border-blue-400 hover:text-blue-500'
+                        }`}
+                      >
+                        {lvl.name} ({levelCounts[i]})
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
+
             {/* KPI Cards */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-8">
-              <StatCard label="Total Responses" value={total} color="text-blue-600" />
-              <StatCard label="Average Score" value={(stats.avg_score || 0).toFixed(2)} sub="out of 5.00" color="text-blue-700" />
-              <StatCard label="Highest Score"  value={(stats.max_score || 0).toFixed(2)} sub="out of 5.00" color="text-blue-900" />
-            </div>
+            {(() => {
+              const fAvg = filteredTotal > 0 ? filteredResponses.reduce((s, r) => s + (r.score_pct || 0), 0) / filteredTotal : 0;
+              const fMax = filteredTotal > 0 ? Math.max(...filteredResponses.map(r => r.score_pct || 0)) : 0;
+              return (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-8">
+                  <StatCard label="Total Responses" value={filteredTotal} color="text-blue-600" />
+                  <StatCard label="Average Score" value={fAvg.toFixed(2)} sub="out of 5.00" color="text-blue-700" />
+                  <StatCard label="Highest Score"  value={fMax.toFixed(2)} sub="out of 5.00" color="text-blue-900" />
+                </div>
+              );
+            })()}
 
             {/* Readiness Level Distribution */}
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 mb-8">
-              <h2 className="text-lg font-bold text-gray-900 mb-5">Readiness Level Distribution</h2>
-              <div className="space-y-4">
-                {[
-                  { label: readinessLevels[0].name, count: stats.expert_count,     colors: READINESS_LEVEL_STYLES[0] },
-                  { label: readinessLevels[1].name, count: stats.advanced_count,   colors: READINESS_LEVEL_STYLES[1] },
-                  { label: readinessLevels[2].name, count: stats.moderate_count,   colors: READINESS_LEVEL_STYLES[2] },
-                  { label: readinessLevels[3].name, count: stats.developing_count, colors: READINESS_LEVEL_STYLES[3] },
-                  { label: readinessLevels[4].name, count: stats.novice_count,     colors: READINESS_LEVEL_STYLES[4] },
-                ].map(({ label, count, colors }) => {
-                  const c = count || 0;
-                  const pct = total ? (c / total) * 100 : 0;
-                  return (
-                    <div key={label}>
-                      <div className="flex justify-between text-sm mb-1">
-                        <span className={`font-semibold ${colors.text}`}>{label}</span>
-                        <span className="text-gray-500">{c}</span>
-                      </div>
-                      <Bar pct={pct} colorClass={colors.bar} />
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
+            {(() => {
+              const distCounts = [0,1,2,3,4].map(i =>
+                filteredResponses.filter(r => {
+                  const idx = r.score_pct >= 4 ? 0 : r.score_pct >= 3 ? 1 : r.score_pct >= 2 ? 2 : r.score_pct >= 1 ? 3 : 4;
+                  return idx === i;
+                }).length
+              );
+              return (
+                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 mb-8">
+                  <h2 className="text-lg font-bold text-gray-900 mb-5">Readiness Level Distribution</h2>
+                  <div className="space-y-4">
+                    {readinessLevels.map((lvl, i) => {
+                      const c = distCounts[i];
+                      const pct = filteredTotal ? (c / filteredTotal) * 100 : 0;
+                      const colors = READINESS_LEVEL_STYLES[i];
+                      return (
+                        <div key={i}>
+                          <div className="flex justify-between text-sm mb-1">
+                            <span className={`font-semibold ${colors.text}`}>{lvl.name}</span>
+                            <span className="text-gray-500">{c}</span>
+                          </div>
+                          <Bar pct={pct} colorClass={colors.bar} />
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* Submission Trend */}
             <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 mb-8">
@@ -572,7 +633,7 @@ function AdminPage() {
               // Build per-dept pillar averages from raw response data (SP staff only)
               const deptAccum = {}; // { dept: { pillarName: { sum, count, maxSum, minSum } } }
 
-              for (const r of responses) {
+              for (const r of filteredResponses) {
                 if (!r.is_sp_staff || !r.department) continue;
                 let ans = {};
                 try { ans = JSON.parse(r.answers_json); } catch {}
@@ -604,7 +665,7 @@ function AdminPage() {
                       }));
                       const strongest = [...pillars].sort((a, b) => b.pct - a.pct)[0];
                       const weakest   = [...pillars].sort((a, b) => a.pct - b.pct)[0];
-                      const responseCount = responses.filter(r => r.is_sp_staff && r.department === dept).length;
+                      const responseCount = filteredResponses.filter(r => r.is_sp_staff && r.department === dept).length;
                       return (
                         <div key={dept} className="flex flex-col items-center">
                           <p className="text-sm font-bold text-gray-800 mb-0.5">{dept}</p>
@@ -612,7 +673,7 @@ function AdminPage() {
                           <RadarChart pillars={pillars} size={180} />
                           <div className="mt-2 text-center space-y-0.5">
                             <p className="text-xs text-green-600 font-medium">Strongest: {strongest?.name}</p>
-                            <p className="text-xs text-red-500 font-medium">Weakest: {weakest?.name}</p>
+                            <p className="text-xs text-blue-400 font-medium">Weakest: {weakest?.name}</p>
                           </div>
                         </div>
                       );
@@ -622,55 +683,7 @@ function AdminPage() {
               );
             })()}
 
-            {/* Slicer */}
-            {(() => {
-              const levelCounts = readinessLevels.map((_, i) =>
-                responses.filter(r => {
-                  const idx = r.score_pct >= 4 ? 0 : r.score_pct >= 3 ? 1 : r.score_pct >= 2 ? 2 : r.score_pct >= 1 ? 3 : 4;
-                  return idx === i;
-                }).length
-              );
-              return (
-                <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 mb-6">
-                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Filter by Readiness Level</p>
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      onClick={() => setLevelFilter(null)}
-                      className={`px-4 py-1.5 rounded-full text-sm font-semibold border transition-colors ${
-                        levelFilter === null
-                          ? 'bg-blue-600 text-white border-blue-600'
-                          : 'bg-white text-gray-500 border-gray-200 hover:border-blue-400 hover:text-blue-500'
-                      }`}
-                    >
-                      All ({responses.length})
-                    </button>
-                    {readinessLevels.map((lvl, i) => (
-                      <button
-                        key={i}
-                        onClick={() => setLevelFilter(levelFilter === i ? null : i)}
-                        className={`px-4 py-1.5 rounded-full text-sm font-semibold border transition-colors ${
-                          levelFilter === i
-                            ? `${READINESS_LEVEL_STYLES[i].bg} ${READINESS_LEVEL_STYLES[i].text} border-current`
-                            : 'bg-white text-gray-500 border-gray-200 hover:border-blue-400 hover:text-blue-500'
-                        }`}
-                      >
-                        {lvl.name} ({levelCounts[i]})
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              );
-            })()}
-
             {/* Responses Table */}
-            {(() => {
-              const filteredResponses = levelFilter === null
-                ? responses
-                : responses.filter(r => {
-                    const idx = r.score_pct >= 4 ? 0 : r.score_pct >= 3 ? 1 : r.score_pct >= 2 ? 2 : r.score_pct >= 1 ? 3 : 4;
-                    return idx === levelFilter;
-                  });
-              return (
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
               <div className="px-6 py-4 border-b flex justify-between items-center">
                 <h2 className="text-lg font-bold text-gray-900">All Responses</h2>
@@ -745,8 +758,6 @@ function AdminPage() {
                 </div>
               )}
             </div>
-              );
-            })()}
           </>
         )}
 
@@ -940,7 +951,7 @@ function AdminPage() {
                 {/* Generated code banner */}
                 {generatedCode && (
                   <div className="mb-5 bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <p className="text-xs font-semibold text-blue-700 mb-1">Code generated — share this with the company. It won't be shown again.</p>
+                    <p className="text-xs font-semibold text-blue-700 mb-1">Code generated — share this with the company. You can also reveal it later via the Show button.</p>
                     <div className="flex items-center gap-3 mt-2">
                       <span className="font-mono text-xl font-bold text-blue-800 tracking-widest">{generatedCode}</span>
                       <button
@@ -967,35 +978,63 @@ function AdminPage() {
                 ) : (
                   <div className="space-y-2 mb-5">
                     {sessionsData.map(s => (
-                      <div key={s.id} className="flex items-center justify-between gap-3 bg-gray-50 rounded-lg px-4 py-3 border border-gray-100">
-                        <div>
-                          <p className="text-sm font-semibold text-gray-800">{s.name}</p>
-                          <p className="text-xs text-gray-400 mt-0.5">
-                            {s.response_count} response{s.response_count !== 1 ? 's' : ''} · Added {new Date(s.created_at).toLocaleDateString()}
-                          </p>
+                      <div key={s.id} className="bg-gray-50 rounded-lg px-4 py-3 border border-gray-100">
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <p className="text-sm font-semibold text-gray-800">{s.name}</p>
+                            <p className="text-xs text-gray-400 mt-0.5">
+                              {s.response_count} response{s.response_count !== 1 ? 's' : ''} · Added {new Date(s.created_at).toLocaleDateString()}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-3 flex-shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => setShownCodes(prev => ({ ...prev, [s.id]: !prev[s.id] }))}
+                              className="text-xs text-blue-600 hover:underline font-medium"
+                            >
+                              {shownCodes[s.id] ? 'Hide' : 'Show'}
+                            </button>
+                            <button
+                              type="button"
+                              disabled={sessionSaving}
+                              onClick={async () => {
+                                if (!window.confirm(`Remove "${s.name}"? Their ${s.response_count} response(s) will be kept but unlinked.`)) return;
+                                setSessionSaving(true);
+                                try {
+                                  const res = await fetch('/api/sessions', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('adminToken')}` },
+                                    body: JSON.stringify({ action: 'delete', id: s.id })
+                                  });
+                                  const result = await res.json();
+                                  if (!result.success) throw new Error(result.error);
+                                  await fetchData(localStorage.getItem('adminToken'));
+                                } catch (err) { alert(`Failed: ${err.message}`); }
+                                finally { setSessionSaving(false); }
+                              }}
+                              className="text-xs text-red-500 hover:underline font-medium"
+                            >
+                              Remove
+                            </button>
+                          </div>
                         </div>
-                        <button
-                          type="button"
-                          disabled={sessionSaving}
-                          onClick={async () => {
-                            if (!window.confirm(`Remove "${s.name}"? Their ${s.response_count} response(s) will be kept but unlinked.`)) return;
-                            setSessionSaving(true);
-                            try {
-                              const res = await fetch('/api/sessions', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('adminToken')}` },
-                                body: JSON.stringify({ action: 'delete', id: s.id })
-                              });
-                              const result = await res.json();
-                              if (!result.success) throw new Error(result.error);
-                              await fetchData(localStorage.getItem('adminToken'));
-                            } catch (err) { alert(`Failed: ${err.message}`); }
-                            finally { setSessionSaving(false); }
-                          }}
-                          className="text-xs text-red-500 hover:underline font-medium flex-shrink-0"
-                        >
-                          Remove
-                        </button>
+                        {shownCodes[s.id] && (
+                          <div className="mt-2 pt-2 border-t border-gray-200 flex items-center gap-3">
+                            {s.code
+                              ? <span className="font-mono text-base font-bold text-blue-700 tracking-widest">{s.code}</span>
+                              : <span className="text-xs text-gray-400 italic">Code not available (created before this feature)</span>
+                            }
+                            {s.code && (
+                              <button
+                                type="button"
+                                onClick={() => navigator.clipboard.writeText(s.code)}
+                                className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-2.5 py-1 rounded font-semibold transition-colors"
+                              >
+                                Copy
+                              </button>
+                            )}
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
