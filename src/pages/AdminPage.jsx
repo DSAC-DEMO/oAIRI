@@ -433,9 +433,45 @@ function AdminPage() {
             {/* KPI Cards */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
               <StatCard label="Total Responses" value={total} color="text-blue-600" />
-              <StatCard label="Average Score" value={(stats.avg_score || 0).toFixed(2)} sub="out of 5.00" color="text-green-600" />
-              <StatCard label="Highest Score"  value={(stats.max_score || 0).toFixed(2)} sub="out of 5.00" color="text-emerald-600" />
-              <StatCard label="Lowest Score"   value={(stats.min_score || 0).toFixed(2)} sub="out of 5.00" color="text-orange-600" />
+              <StatCard label="Average Score" value={(stats.avg_score || 0).toFixed(2)} sub="out of 5.00" color="text-blue-700" />
+              <StatCard label="Highest Score"  value={(stats.max_score || 0).toFixed(2)} sub="out of 5.00" color="text-blue-900" />
+
+              {/* Score range slider card */}
+              <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100">
+                <div className="text-3xl font-bold text-blue-600 mb-1 tabular-nums">
+                  {total > 0
+                    ? `${(stats.min_score || 0).toFixed(2)}–${(stats.max_score || 0).toFixed(2)}`
+                    : '—'}
+                </div>
+                <div className="text-sm font-medium text-gray-700">Score Range</div>
+                {total > 0 ? (
+                  <>
+                    <div className="relative w-full h-1.5 bg-gray-100 rounded-full mt-3 mb-1">
+                      {/* Min-to-max fill */}
+                      <div
+                        className="absolute h-1.5 bg-blue-200 rounded-full"
+                        style={{
+                          left:  `${((stats.min_score || 0) / 5) * 100}%`,
+                          width: `${(((stats.max_score || 0) - (stats.min_score || 0)) / 5) * 100}%`,
+                        }}
+                      />
+                      {/* Average dot */}
+                      <div
+                        className="absolute w-3 h-3 rounded-full bg-blue-600 border-2 border-white shadow -top-[3px] -translate-x-1/2"
+                        style={{ left: `${((stats.avg_score || 0) / 5) * 100}%` }}
+                        title={`Average: ${(stats.avg_score || 0).toFixed(2)}`}
+                      />
+                    </div>
+                    <div className="flex justify-between text-xs text-gray-400 mt-1">
+                      <span>0</span>
+                      <span className="text-blue-600 font-medium">avg {(stats.avg_score || 0).toFixed(2)}</span>
+                      <span>5</span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-xs text-gray-400 mt-0.5">No data yet</div>
+                )}
+              </div>
             </div>
 
             {/* Readiness Level Distribution */}
