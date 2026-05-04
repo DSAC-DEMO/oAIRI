@@ -116,6 +116,7 @@ function ResultsPage() {
 
           <p className="text-xl font-bold">{label}</p>
           {persona && <p className="text-sm font-medium opacity-70 mt-1">{persona}</p>}
+          {description && <p className="text-sm opacity-60 mt-3 leading-relaxed max-w-sm mx-auto">{description}</p>}
           <p className="text-xs opacity-40 mt-3 tabular-nums">Raw score: {(overallMean ?? 0).toFixed(2)} / 5.00</p>
         </div>
 

@@ -11,26 +11,25 @@ function getCompetencyIndex(score) {
 }
 
 const DEFAULT_READINESS_LEVELS = [
-  { name: 'Expert Ready',     persona: 'Disciplined' },
-  { name: 'Advanced Ready',   persona: 'Crafter'     },
-  { name: 'Moderately Ready', persona: 'Explorer'    },
-  { name: 'Developing',       persona: 'Learner'     },
-  { name: 'Novice',           persona: 'Observer'    },
-];
-const READINESS_DESCRIPTIONS = [
-  'Demonstrates exceptional decision-making and readiness across all scenarios',
-  'Shows strong readiness with consistent good judgment',
-  'Displays adequate readiness with room for development',
-  'Shows basic readiness but needs significant improvement',
-  'Limited readiness; requires substantial training and support',
+  { name: 'Expert Ready',     persona: 'Disciplined', description: 'Demonstrates exceptional decision-making and readiness across all scenarios' },
+  { name: 'Advanced Ready',   persona: 'Crafter',     description: 'Shows strong readiness with consistent good judgment'                        },
+  { name: 'Moderately Ready', persona: 'Explorer',    description: 'Displays adequate readiness with room for development'                        },
+  { name: 'Developing',       persona: 'Learner',     description: 'Shows basic readiness but needs significant improvement'                      },
+  { name: 'Novice',           persona: 'Observer',    description: 'Limited readiness; requires substantial training and support'                  },
 ];
 const READINESS_COLORS = ['emerald', 'green', 'yellow', 'orange', 'red'];
 
-// levels: array of {name, persona} ordered highest→lowest
+// levels: array of {name, persona, description?} ordered highest→lowest
 function getReadinessLevel(score, levels = DEFAULT_READINESS_LEVELS) {
-  const i = score >= 4 ? 0 : score >= 3 ? 1 : score >= 2 ? 2 : score >= 1 ? 3 : 4;
-  const lvl = levels[i] ?? DEFAULT_READINESS_LEVELS[i];
-  return { label: lvl.name, persona: lvl.persona, description: READINESS_DESCRIPTIONS[i], color: READINESS_COLORS[i] };
+  const i    = score >= 4 ? 0 : score >= 3 ? 1 : score >= 2 ? 2 : score >= 1 ? 3 : 4;
+  const lvl  = levels[i] ?? DEFAULT_READINESS_LEVELS[i];
+  const def  = DEFAULT_READINESS_LEVELS[i];
+  return {
+    label: lvl.name,
+    persona: lvl.persona,
+    description: lvl.description?.trim() || def.description,
+    color: READINESS_COLORS[i],
+  };
 }
 
 async function hashCode(code) {
