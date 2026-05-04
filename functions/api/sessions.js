@@ -80,6 +80,7 @@ export async function onRequestPost(context) {
     if (action === 'delete') {
       const { id } = body;
       if (!id) return new Response(JSON.stringify({ error: 'id required' }), { status: 400, headers: cors });
+      await env.DB.prepare('UPDATE responses SET session_id = NULL WHERE session_id = ?').bind(id).run();
       await env.DB.prepare('DELETE FROM sessions WHERE id = ?').bind(id).run();
       logSecurityEvent('SESSION_DELETED', { ip, id });
       return new Response(JSON.stringify({ success: true }), { status: 200, headers: cors });
