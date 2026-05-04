@@ -69,6 +69,10 @@ function ResultsPage() {
   const pillarEntries = pillarScores ? Object.entries(pillarScores) : [];
   const radarPillars  = pillarEntries.map(([name, { pct }]) => ({ name, pct: pct ?? 0 }));
 
+  // Level position: Expert=5, Advanced=4, Moderate=3, Developing=2, Novice=1
+  const levelIdx      = (overallMean ?? 0) >= 4 ? 0 : (overallMean ?? 0) >= 3 ? 1 : (overallMean ?? 0) >= 2 ? 2 : (overallMean ?? 0) >= 1 ? 3 : 4;
+  const levelPosition = 5 - levelIdx;
+
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 py-10 px-4 sm:px-6 lg:px-8">
@@ -76,15 +80,28 @@ function ResultsPage() {
 
         {/* ── Overall score ─────────────────────────────────────────── */}
         <div className={`rounded-xl shadow-sm border p-8 text-center ${styles.badge}`}>
-          <p className="text-xs font-bold uppercase tracking-widest mb-3 opacity-70">Overall AI Readiness Score</p>
-          <div className="flex items-end justify-center gap-2 mb-2">
-            <span className="text-7xl font-extrabold tabular-nums leading-none">
-              {(overallMean ?? 0).toFixed(2)}
-            </span>
-            <span className="text-2xl font-semibold opacity-60 mb-2">/ 5</span>
+          <p className="text-xs font-bold uppercase tracking-widest mb-5 opacity-60">Overall AI Readiness</p>
+
+          {/* Step dots */}
+          <div className="flex justify-center gap-2.5 mb-5">
+            {[1, 2, 3, 4, 5].map(i => (
+              <div
+                key={i}
+                className={`rounded-full transition-all ${i <= levelPosition ? 'w-4 h-4 opacity-90' : 'w-3 h-3 opacity-20 self-center'}`}
+                style={{ backgroundColor: 'currentColor' }}
+              />
+            ))}
           </div>
-          <p className="text-lg font-bold mt-1">{label}</p>
-          {persona && <p className="text-sm opacity-70 mt-0.5">{persona}</p>}
+
+          {/* Level fraction */}
+          <div className="flex items-baseline justify-center gap-2 mb-3">
+            <span className="text-8xl font-black leading-none tabular-nums">{levelPosition}</span>
+            <span className="text-3xl font-bold opacity-40">/ 5</span>
+          </div>
+
+          <p className="text-xl font-bold">{label}</p>
+          {persona && <p className="text-sm font-medium opacity-70 mt-1">{persona}</p>}
+          <p className="text-xs opacity-40 mt-3 tabular-nums">Raw score: {(overallMean ?? 0).toFixed(2)} / 5.00</p>
         </div>
 
         {/* ── Radar chart ──────────────────────────────────────────── */}
