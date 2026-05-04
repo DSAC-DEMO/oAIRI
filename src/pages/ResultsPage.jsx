@@ -94,20 +94,6 @@ function ResultsPage() {
         <div className={`rounded-xl shadow-sm border p-8 text-center ${styles.badge}`}>
           <p className="text-xs font-bold uppercase tracking-widest mb-5 opacity-60">Overall AI Readiness</p>
 
-          {/* Level name steps — Novice → Expert */}
-          <div className="flex justify-center flex-wrap gap-2 mb-5">
-            {[4, 3, 2, 1, 0].map(i => (
-              <span
-                key={i}
-                className={`px-3 py-1 rounded-full text-xs font-bold border transition-all ${
-                  i === levelIdx ? 'opacity-100 border-current' : 'opacity-20 border-transparent'
-                }`}
-              >
-                {readinessLevels[i]?.name}
-              </span>
-            ))}
-          </div>
-
           {/* Level fraction */}
           <div className="flex items-baseline justify-center gap-2 mb-3">
             <span className="text-8xl font-black leading-none tabular-nums">{levelPosition}</span>
