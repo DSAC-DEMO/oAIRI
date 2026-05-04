@@ -101,7 +101,7 @@ export async function onRequestPost(context) {
       }
       await env.DB.prepare(
         "INSERT INTO settings (key, value) VALUES ('courses', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value"
-      ).bind(JSON.stringify(courses.map(c => ({ name: c.name.trim(), levels: c.levels })))).run();
+      ).bind(JSON.stringify(courses.map(c => ({ name: c.name.trim(), levels: c.levels, description: (c.description ?? '').trim() })))).run();
 
       logSecurityEvent('ADMIN_COURSES_UPDATED', { ip });
       return new Response(JSON.stringify({ success: true }), { status: 200, headers: cors });

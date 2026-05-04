@@ -856,16 +856,6 @@ function AdminPage() {
                             placeholder="Persona"
                           />
                         </div>
-                        <textarea
-                          rows={2}
-                          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                          value={lvl.description ?? ''}
-                          onChange={e => {
-                            const next = workingReadiness.map((l, j) => j === i ? { ...l, description: e.target.value } : l);
-                            setEditReadinessLevels(next);
-                          }}
-                          placeholder="Description shown on the results page…"
-                        />
                       </div>
                     </div>
                   ))}
@@ -1107,41 +1097,53 @@ function AdminPage() {
                     <p className="text-sm text-gray-400">No courses added yet. Click "+ Add Course" below.</p>
                   )}
                   {workingCourses.map((course, ci) => (
-                    <div key={ci} className="flex items-center gap-2 bg-gray-50 rounded-lg px-4 py-3 border border-gray-100">
-                      <input
-                        className="flex-1 border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
-                        value={course.name}
+                    <div key={ci} className="bg-gray-50 rounded-lg px-4 py-3 border border-gray-100 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <input
+                          className="flex-1 border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                          value={course.name}
+                          onChange={e => {
+                            const next = workingCourses.map((c, j) => j === ci ? { ...c, name: e.target.value } : c);
+                            setEditCourses(next);
+                          }}
+                          placeholder="Course name"
+                        />
+                        {[0, 1, 2, 3, 4].map(li => (
+                          <div key={li} className="w-12 flex justify-center flex-shrink-0">
+                            <input
+                              type="checkbox"
+                              checked={course.levels?.includes(li) ?? false}
+                              onChange={e => {
+                                const next = workingCourses.map((c, j) => {
+                                  if (j !== ci) return c;
+                                  const newLevels = e.target.checked
+                                    ? [...(c.levels ?? []), li].sort((a, b) => a - b)
+                                    : (c.levels ?? []).filter(l => l !== li);
+                                  return { ...c, levels: newLevels };
+                                });
+                                setEditCourses(next);
+                              }}
+                              className="w-4 h-4 text-blue-600 rounded accent-blue-600"
+                            />
+                          </div>
+                        ))}
+                        <button
+                          type="button"
+                          onClick={() => setEditCourses(workingCourses.filter((_, j) => j !== ci))}
+                          className="w-6 text-red-400 hover:text-red-600 text-xl leading-none flex-shrink-0 text-center"
+                          title="Remove course"
+                        >×</button>
+                      </div>
+                      <textarea
+                        rows={2}
+                        className="w-full border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white resize-none"
+                        value={course.description ?? ''}
                         onChange={e => {
-                          const next = workingCourses.map((c, j) => j === ci ? { ...c, name: e.target.value } : c);
+                          const next = workingCourses.map((c, j) => j === ci ? { ...c, description: e.target.value } : c);
                           setEditCourses(next);
                         }}
-                        placeholder="Course name"
+                        placeholder="Description shown on the results page…"
                       />
-                      {[0, 1, 2, 3, 4].map(li => (
-                        <div key={li} className="w-12 flex justify-center flex-shrink-0">
-                          <input
-                            type="checkbox"
-                            checked={course.levels?.includes(li) ?? false}
-                            onChange={e => {
-                              const next = workingCourses.map((c, j) => {
-                                if (j !== ci) return c;
-                                const newLevels = e.target.checked
-                                  ? [...(c.levels ?? []), li].sort((a, b) => a - b)
-                                  : (c.levels ?? []).filter(l => l !== li);
-                                return { ...c, levels: newLevels };
-                              });
-                              setEditCourses(next);
-                            }}
-                            className="w-4 h-4 text-blue-600 rounded accent-blue-600"
-                          />
-                        </div>
-                      ))}
-                      <button
-                        type="button"
-                        onClick={() => setEditCourses(workingCourses.filter((_, j) => j !== ci))}
-                        className="w-6 text-red-400 hover:text-red-600 text-xl leading-none flex-shrink-0 text-center"
-                        title="Remove course"
-                      >×</button>
                     </div>
                   ))}
                 </div>
@@ -1150,7 +1152,7 @@ function AdminPage() {
                 <div className="flex items-center justify-between border-t border-gray-100 pt-4">
                   <button
                     type="button"
-                    onClick={() => setEditCourses([...workingCourses, { name: '', levels: [] }])}
+                    onClick={() => setEditCourses([...workingCourses, { name: '', levels: [], description: '' }])}
                     className="text-sm text-blue-600 hover:underline font-semibold"
                   >
                     + Add Course

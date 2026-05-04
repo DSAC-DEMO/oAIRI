@@ -102,7 +102,6 @@ function ResultsPage() {
 
           <p className="text-xl font-bold">{label}</p>
           {persona && <p className="text-sm font-medium opacity-70 mt-1">{persona}</p>}
-          {description && <p className="text-sm opacity-60 mt-3 leading-relaxed max-w-sm mx-auto">{description}</p>}
           <p className="text-xs opacity-40 mt-3 tabular-nums">Raw score: {(overallMean ?? 0).toFixed(2)} / 5.00</p>
         </div>
 
@@ -158,7 +157,10 @@ function ResultsPage() {
                 {relevant.map((course, i) => (
                   <li key={i} className="flex gap-3 items-start">
                     <span className={`mt-0.5 font-bold flex-shrink-0 ${styles.icon}`}>→</span>
-                    <span className="text-gray-800 text-sm font-medium">{course.name}</span>
+                    <div>
+                      <p className="text-gray-800 text-sm font-medium">{course.name}</p>
+                      {course.description && <p className="text-gray-500 text-sm mt-0.5 leading-relaxed">{course.description}</p>}
+                    </div>
                   </li>
                 ))}
               </ul>
