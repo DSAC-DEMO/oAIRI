@@ -833,7 +833,7 @@ function AdminPage() {
                   {workingReadiness.map((lvl, i) => (
                     <div key={i} className="flex gap-3">
                       <span className={`w-8 text-xs font-semibold text-center flex-shrink-0 mt-2.5 ${READINESS_LEVEL_STYLES[i].text}`}>
-                        {['≥4', '≥3', '≥2', '≥1', '<1'][i]}
+                        {4 - i}
                       </span>
                       <div className="flex-1 space-y-2">
                         <div className="grid grid-cols-2 gap-2">
@@ -1083,7 +1083,7 @@ function AdminPage() {
                     {workingReadiness.map((lvl, i) => (
                       <div key={i} className="w-12 text-center flex-shrink-0">
                         <span className={`text-xs font-semibold ${READINESS_LEVEL_STYLES[i].text}`} title={lvl.name}>
-                          {lvl.name.split(' ')[0].slice(0, 5)}
+                          {4 - i}
                         </span>
                       </div>
                     ))}
