@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 
 // ── Plotly dark chart config ──────────────────────────────────────────────────
 const DARK = {
@@ -23,9 +23,13 @@ function KpiCard({ label, value, sub, accent = '#3b82f6' }) {
   );
 }
 
-// ── Chart wrapper: renders a Plotly chart into a div ref ─────────────────────
-function PlotlyChart({ traces, layout, onReady }) {
-  const ref = useRef(null);
+// ── Chart wrapper ─────────────────────────────────────────────────────────────
+// onClickPoint receives the raw Plotly point object; stored in a ref so the
+// effect dependency list stays stable and doesn't cause flicker.
+function PlotlyChart({ traces, layout, onReady, onClickPoint }) {
+  const ref       = useRef(null);
+  const clickRef  = useRef(onClickPoint);
+  useEffect(() => { clickRef.current = onClickPoint; }, [onClickPoint]);
 
   useEffect(() => {
     if (!ref.current) return;
@@ -34,12 +38,23 @@ function PlotlyChart({ traces, layout, onReady }) {
       if (cancelled || !ref.current) return;
       const merged = { ...DARK, ...layout, autosize: true };
       Plotly.react(ref.current, traces, merged, CFG);
+      // re-bind click listener each time traces/layout change
+      ref.current.removeAllListeners?.('plotly_click');
+      ref.current.on('plotly_click', (evt) => {
+        if (evt.points?.length > 0) clickRef.current?.(evt.points[0]);
+      });
       if (onReady) onReady();
     });
     return () => { cancelled = true; };
-  }, [traces, layout]);
+  }, [traces, layout]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  return <div ref={ref} className="w-full h-full" />;
+  return (
+    <div
+      ref={ref}
+      className="w-full h-full"
+      style={{ cursor: onClickPoint ? 'pointer' : 'default' }}
+    />
+  );
 }
 
 // ── Login screen ──────────────────────────────────────────────────────────────
@@ -114,10 +129,34 @@ function LoginScreen({ onLogin }) {
 function Dashboard({ data, onRefresh, onLogout, refreshing }) {
   const { session, responses, questions, readinessLevels } = data;
 
-  // ── Compute aggregates ────────────────────────────────────────────────────
-  const { pillarList, overallAvg, readinessCounts, maxScore, minScore } = useMemo(() => {
-    const pillarMap = {};
+  // null = show all; 0-4 = filter to that readiness level index
+  const [selectedLevel, setSelectedLevel] = useState(null);
+
+  // Always-full distribution counts (used in the bar chart so all bars stay visible)
+  const readinessCounts = useMemo(() => {
+    const counts = [0, 0, 0, 0, 0];
     for (const r of responses) {
+      const s = r.score_pct || 0;
+      counts[s >= 4 ? 0 : s >= 3 ? 1 : s >= 2 ? 2 : s >= 1 ? 3 : 4]++;
+    }
+    return counts;
+  }, [responses]);
+
+  // Responses filtered by the selected level
+  const filteredResponses = useMemo(() =>
+    selectedLevel === null
+      ? responses
+      : responses.filter(r => {
+          const s = r.score_pct || 0;
+          return (s >= 4 ? 0 : s >= 3 ? 1 : s >= 2 ? 2 : s >= 1 ? 3 : 4) === selectedLevel;
+        }),
+    [responses, selectedLevel]
+  );
+
+  // Aggregates from filtered responses
+  const { pillarList, overallAvg, maxScore, minScore } = useMemo(() => {
+    const pillarMap = {};
+    for (const r of filteredResponses) {
       let ans = {};
       try { ans = JSON.parse(r.answers_json); } catch {}
       for (const q of questions) {
@@ -128,45 +167,48 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
         pillarMap[q.category].count += 1;
       }
     }
-
     const pillarList = Object.entries(pillarMap).map(([name, { sum, count }]) => ({
       name,
       avg: count > 0 ? Math.round((sum / count) * 100) / 100 : 0,
     }));
-
-    const scores = responses.map(r => r.score_pct || 0);
+    const scores = filteredResponses.map(r => r.score_pct || 0);
     const overallAvg = scores.length ? scores.reduce((a, b) => a + b, 0) / scores.length : 0;
-    const maxScore = scores.length ? Math.max(...scores) : 0;
-    const minScore = scores.length ? Math.min(...scores) : 0;
+    return {
+      pillarList,
+      overallAvg,
+      maxScore: scores.length ? Math.max(...scores) : 0,
+      minScore: scores.length ? Math.min(...scores) : 0,
+    };
+  }, [filteredResponses, questions]);
 
-    const readinessCounts = [0, 0, 0, 0, 0];
-    for (const r of responses) {
-      const s = r.score_pct || 0;
-      const i = s >= 4 ? 0 : s >= 3 ? 1 : s >= 2 ? 2 : s >= 1 ? 3 : 4;
-      readinessCounts[i]++;
-    }
+  const total         = responses.length;
+  const filteredTotal = filteredResponses.length;
 
-    return { pillarList, overallAvg, readinessCounts, maxScore, minScore };
-  }, [responses, questions]);
+  const levelIdx  = overallAvg >= 4 ? 0 : overallAvg >= 3 ? 1 : overallAvg >= 2 ? 2 : overallAvg >= 1 ? 3 : 4;
+  const levelName = (readinessLevels[levelIdx]?.name ?? readinessLevels[levelIdx]) || '—';
 
-  const total = responses.length;
+  // Click on a distribution bar → toggle filter
+  const handleDistClick = useCallback((point) => {
+    setSelectedLevel(prev => prev === point.pointIndex ? null : point.pointIndex);
+  }, []);
 
-  // ── Radar chart data ──────────────────────────────────────────────────────
+  // ── Radar chart ───────────────────────────────────────────────────────────
   const radarTraces = useMemo(() => {
     if (pillarList.length < 3) return [];
     const cats = [...pillarList.map(p => p.name), pillarList[0].name];
     const vals = [...pillarList.map(p => p.avg), pillarList[0].avg];
+    const color = selectedLevel !== null ? LEVEL_COLORS[selectedLevel] : '#3b82f6';
     return [{
       type: 'scatterpolar',
       r: vals,
       theta: cats,
       fill: 'toself',
-      fillcolor: 'rgba(59,130,246,0.2)',
-      line: { color: '#3b82f6', width: 2 },
-      marker: { color: '#3b82f6', size: 5 },
+      fillcolor: `${color}33`,
+      line: { color, width: 2 },
+      marker: { color, size: 5 },
       name: 'Avg Score',
     }];
-  }, [pillarList]);
+  }, [pillarList, selectedLevel]);
 
   const radarLayout = useMemo(() => ({
     polar: {
@@ -182,16 +224,25 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
     margin: { t: 20, b: 20, l: 40, r: 40 },
   }), []);
 
-  // ── Level distribution bar data ───────────────────────────────────────────
+  // ── Distribution bar (always shows all, highlights selected) ─────────────
   const distTraces = useMemo(() => [{
     type: 'bar',
     x: readinessLevels.map(l => l.name ?? l),
     y: readinessCounts,
-    marker: { color: LEVEL_COLORS },
+    marker: {
+      color: LEVEL_COLORS.map((c, i) =>
+        selectedLevel === null || i === selectedLevel ? c : `${c}44`
+      ),
+      line: {
+        width: LEVEL_COLORS.map((_, i) => i === selectedLevel ? 2 : 0),
+        color: LEVEL_COLORS.map((c, i) => i === selectedLevel ? '#ffffff55' : 'transparent'),
+      },
+    },
     text: readinessCounts.map(String),
     textposition: 'outside',
     cliponaxis: false,
-  }], [readinessLevels, readinessCounts]);
+    hovertemplate: '%{x}: %{y}<extra></extra>',
+  }], [readinessLevels, readinessCounts, selectedLevel]);
 
   const distLayout = useMemo(() => ({
     xaxis: { tickfont: { size: 9 }, gridcolor: 'transparent', linecolor: '#374151', tickangle: -20 },
@@ -200,8 +251,10 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
     margin: { t: 24, b: 70, l: 36, r: 10 },
   }), []);
 
-  // ── Pillar breakdown horizontal bar ───────────────────────────────────────
+  // ── Pillar breakdown ──────────────────────────────────────────────────────
   const sorted = useMemo(() => [...pillarList].sort((a, b) => a.avg - b.avg), [pillarList]);
+
+  const barColor = selectedLevel !== null ? LEVEL_COLORS[selectedLevel] : null;
 
   const pillarTraces = useMemo(() => [{
     type: 'bar',
@@ -213,11 +266,12 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
     cliponaxis: false,
     marker: {
       color: sorted.map(p => {
+        if (barColor) return barColor;
         const pct = (p.avg / 5) * 100;
         return pct >= 70 ? '#22c55e' : pct >= 50 ? '#eab308' : '#ef4444';
       }),
     },
-  }], [sorted]);
+  }], [sorted, barColor]);
 
   const pillarLayout = useMemo(() => ({
     xaxis: { range: [0, 5.8], gridcolor: '#374151', linecolor: '#374151', tickfont: { size: 10 } },
@@ -226,8 +280,10 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
     margin: { t: 10, b: 36, l: 10, r: 48 },
   }), []);
 
-  const levelIdx = overallAvg >= 4 ? 0 : overallAvg >= 3 ? 1 : overallAvg >= 2 ? 2 : overallAvg >= 1 ? 3 : 4;
-  const levelName = (readinessLevels[levelIdx]?.name ?? readinessLevels[levelIdx]) || '—';
+  const accentColor = selectedLevel !== null ? LEVEL_COLORS[selectedLevel] : '#3b82f6';
+  const selectedLevelName = selectedLevel !== null
+    ? (readinessLevels[selectedLevel]?.name ?? readinessLevels[selectedLevel])
+    : null;
 
   return (
     <div className="h-screen bg-gray-950 text-gray-100 flex flex-col overflow-hidden">
@@ -244,6 +300,18 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
             <h1 className="text-sm font-bold text-white leading-tight">{session.name}</h1>
             <p className="text-xs text-gray-400">AI Readiness — Company Report</p>
           </div>
+          {/* Active filter badge */}
+          {selectedLevelName && (
+            <div
+              className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border cursor-pointer"
+              style={{ borderColor: accentColor, color: accentColor, backgroundColor: `${accentColor}22` }}
+              onClick={() => setSelectedLevel(null)}
+              title="Click to clear filter"
+            >
+              {selectedLevelName}
+              <span className="opacity-60 text-sm leading-none">×</span>
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-3">
           <span className="text-xs text-gray-500">
@@ -277,9 +345,14 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
       ) : (
         <div className="flex-1 grid grid-cols-3 grid-rows-2 gap-3 p-3 min-h-0">
 
-          {/* Radar — spans both rows */}
+          {/* Radar — spans both rows, updates with filter */}
           <div className="bg-gray-800 border border-gray-700 rounded-xl p-4 row-span-2 flex flex-col min-h-0">
             <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 flex-shrink-0">Competency Profile</p>
+            {selectedLevel !== null && (
+              <p className="text-xs mb-1 flex-shrink-0" style={{ color: accentColor }}>
+                {selectedLevelName} · {filteredTotal} respondent{filteredTotal !== 1 ? 's' : ''}
+              </p>
+            )}
             <div className="flex-1 min-h-0">
               {radarTraces.length > 0
                 ? <PlotlyChart traces={radarTraces} layout={radarLayout} />
@@ -288,27 +361,38 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
             </div>
           </div>
 
-          {/* Level distribution */}
+          {/* Level distribution — click to filter */}
           <div className="bg-gray-800 border border-gray-700 rounded-xl p-4 flex flex-col min-h-0">
-            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 flex-shrink-0">Readiness Distribution</p>
+            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 flex-shrink-0">
+              Readiness Distribution
+              {selectedLevel === null && <span className="text-gray-600 font-normal ml-1">(click a bar to filter)</span>}
+            </p>
             <div className="flex-1 min-h-0">
-              <PlotlyChart traces={distTraces} layout={distLayout} />
+              <PlotlyChart traces={distTraces} layout={distLayout} onClickPoint={handleDistClick} />
             </div>
           </div>
 
-          {/* KPI cards */}
+          {/* KPI cards — reflect filtered data */}
           <div className="grid grid-rows-4 gap-2 min-h-0">
-            <KpiCard label="Total Responses" value={total} accent="#3b82f6" />
+            <KpiCard
+              label={selectedLevel !== null ? `${selectedLevelName} Responses` : 'Total Responses'}
+              value={filteredTotal}
+              sub={selectedLevel !== null ? `of ${total} total` : undefined}
+              accent={accentColor}
+            />
             <KpiCard label="Average Score" value={overallAvg.toFixed(2)} sub="out of 5.00" accent="#22c55e" />
             <KpiCard label="Overall Level" value={levelName} accent={LEVEL_COLORS[levelIdx]} />
-            <KpiCard label="Score Range" value={`${minScore.toFixed(1)} – ${maxScore.toFixed(1)}`} sub="min – max" accent="#a78bfa" />
+            <KpiCard label="Score Range" value={filteredTotal > 0 ? `${minScore.toFixed(1)} – ${maxScore.toFixed(1)}` : '—'} sub="min – max" accent="#a78bfa" />
           </div>
 
-          {/* Pillar breakdown — spans cols 2-3 */}
+          {/* Pillar breakdown — spans cols 2-3, updates with filter */}
           <div className="bg-gray-800 border border-gray-700 rounded-xl p-4 col-span-2 flex flex-col min-h-0">
             <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 flex-shrink-0">Score by Pillar</p>
             <div className="flex-1 min-h-0">
-              <PlotlyChart traces={pillarTraces} layout={pillarLayout} />
+              {filteredTotal > 0
+                ? <PlotlyChart traces={pillarTraces} layout={pillarLayout} />
+                : <p className="text-xs text-gray-500 text-center mt-4">No responses for this level</p>
+              }
             </div>
           </div>
 
@@ -342,8 +426,7 @@ export default function DashboardPage() {
     } catch {}
   };
 
-  const handleLogin = (data) => { setDashData(data); };
-
+  const handleLogin  = (data) => { setDashData(data); };
   const handleRefresh = async () => {
     const code = sessionStorage.getItem('dashboardCode');
     if (!code) return;
@@ -351,13 +434,11 @@ export default function DashboardPage() {
     await fetchData(code);
     setRefreshing(false);
   };
-
   const handleLogout = () => {
     sessionStorage.removeItem('dashboardCode');
     setDashData(null);
   };
 
   if (!dashData) return <LoginScreen onLogin={handleLogin} />;
-
   return <Dashboard data={dashData} onRefresh={handleRefresh} onLogout={handleLogout} refreshing={refreshing} />;
 }
