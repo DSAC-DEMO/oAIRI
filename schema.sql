@@ -32,6 +32,7 @@ INSERT INTO settings (key, value) VALUES
 CREATE TABLE sessions (
   id         INTEGER PRIMARY KEY AUTOINCREMENT,
   name       TEXT NOT NULL,
+  sector     TEXT NOT NULL DEFAULT '',
   code_hash  TEXT NOT NULL UNIQUE,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );

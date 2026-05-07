@@ -2,6 +2,19 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import RadarChart from '../components/RadarChart';
 
+const SECTORS = [
+  'Maritime',
+  'Technology',
+  'Healthcare',
+  'Education',
+  'Finance & Banking',
+  'Manufacturing',
+  'Logistics',
+  'Government & Public Sector',
+  'Retail',
+  'Construction',
+];
+
 const OPTION_LEVEL_COLORS = [
   'bg-slate-100 text-slate-600',   // 0: Unaware  (lightest)
   'bg-blue-100 text-blue-600',     // 1: Aware
@@ -245,6 +258,10 @@ function AdminPage() {
   const [levelFilter, setLevelFilter] = useState(null);
   // Company code visibility state { [id]: boolean }
   const [shownCodes, setShownCodes] = useState({});
+  // New session sector
+  const [newSessionSector, setNewSessionSector] = useState('');
+  // Sector slicer filter (null = All)
+  const [sectorFilter, setSectorFilter] = useState(null);
 
   useEffect(() => {
     const token = localStorage.getItem('adminToken');
@@ -351,9 +368,25 @@ function AdminPage() {
   } = data;
   const total = stats.total_responses || 0;
 
-  const filteredResponses = levelFilter === null
+  // session → sector lookup
+  const sessionSectorMap = {};
+  for (const s of sessionsData) sessionSectorMap[s.id] = s.sector || '';
+
+  // unique sectors that have at least one response
+  const sectorResponseCounts = {};
+  for (const r of responses) {
+    const sec = sessionSectorMap[r.session_id] || '';
+    if (sec) sectorResponseCounts[sec] = (sectorResponseCounts[sec] || 0) + 1;
+  }
+  const availableSectors = Object.keys(sectorResponseCounts).sort();
+
+  const sectorFilteredResponses = sectorFilter === null
     ? responses
-    : responses.filter(r => {
+    : responses.filter(r => (sessionSectorMap[r.session_id] || '') === sectorFilter);
+
+  const filteredResponses = levelFilter === null
+    ? sectorFilteredResponses
+    : sectorFilteredResponses.filter(r => {
         const idx = r.score_pct >= 4 ? 0 : r.score_pct >= 3 ? 1 : r.score_pct >= 2 ? 2 : r.score_pct >= 1 ? 3 : 4;
         return idx === levelFilter;
       });
@@ -442,10 +475,42 @@ function AdminPage() {
         {/* ── Analytics Tab ─────────────────────────────────────────────── */}
         {activeTab === 'analytics' && (
           <>
-            {/* Slicer */}
+            {/* Sector slicer */}
+            {availableSectors.length > 0 && (
+              <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 mb-3">
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Filter by Sector</p>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={() => setSectorFilter(null)}
+                    className={`px-4 py-1.5 rounded-full text-sm font-semibold border transition-colors ${
+                      sectorFilter === null
+                        ? 'bg-blue-600 text-white border-blue-600'
+                        : 'bg-white text-gray-500 border-gray-200 hover:border-blue-400 hover:text-blue-500'
+                    }`}
+                  >
+                    All ({responses.length})
+                  </button>
+                  {availableSectors.map(sector => (
+                    <button
+                      key={sector}
+                      onClick={() => setSectorFilter(sectorFilter === sector ? null : sector)}
+                      className={`px-4 py-1.5 rounded-full text-sm font-semibold border transition-colors ${
+                        sectorFilter === sector
+                          ? 'bg-blue-600 text-white border-blue-600'
+                          : 'bg-white text-gray-500 border-gray-200 hover:border-blue-400 hover:text-blue-500'
+                      }`}
+                    >
+                      {sector} ({sectorResponseCounts[sector]})
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Readiness level slicer */}
             {(() => {
               const levelCounts = readinessLevels.map((_, i) =>
-                responses.filter(r => {
+                sectorFilteredResponses.filter(r => {
                   const idx = r.score_pct >= 4 ? 0 : r.score_pct >= 3 ? 1 : r.score_pct >= 2 ? 2 : r.score_pct >= 1 ? 3 : 4;
                   return idx === i;
                 }).length
@@ -462,7 +527,7 @@ function AdminPage() {
                           : 'bg-white text-gray-500 border-gray-200 hover:border-blue-400 hover:text-blue-500'
                       }`}
                     >
-                      All ({responses.length})
+                      All ({sectorFilteredResponses.length})
                     </button>
                     {readinessLevels.map((lvl, i) => (
                       <button
@@ -628,47 +693,42 @@ function AdminPage() {
               </div>
             </div>
 
-            {/* Per-department radar charts */}
+            {/* Sector competency radar charts */}
             {(() => {
-              // Build per-dept pillar averages from raw response data (SP staff only)
-              const deptAccum = {}; // { dept: { pillarName: { sum, count, maxSum, minSum } } }
-
+              const sectorAccum = {};
               for (const r of filteredResponses) {
-                if (!r.is_sp_staff || !r.department) continue;
+                const sector = sessionSectorMap[r.session_id] || '';
+                if (!sector) continue;
                 let ans = {};
                 try { ans = JSON.parse(r.answers_json); } catch {}
-
-                if (!deptAccum[r.department]) deptAccum[r.department] = {};
-
+                if (!sectorAccum[sector]) sectorAccum[sector] = {};
                 for (const q of questions) {
                   const score = parseFloat(ans[q.id]);
                   if (isNaN(score)) continue;
-                  if (!deptAccum[r.department][q.category])
-                    deptAccum[r.department][q.category] = { sum: 0, count: 0 };
-                  deptAccum[r.department][q.category].sum   += score;
-                  deptAccum[r.department][q.category].count += 1;
+                  if (!sectorAccum[sector][q.category])
+                    sectorAccum[sector][q.category] = { sum: 0, count: 0 };
+                  sectorAccum[sector][q.category].sum   += score;
+                  sectorAccum[sector][q.category].count += 1;
                 }
               }
-
-              const deptEntries = Object.entries(deptAccum);
-              if (deptEntries.length === 0) return null;
-
+              const sectorEntries = Object.entries(sectorAccum);
+              if (sectorEntries.length === 0) return null;
               return (
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 mb-8">
-                  <h2 className="text-lg font-bold text-gray-900 mb-1">Department Competency Profiles</h2>
-                  <p className="text-xs text-gray-500 mb-6">Average pillar scores per SP school/department (SP staff only)</p>
+                  <h2 className="text-lg font-bold text-gray-900 mb-1">Sector Competency Profiles</h2>
+                  <p className="text-xs text-gray-500 mb-6">Average pillar scores per industry sector</p>
                   <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6">
-                    {deptEntries.map(([dept, pillarsRaw]) => {
+                    {sectorEntries.map(([sector, pillarsRaw]) => {
                       const pillars = Object.entries(pillarsRaw).map(([name, { sum, count }]) => ({
                         name,
                         pct: Math.round(((sum / count) / 5) * 100),
                       }));
                       const strongest = [...pillars].sort((a, b) => b.pct - a.pct)[0];
                       const weakest   = [...pillars].sort((a, b) => a.pct - b.pct)[0];
-                      const responseCount = filteredResponses.filter(r => r.is_sp_staff && r.department === dept).length;
+                      const responseCount = filteredResponses.filter(r => (sessionSectorMap[r.session_id] || '') === sector).length;
                       return (
-                        <div key={dept} className="flex flex-col items-center">
-                          <p className="text-sm font-bold text-gray-800 mb-0.5">{dept}</p>
+                        <div key={sector} className="flex flex-col items-center">
+                          <p className="text-sm font-bold text-gray-800 mb-0.5 text-center">{sector}</p>
                           <p className="text-xs text-gray-400 mb-2">{responseCount} response{responseCount !== 1 ? 's' : ''}</p>
                           <RadarChart pillars={pillars} size={180} />
                           <div className="mt-2 text-center space-y-0.5">
@@ -973,6 +1033,7 @@ function AdminPage() {
                           <div>
                             <p className="text-sm font-semibold text-gray-800">{s.name}</p>
                             <p className="text-xs text-gray-400 mt-0.5">
+                              {s.sector && <span className="font-medium text-blue-600 mr-1">{s.sector} ·</span>}
                               {s.response_count} response{s.response_count !== 1 ? 's' : ''} · Added {new Date(s.created_at).toLocaleDateString()}
                             </p>
                           </div>
@@ -1031,41 +1092,53 @@ function AdminPage() {
                 )}
 
                 {/* Add company */}
-                <div className="border-t border-gray-100 pt-4 flex gap-2">
-                  <input
-                    className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    value={newSessionName}
-                    onChange={e => setNewSessionName(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && newSessionName.trim() && !sessionSaving && document.getElementById('btn-gen-code').click()}
-                    placeholder="Company / organisation name"
-                  />
-                  <button
-                    id="btn-gen-code"
-                    type="button"
-                    disabled={!newSessionName.trim() || sessionSaving}
-                    onClick={async () => {
-                      setSessionSaving(true);
-                      setGeneratedCode(null);
-                      try {
-                        const res = await fetch('/api/sessions', {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('adminToken')}` },
-                          body: JSON.stringify({ action: 'create', name: newSessionName.trim() })
-                        });
-                        const result = await res.json();
-                        if (!result.success) throw new Error(result.error);
-                        setGeneratedCode(result.code);
-                        setNewSessionName('');
-                        await fetchData(localStorage.getItem('adminToken'));
-                      } catch (err) { alert(`Failed: ${err.message}`); }
-                      finally { setSessionSaving(false); }
-                    }}
-                    className={`px-4 py-2 rounded-lg text-sm font-semibold text-white transition-colors flex-shrink-0 ${
-                      newSessionName.trim() && !sessionSaving ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-300 cursor-not-allowed'
-                    }`}
-                  >
-                    {sessionSaving ? 'Generating…' : 'Generate Code'}
-                  </button>
+                <div className="border-t border-gray-100 pt-4 space-y-2">
+                  <div className="flex gap-2">
+                    <input
+                      className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      value={newSessionName}
+                      onChange={e => setNewSessionName(e.target.value)}
+                      placeholder="Company / organisation name"
+                    />
+                    <select
+                      className="w-52 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white flex-shrink-0"
+                      value={newSessionSector}
+                      onChange={e => setNewSessionSector(e.target.value)}
+                    >
+                      <option value="">Select sector…</option>
+                      {SECTORS.map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                  </div>
+                  <div className="flex justify-end">
+                    <button
+                      id="btn-gen-code"
+                      type="button"
+                      disabled={!newSessionName.trim() || sessionSaving}
+                      onClick={async () => {
+                        setSessionSaving(true);
+                        setGeneratedCode(null);
+                        try {
+                          const res = await fetch('/api/sessions', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('adminToken')}` },
+                            body: JSON.stringify({ action: 'create', name: newSessionName.trim(), sector: newSessionSector })
+                          });
+                          const result = await res.json();
+                          if (!result.success) throw new Error(result.error);
+                          setGeneratedCode(result.code);
+                          setNewSessionName('');
+                          setNewSessionSector('');
+                          await fetchData(localStorage.getItem('adminToken'));
+                        } catch (err) { alert(`Failed: ${err.message}`); }
+                        finally { setSessionSaving(false); }
+                      }}
+                      className={`px-4 py-2 rounded-lg text-sm font-semibold text-white transition-colors flex-shrink-0 ${
+                        newSessionName.trim() && !sessionSaving ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-300 cursor-not-allowed'
+                      }`}
+                    >
+                      {sessionSaving ? 'Generating…' : 'Generate Code'}
+                    </button>
+                  </div>
                 </div>
               </div>
 
