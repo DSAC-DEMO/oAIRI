@@ -12,6 +12,15 @@ const CFG = { displayModeBar: false, responsive: true };
 
 const LEVEL_COLORS = ['#10b981', '#22c55e', '#eab308', '#f97316', '#ef4444'];
 
+// Matches admin analytics blue palette (index 0 = Expert … 4 = Novice)
+const READINESS_LEVEL_STYLES = [
+  { accent: '#1e3a8a', label: 'text-blue-900' }, // Expert
+  { accent: '#1d4ed8', label: 'text-blue-700' }, // Advanced
+  { accent: '#2563eb', label: 'text-blue-600' }, // Moderate
+  { accent: '#3b82f6', label: 'text-blue-500' }, // Developing
+  { accent: '#94a3b8', label: 'text-slate-400' }, // Novice
+];
+
 // ── KPI card ──────────────────────────────────────────────────────────────────
 function KpiCard({ label, value, sub, accent = '#3b82f6' }) {
   return (
@@ -362,15 +371,24 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
           </div>
 
           {/* KPIs */}
-          <div className="grid grid-rows-4 gap-2 min-h-0">
+          <div className="grid grid-rows-3 gap-2 min-h-0">
             <KpiCard
               label={selectedLevel !== null ? `${selectedLevelName} Responses` : 'Total Responses'}
               value={filteredTotal}
               sub={selectedLevel !== null ? `of ${total} total` : undefined}
               accent={accentColor}
             />
-            <KpiCard label="Average Score" value={overallAvg.toFixed(2)} sub="out of 5.00" accent="#16a34a" />
-            <KpiCard label="Overall Level" value={levelName} accent={LEVEL_COLORS[levelIdx]} />
+            {/* Combined average score + level card */}
+            <div className="bg-white rounded-xl p-4 flex flex-col justify-center border border-gray-200 shadow-sm">
+              <div className="text-2xl font-bold tabular-nums" style={{ color: READINESS_LEVEL_STYLES[levelIdx].accent }}>
+                {overallAvg.toFixed(2)}
+                <span className="text-sm font-semibold ml-2" style={{ color: READINESS_LEVEL_STYLES[levelIdx].accent }}>
+                  ({levelName})
+                </span>
+              </div>
+              <div className="text-xs font-semibold text-gray-600 mt-0.5">Average Score</div>
+              <div className="text-xs text-gray-400 mt-0.5">out of 5.00</div>
+            </div>
             <KpiCard label="Score Range" value={filteredTotal > 0 ? `${minScore.toFixed(1)} – ${maxScore.toFixed(1)}` : '—'} sub="min – max" accent="#7c3aed" />
           </div>
 
