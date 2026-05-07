@@ -10,15 +10,15 @@ const LIGHT = {
 
 const CFG = { displayModeBar: false, responsive: true };
 
-const LEVEL_COLORS = ['#10b981', '#22c55e', '#eab308', '#f97316', '#ef4444'];
+// Admin analytics blue palette — index 0 = Expert (darkest) … 4 = Novice (lightest)
+const LEVEL_COLORS = ['#1e40af', '#2563eb', '#60a5fa', '#93c5fd', '#bfdbfe'];
 
-// Matches admin analytics blue palette (index 0 = Expert … 4 = Novice)
 const READINESS_LEVEL_STYLES = [
-  { accent: '#1e3a8a', label: 'text-blue-900' }, // Expert
-  { accent: '#1d4ed8', label: 'text-blue-700' }, // Advanced
-  { accent: '#2563eb', label: 'text-blue-600' }, // Moderate
-  { accent: '#3b82f6', label: 'text-blue-500' }, // Developing
-  { accent: '#94a3b8', label: 'text-slate-400' }, // Novice
+  { accent: '#1e40af' }, // Expert   — blue-800
+  { accent: '#2563eb' }, // Advanced — blue-600
+  { accent: '#60a5fa' }, // Moderate — blue-400
+  { accent: '#93c5fd' }, // Developing — blue-300
+  { accent: '#bfdbfe' }, // Novice   — blue-200
 ];
 
 // ── KPI card ──────────────────────────────────────────────────────────────────
@@ -216,7 +216,7 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
     y: readinessCounts,
     marker: {
       color: LEVEL_COLORS.map((c, i) => selectedLevel === null || i === selectedLevel ? c : `${c}44`),
-      line: { width: LEVEL_COLORS.map((_, i) => i === selectedLevel ? 2 : 0), color: LEVEL_COLORS.map((c, i) => i === selectedLevel ? `${c}88` : 'transparent') },
+      line: { width: LEVEL_COLORS.map((_, i) => i === selectedLevel ? 2 : 0), color: LEVEL_COLORS.map((_, i) => i === selectedLevel ? '#1e3a8a' : 'transparent') },
     },
     text: readinessCounts.map(String),
     textposition: 'outside',
@@ -240,7 +240,7 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
     y: sorted.map(p => p.name),
     text: sorted.map(p => p.avg.toFixed(2)),
     textposition: 'outside', cliponaxis: false,
-    marker: { color: sorted.map(p => { if (barColor) return barColor; const pct = (p.avg / 5) * 100; return pct >= 70 ? '#22c55e' : pct >= 50 ? '#eab308' : '#ef4444'; }) },
+    marker: { color: sorted.map(p => { if (barColor) return barColor; const pct = (p.avg / 5) * 100; return pct >= 70 ? '#1e40af' : pct >= 50 ? '#60a5fa' : '#93c5fd'; }) },
   }], [sorted, barColor]);
 
   const pillarLayout = useMemo(() => ({
@@ -389,7 +389,7 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
               <div className="text-xs font-semibold text-gray-600 mt-0.5">Average Score</div>
               <div className="text-xs text-gray-400 mt-0.5">out of 5.00</div>
             </div>
-            <KpiCard label="Score Range" value={filteredTotal > 0 ? `${minScore.toFixed(1)} – ${maxScore.toFixed(1)}` : '—'} sub="min – max" accent="#7c3aed" />
+            <KpiCard label="Score Range" value={filteredTotal > 0 ? `${minScore.toFixed(1)} – ${maxScore.toFixed(1)}` : '—'} sub="min – max" accent="#2563eb" />
           </div>
 
           {/* Pillar breakdown */}
