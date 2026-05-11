@@ -195,7 +195,8 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
     const vals  = [...pillarList.map(p => p.avg), pillarList[0].avg];
     const color = selectedLevel !== null ? LEVEL_COLORS[selectedLevel] : '#3b82f6';
     return [{
-      type: 'scatterpolar', r: vals, theta: cats, fill: 'toself',
+      type: 'scatterpolar', r: vals, theta: cats, fill: 'toself', mode: 'lines+markers+text',
+      text: vals.map(v => v.toFixed(2)), textposition: 'top center', textfont: { size: 10, color: '#374151' },
       fillcolor: `${color}33`, line: { color, width: 2 }, marker: { color, size: 5 }, name: 'Avg Score',
     }];
   }, [pillarList, selectedLevel]);
