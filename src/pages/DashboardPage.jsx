@@ -394,7 +394,24 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
 
           {/* Pillar breakdown */}
           <div className="bg-white border border-gray-200 rounded-xl p-4 col-span-2 flex flex-col min-h-0 shadow-sm">
-            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 flex-shrink-0">Score by Pillar</p>
+            <div className="flex items-center justify-between mb-2 flex-shrink-0">
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Score by Pillar</p>
+              {selectedLevel === null ? (
+                <div className="flex items-center gap-3">
+                  {[['#22c55e', 'High', '≥ 3.5'], ['#eab308', 'Mid', '≥ 2.5'], ['#ef4444', 'Low', '< 2.5']].map(([color, label, range]) => (
+                    <span key={label} className="flex items-center gap-1 text-xs text-gray-400">
+                      <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
+                      {label} <span className="text-gray-500">{range}</span>
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <span className="flex items-center gap-1 text-xs" style={{ color: accentColor }}>
+                  <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: accentColor }} />
+                  {selectedLevelName}
+                </span>
+              )}
+            </div>
             <div className="flex-1 min-h-0">
               {filteredTotal > 0
                 ? <PlotlyChart traces={pillarTraces} layout={pillarLayout} />
