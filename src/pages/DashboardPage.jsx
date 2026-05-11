@@ -404,7 +404,7 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
                 {LEVEL_COLORS.map((color, i) => (
                   <span key={i} className="flex items-center gap-1.5 text-xs text-gray-600">
                     <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
-                    <span className="w-24 truncate">{readinessLevels[i]?.name ?? readinessLevels[i]}</span>
+                    <span className="whitespace-nowrap">{readinessLevels[i]?.name ?? readinessLevels[i]}</span>
                   </span>
                 ))}
               </div>
