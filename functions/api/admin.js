@@ -69,7 +69,7 @@ export async function onRequestGet(context) {
     `).all();
 
     const { results: responses } = await env.DB.prepare(
-      'SELECT id, readiness_level, total_score, score_pct, answers_json, is_sp_staff, department, submitted_at FROM responses ORDER BY submitted_at DESC'
+      'SELECT id, session_id, readiness_level, total_score, score_pct, answers_json, is_sp_staff, department, submitted_at FROM responses ORDER BY submitted_at DESC'
     ).all();
 
     const { results: questions } = await env.DB.prepare(

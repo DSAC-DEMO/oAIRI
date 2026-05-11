@@ -711,12 +711,13 @@ function AdminPage() {
                   sectorAccum[sector][q.category].count += 1;
                 }
               }
+              const sortedSectors = [...SECTORS].sort((a, b) => (sectorAccum[b] ? 1 : 0) - (sectorAccum[a] ? 1 : 0));
               return (
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 mb-8">
                   <h2 className="text-lg font-bold text-gray-900 mb-1">Sector Competency Profiles</h2>
                   <p className="text-xs text-gray-500 mb-6">Average pillar scores per industry sector</p>
                   <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6">
-                    {SECTORS.map(sector => {
+                    {sortedSectors.map(sector => {
                       const pillarsRaw = sectorAccum[sector];
                       const responseCount = filteredResponses.filter(r => (sessionSectorMap[r.session_id] || '') === sector).length;
                       if (!pillarsRaw) {
