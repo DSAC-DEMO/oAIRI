@@ -97,15 +97,13 @@ function ResultsPage() {
         <div className={`rounded-xl shadow-sm border p-8 text-center ${styles.badge}`}>
           <p className="text-xs font-bold uppercase tracking-widest mb-5 opacity-60">Overall AI Readiness</p>
 
-          {/* Level fraction */}
           <div className="flex items-baseline justify-center gap-2 mb-3">
-            <span className="text-8xl font-black leading-none tabular-nums">{levelPosition}</span>
+            <span className="text-8xl font-black leading-none tabular-nums">{(overallMean ?? 0).toFixed(2)}</span>
             <span className="text-3xl font-bold opacity-40">/ 5</span>
           </div>
 
           <p className="text-xl font-bold">{label}</p>
           {persona && <p className="text-sm font-medium opacity-70 mt-1">{persona}</p>}
-          <p className="text-xs opacity-40 mt-3 tabular-nums">Raw score: {(overallMean ?? 0).toFixed(2)} / 5.00</p>
         </div>
 
         {/* ── Radar chart ──────────────────────────────────────────── */}
