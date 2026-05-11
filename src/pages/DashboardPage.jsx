@@ -394,29 +394,29 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
 
           {/* Pillar breakdown */}
           <div className="bg-white border border-gray-200 rounded-xl p-4 col-span-2 flex flex-col min-h-0 shadow-sm">
-            <div className="flex items-center justify-between mb-2 flex-shrink-0">
-              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Score by Pillar</p>
-              {selectedLevel === null ? (
-                <div className="flex flex-col items-end gap-0.5">
-                  {LEVEL_COLORS.map((color, i) => (
-                    <span key={i} className="flex items-center gap-1.5 text-xs text-gray-500">
-                      <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
-                      {readinessLevels[i]?.name ?? readinessLevels[i]}
-                    </span>
-                  ))}
-                </div>
-              ) : (
-                <span className="flex items-center gap-1 text-xs" style={{ color: accentColor }}>
-                  <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: accentColor }} />
-                  {selectedLevelName}
-                </span>
-              )}
-            </div>
-            <div className="flex-1 min-h-0">
+            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 flex-shrink-0">Score by Pillar</p>
+            <div className="flex-1 min-h-0 relative">
               {filteredTotal > 0
                 ? <PlotlyChart traces={pillarTraces} layout={pillarLayout} />
                 : <p className="text-xs text-gray-400 text-center mt-4">No responses for this level</p>
               }
+              {selectedLevel === null ? (
+                <div className="absolute top-2 right-2 bg-white border border-gray-200 rounded-lg shadow-sm px-2.5 py-2 flex flex-col gap-1">
+                  {LEVEL_COLORS.map((color, i) => (
+                    <span key={i} className="flex items-center gap-1.5 text-xs text-gray-600">
+                      <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
+                      <span className="w-24 truncate">{readinessLevels[i]?.name ?? readinessLevels[i]}</span>
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <div className="absolute top-2 right-2 bg-white border border-gray-200 rounded-lg shadow-sm px-2.5 py-2">
+                  <span className="flex items-center gap-1.5 text-xs" style={{ color: accentColor }}>
+                    <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: accentColor }} />
+                    <span className="w-24 truncate">{selectedLevelName}</span>
+                  </span>
+                </div>
+              )}
             </div>
           </div>
 
