@@ -398,7 +398,7 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
               <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Score by Pillar</p>
               {selectedLevel === null ? (
                 <div className="flex items-center gap-3">
-                  {[['#22c55e', 'High', '≥ 3.5'], ['#eab308', 'Mid', '≥ 2.5'], ['#ef4444', 'Low', '< 2.5']].map(([color, label, range]) => (
+                  {[['#1e40af', 'High', '≥ 3.5'], ['#60a5fa', 'Mid', '≥ 2.5'], ['#93c5fd', 'Low', '< 2.5']].map(([color, label, range]) => (
                     <span key={label} className="flex items-center gap-1 text-xs text-gray-400">
                       <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
                       {label} <span className="text-gray-500">{range}</span>
