@@ -240,7 +240,7 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
     y: sorted.map(p => p.name),
     text: sorted.map(p => p.avg.toFixed(2)),
     textposition: 'outside', cliponaxis: false,
-    marker: { color: sorted.map(p => { if (barColor) return barColor; const a = p.avg; return a >= 4 ? LEVEL_COLORS[0] : a >= 3 ? LEVEL_COLORS[1] : a >= 2 ? LEVEL_COLORS[2] : a >= 1 ? LEVEL_COLORS[3] : LEVEL_COLORS[4]; }) },
+    marker: { color: sorted.map(p => { if (barColor) return barColor; const a = p.avg; return a > 3.75 ? LEVEL_COLORS[0] : a > 2.5 ? LEVEL_COLORS[1] : a > 1.25 ? LEVEL_COLORS[2] : a > 0 ? LEVEL_COLORS[3] : LEVEL_COLORS[4]; }) },
   }], [sorted, barColor]);
 
   const pillarLayout = useMemo(() => ({
@@ -397,11 +397,11 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
             <div className="flex items-center justify-between mb-2 flex-shrink-0">
               <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Score by Pillar</p>
               {selectedLevel === null ? (
-                <div className="flex items-center gap-3">
-                  {[[LEVEL_COLORS[0], '≥ 4'], [LEVEL_COLORS[1], '≥ 3'], [LEVEL_COLORS[2], '≥ 2'], [LEVEL_COLORS[3], '≥ 1'], [LEVEL_COLORS[4], '< 1']].map(([color, range]) => (
-                    <span key={range} className="flex items-center gap-1 text-xs text-gray-400">
+                <div className="flex flex-col items-end gap-0.5">
+                  {LEVEL_COLORS.map((color, i) => (
+                    <span key={i} className="flex items-center gap-1.5 text-xs text-gray-500">
                       <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
-                      <span className="text-gray-500">{range}</span>
+                      {readinessLevels[i]?.name ?? readinessLevels[i]}
                     </span>
                   ))}
                 </div>
