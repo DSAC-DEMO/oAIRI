@@ -711,21 +711,31 @@ function AdminPage() {
                   sectorAccum[sector][q.category].count += 1;
                 }
               }
-              const sectorEntries = Object.entries(sectorAccum);
-              if (sectorEntries.length === 0) return null;
               return (
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 mb-8">
                   <h2 className="text-lg font-bold text-gray-900 mb-1">Sector Competency Profiles</h2>
                   <p className="text-xs text-gray-500 mb-6">Average pillar scores per industry sector</p>
                   <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6">
-                    {sectorEntries.map(([sector, pillarsRaw]) => {
+                    {SECTORS.map(sector => {
+                      const pillarsRaw = sectorAccum[sector];
+                      const responseCount = filteredResponses.filter(r => (sessionSectorMap[r.session_id] || '') === sector).length;
+                      if (!pillarsRaw) {
+                        return (
+                          <div key={sector} className="flex flex-col items-center">
+                            <p className="text-sm font-bold text-gray-400 mb-0.5 text-center">{sector}</p>
+                            <p className="text-xs text-gray-300 mb-2">No responses</p>
+                            <div className="w-[180px] h-[180px] rounded-full border-2 border-dashed border-gray-200 flex items-center justify-center">
+                              <p className="text-xs text-gray-300 text-center px-4">No data yet</p>
+                            </div>
+                          </div>
+                        );
+                      }
                       const pillars = Object.entries(pillarsRaw).map(([name, { sum, count }]) => ({
                         name,
                         pct: Math.round(((sum / count) / 5) * 100),
                       }));
                       const strongest = [...pillars].sort((a, b) => b.pct - a.pct)[0];
                       const weakest   = [...pillars].sort((a, b) => a.pct - b.pct)[0];
-                      const responseCount = filteredResponses.filter(r => (sessionSectorMap[r.session_id] || '') === sector).length;
                       return (
                         <div key={sector} className="flex flex-col items-center">
                           <p className="text-sm font-bold text-gray-800 mb-0.5 text-center">{sector}</p>

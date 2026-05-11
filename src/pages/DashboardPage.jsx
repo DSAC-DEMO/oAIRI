@@ -306,9 +306,6 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
           )}
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-xs text-gray-400">
-            Code created {new Date(session.created_at).toLocaleDateString()}
-          </span>
           <button
             onClick={exportPDF}
             disabled={exporting}
