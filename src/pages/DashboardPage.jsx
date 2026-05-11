@@ -378,11 +378,9 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
             />
             {/* Combined average score + level card */}
             <div className="bg-white rounded-xl p-4 flex flex-col justify-center border border-gray-200 shadow-sm">
-              <div className="text-2xl font-bold tabular-nums" style={{ color: READINESS_LEVEL_STYLES[levelIdx].accent }}>
-                {overallAvg.toFixed(2)}
-                <span className="text-sm font-semibold ml-2" style={{ color: READINESS_LEVEL_STYLES[levelIdx].accent }}>
-                  ({levelName})
-                </span>
+              <div className="flex items-baseline gap-2 flex-wrap" style={{ color: READINESS_LEVEL_STYLES[levelIdx].accent }}>
+                <span className="text-2xl font-bold tabular-nums">{overallAvg.toFixed(2)}</span>
+                <span className="text-2xl font-bold">({levelName})</span>
               </div>
               <div className="text-xs font-semibold text-gray-600 mt-0.5">Average Score</div>
               <div className="text-xs text-gray-400 mt-0.5">out of 5.00</div>
