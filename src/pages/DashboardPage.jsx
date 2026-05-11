@@ -232,7 +232,7 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
   }), []);
 
   const sorted = useMemo(() => [...pillarList].sort((a, b) => a.avg - b.avg), [pillarList]);
-  const barColor = selectedLevel !== null ? LEVEL_COLORS[selectedLevel] : null;
+
 
   const pillarTraces = useMemo(() => [{
     type: 'bar', orientation: 'h',
@@ -240,8 +240,8 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
     y: sorted.map(p => p.name),
     text: sorted.map(p => p.avg.toFixed(2)),
     textposition: 'outside', cliponaxis: false,
-    marker: { color: sorted.map(p => { if (barColor) return barColor; const a = p.avg; return a > 3.75 ? LEVEL_COLORS[0] : a > 2.5 ? LEVEL_COLORS[1] : a > 1.25 ? LEVEL_COLORS[2] : a > 0 ? LEVEL_COLORS[3] : LEVEL_COLORS[4]; }) },
-  }], [sorted, barColor]);
+    marker: { color: sorted.map(p => { const a = p.avg; return a > 3.75 ? LEVEL_COLORS[0] : a > 2.5 ? LEVEL_COLORS[1] : a > 1.25 ? LEVEL_COLORS[2] : a > 0 ? LEVEL_COLORS[3] : LEVEL_COLORS[4]; }) },
+  }], [sorted]);
 
   const pillarLayout = useMemo(() => ({
     xaxis: { range: [0, 5.8], gridcolor: '#f3f4f6', linecolor: '#e5e7eb', tickfont: { size: 10 } },
@@ -400,23 +400,14 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
                 ? <PlotlyChart traces={pillarTraces} layout={pillarLayout} />
                 : <p className="text-xs text-gray-400 text-center mt-4">No responses for this level</p>
               }
-              {selectedLevel === null ? (
-                <div className="absolute top-2 right-2 bg-white border border-gray-200 rounded-lg shadow-sm px-2.5 py-2 flex flex-col gap-1">
-                  {LEVEL_COLORS.map((color, i) => (
-                    <span key={i} className="flex items-center gap-1.5 text-xs text-gray-600">
-                      <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
-                      <span className="w-24 truncate">{readinessLevels[i]?.name ?? readinessLevels[i]}</span>
-                    </span>
-                  ))}
-                </div>
-              ) : (
-                <div className="absolute top-2 right-2 bg-white border border-gray-200 rounded-lg shadow-sm px-2.5 py-2">
-                  <span className="flex items-center gap-1.5 text-xs" style={{ color: accentColor }}>
-                    <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: accentColor }} />
-                    <span className="w-24 truncate">{selectedLevelName}</span>
+              <div className="absolute top-2 right-2 bg-white border border-gray-200 rounded-lg shadow-sm px-2.5 py-2 flex flex-col gap-1">
+                {LEVEL_COLORS.map((color, i) => (
+                  <span key={i} className="flex items-center gap-1.5 text-xs text-gray-600">
+                    <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
+                    <span className="w-24 truncate">{readinessLevels[i]?.name ?? readinessLevels[i]}</span>
                   </span>
-                </div>
-              )}
+                ))}
+              </div>
             </div>
           </div>
 
