@@ -260,6 +260,11 @@ function AdminPage() {
   const [shownCodes, setShownCodes] = useState({});
   // New session sector
   const [newSessionSector, setNewSessionSector] = useState('');
+  // New session UEN + round label
+  const [newSessionUen, setNewSessionUen] = useState('');
+  const [newSessionRoundLabel, setNewSessionRoundLabel] = useState('');
+  // Company codes search filter
+  const [codeSearch, setCodeSearch] = useState('');
   // Sector slicer filter (null = All)
   const [sectorFilter, setSectorFilter] = useState(null);
 
@@ -1003,155 +1008,282 @@ function AdminPage() {
               </div>
 
               {/* Company Codes */}
-              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                <h2 className="text-lg font-bold text-gray-900 mb-1">Company Codes</h2>
-                <p className="text-xs text-gray-500 mb-5">
-                  Add a company by name — a code is generated automatically. Share the code with their staff so their survey responses are grouped together. The company can view their consolidated results at <span className="font-mono text-blue-600">/dashboard</span>.
-                </p>
+              {(() => {
+                // Build grouped display: sessions sharing a UEN are shown as rounds under one company
+                const searchLower = codeSearch.trim().toLowerCase();
+                const filtered = sessionsData.filter(s =>
+                  !searchLower ||
+                  s.name.toLowerCase().includes(searchLower) ||
+                  (s.company_uen && s.company_uen.toLowerCase().includes(searchLower))
+                );
 
-                {/* Generated code banner */}
-                {generatedCode && (
-                  <div className="mb-5 bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <p className="text-xs font-semibold text-blue-700 mb-1">Code generated — share this with the company. You can also reveal it later via the Show button.</p>
-                    <div className="flex items-center gap-3 mt-2">
-                      <span className="font-mono text-xl font-bold text-blue-800 tracking-widest">{generatedCode}</span>
-                      <button
-                        type="button"
-                        onClick={() => { navigator.clipboard.writeText(generatedCode); setCodeCopied(true); setTimeout(() => setCodeCopied(false), 2000); }}
-                        className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg font-semibold transition-colors"
-                      >
-                        {codeCopied ? 'Copied!' : 'Copy'}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setGeneratedCode(null)}
-                        className="text-xs text-blue-500 hover:underline ml-auto"
-                      >
-                        Dismiss
-                      </button>
-                    </div>
-                  </div>
-                )}
+                // Group by UEN; sessions without UEN stand alone
+                const uenMap = {};
+                const noUen = [];
+                for (const s of filtered) {
+                  if (s.company_uen) {
+                    if (!uenMap[s.company_uen]) uenMap[s.company_uen] = [];
+                    uenMap[s.company_uen].push(s);
+                  } else {
+                    noUen.push(s);
+                  }
+                }
+                for (const uen of Object.keys(uenMap)) {
+                  uenMap[uen].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+                }
 
-                {/* Existing codes */}
-                {sessionsData.length === 0 ? (
-                  <p className="text-sm text-gray-400 mb-4">No companies added yet.</p>
-                ) : (
-                  <div className="space-y-2 mb-5">
-                    {sessionsData.map(s => (
-                      <div key={s.id} className="bg-gray-50 rounded-lg px-4 py-3 border border-gray-100">
-                        <div className="flex items-center justify-between gap-3">
-                          <div>
-                            <p className="text-sm font-semibold text-gray-800">{s.name}</p>
-                            <p className="text-xs text-gray-400 mt-0.5">
-                              {s.sector && <span className="font-medium text-blue-600 mr-1">{s.sector} ·</span>}
-                              {s.response_count} response{s.response_count !== 1 ? 's' : ''} · Added {new Date(s.created_at).toLocaleDateString()}
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-3 flex-shrink-0">
-                            <button
-                              type="button"
-                              onClick={() => setShownCodes(prev => ({ ...prev, [s.id]: !prev[s.id] }))}
-                              className="text-xs text-blue-600 hover:underline font-medium"
-                            >
-                              {shownCodes[s.id] ? 'Hide' : 'Show'}
-                            </button>
-                            <button
-                              type="button"
-                              disabled={sessionSaving}
-                              onClick={async () => {
-                                if (!window.confirm(`Remove "${s.name}"? Their ${s.response_count} response(s) will be kept but unlinked.`)) return;
-                                setSessionSaving(true);
-                                try {
-                                  const res = await fetch('/api/sessions', {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('adminToken')}` },
-                                    body: JSON.stringify({ action: 'delete', id: s.id })
-                                  });
-                                  const result = await res.json();
-                                  if (!result.success) throw new Error(result.error);
-                                  await fetchData(localStorage.getItem('adminToken'));
-                                } catch (err) { alert(`Failed: ${err.message}`); }
-                                finally { setSessionSaving(false); }
-                              }}
-                              className="text-xs text-red-500 hover:underline font-medium"
-                            >
-                              Remove
-                            </button>
-                          </div>
+                // Existing UEN sessions matching the entered UEN (for create-form hint)
+                const matchingUenSessions = newSessionUen.trim()
+                  ? sessionsData
+                      .filter(s => s.company_uen === newSessionUen.trim())
+                      .sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+                  : [];
+
+                const deleteSession = async (s) => {
+                  if (!window.confirm(`Remove "${s.name}"? Their ${s.response_count} response(s) will be kept but unlinked.`)) return;
+                  setSessionSaving(true);
+                  try {
+                    const res = await fetch('/api/sessions', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('adminToken')}` },
+                      body: JSON.stringify({ action: 'delete', id: s.id })
+                    });
+                    const result = await res.json();
+                    if (!result.success) throw new Error(result.error);
+                    await fetchData(localStorage.getItem('adminToken'));
+                  } catch (err) { alert(`Failed: ${err.message}`); }
+                  finally { setSessionSaving(false); }
+                };
+
+                const SessionRow = ({ s, roundLabel }) => (
+                  <div key={s.id} className="bg-gray-50 rounded-lg px-4 py-3 border border-gray-100">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-semibold text-gray-800">{s.name}</p>
+                          {roundLabel && (
+                            <span className="text-xs font-semibold bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">{roundLabel}</span>
+                          )}
+                          {s.round_label && (
+                            <span className="text-xs text-gray-400 italic">{s.round_label}</span>
+                          )}
                         </div>
-                        {shownCodes[s.id] && (
-                          <div className="mt-2 pt-2 border-t border-gray-200 flex items-center gap-3">
-                            {s.code
-                              ? <span className="font-mono text-base font-bold text-blue-700 tracking-widest">{s.code}</span>
-                              : <span className="text-xs text-gray-400 italic">Code not available (created before this feature)</span>
-                            }
-                            {s.code && (
-                              <button
-                                type="button"
-                                onClick={() => navigator.clipboard.writeText(s.code)}
-                                className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-2.5 py-1 rounded font-semibold transition-colors"
-                              >
-                                Copy
-                              </button>
+                        <p className="text-xs text-gray-400 mt-0.5">
+                          {s.sector && <span className="font-medium text-blue-600 mr-1">{s.sector} ·</span>}
+                          {s.response_count} response{s.response_count !== 1 ? 's' : ''} · Added {new Date(s.created_at).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-3 flex-shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => setShownCodes(prev => ({ ...prev, [s.id]: !prev[s.id] }))}
+                          className="text-xs text-blue-600 hover:underline font-medium"
+                        >
+                          {shownCodes[s.id] ? 'Hide' : 'Show'}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={sessionSaving}
+                          onClick={() => deleteSession(s)}
+                          className="text-xs text-red-500 hover:underline font-medium"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                    {shownCodes[s.id] && (
+                      <div className="mt-2 pt-2 border-t border-gray-200 flex items-center gap-3">
+                        {s.code
+                          ? <span className="font-mono text-base font-bold text-blue-700 tracking-widest">{s.code}</span>
+                          : <span className="text-xs text-gray-400 italic">Code not available (created before this feature)</span>
+                        }
+                        {s.code && (
+                          <button
+                            type="button"
+                            onClick={() => navigator.clipboard.writeText(s.code)}
+                            className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-2.5 py-1 rounded font-semibold transition-colors"
+                          >
+                            Copy
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+
+                return (
+                  <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                    <h2 className="text-lg font-bold text-gray-900 mb-1">Company Codes</h2>
+                    <p className="text-xs text-gray-500 mb-5">
+                      Add a company by name — a code is generated automatically. Linking sessions to the same UEN groups them as rounds, letting companies track AI readiness over time.
+                      The company views results at <span className="font-mono text-blue-600">/dashboard</span>.
+                    </p>
+
+                    {/* Generated code banner */}
+                    {generatedCode && (
+                      <div className="mb-5 bg-blue-50 border border-blue-200 rounded-lg p-4">
+                        <p className="text-xs font-semibold text-blue-700 mb-1">Code generated — share this with the company. You can also reveal it later via the Show button.</p>
+                        <div className="flex items-center gap-3 mt-2">
+                          <span className="font-mono text-xl font-bold text-blue-800 tracking-widest">{generatedCode}</span>
+                          <button
+                            type="button"
+                            onClick={() => { navigator.clipboard.writeText(generatedCode); setCodeCopied(true); setTimeout(() => setCodeCopied(false), 2000); }}
+                            className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg font-semibold transition-colors"
+                          >
+                            {codeCopied ? 'Copied!' : 'Copy'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setGeneratedCode(null)}
+                            className="text-xs text-blue-500 hover:underline ml-auto"
+                          >
+                            Dismiss
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Search bar */}
+                    {sessionsData.length > 0 && (
+                      <div className="mb-4">
+                        <input
+                          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50 placeholder-gray-400"
+                          value={codeSearch}
+                          onChange={e => setCodeSearch(e.target.value)}
+                          placeholder="Search by company name or UEN…"
+                        />
+                      </div>
+                    )}
+
+                    {/* Existing codes — grouped by UEN */}
+                    {sessionsData.length === 0 ? (
+                      <p className="text-sm text-gray-400 mb-4">No companies added yet.</p>
+                    ) : filtered.length === 0 ? (
+                      <p className="text-sm text-gray-400 mb-4">No results for "{codeSearch}".</p>
+                    ) : (
+                      <div className="space-y-4 mb-5">
+                        {/* UEN-grouped companies */}
+                        {Object.entries(uenMap).map(([uen, sessions]) => (
+                          <div key={uen} className="border border-blue-100 rounded-xl overflow-hidden">
+                            <div className="bg-blue-50 px-4 py-2 flex items-center gap-2">
+                              <span className="text-xs font-bold text-blue-700">{sessions[0].name}</span>
+                              <span className="text-xs text-blue-400">· UEN {uen}</span>
+                              <span className="ml-auto text-xs text-blue-500">{sessions.length} round{sessions.length !== 1 ? 's' : ''}</span>
+                            </div>
+                            <div className="divide-y divide-gray-100">
+                              {sessions.map((s, idx) => (
+                                <SessionRow key={s.id} s={s} roundLabel={`Round ${idx + 1}`} />
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                        {/* Sessions without UEN (standalone) */}
+                        {noUen.length > 0 && (
+                          <div className="space-y-2">
+                            {Object.keys(uenMap).length > 0 && (
+                              <p className="text-xs text-gray-400 font-semibold uppercase tracking-widest pt-1">Other sessions</p>
                             )}
+                            {noUen.map(s => <SessionRow key={s.id} s={s} roundLabel={null} />)}
                           </div>
                         )}
                       </div>
-                    ))}
-                  </div>
-                )}
+                    )}
 
-                {/* Add company */}
-                <div className="border-t border-gray-100 pt-4 space-y-2">
-                  <div className="flex gap-2">
-                    <input
-                      className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      value={newSessionName}
-                      onChange={e => setNewSessionName(e.target.value)}
-                      placeholder="Company / organisation name"
-                    />
-                    <select
-                      className="w-52 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white flex-shrink-0"
-                      value={newSessionSector}
-                      onChange={e => setNewSessionSector(e.target.value)}
-                    >
-                      <option value="">Select sector…</option>
-                      {SECTORS.map(s => <option key={s} value={s}>{s}</option>)}
-                    </select>
+                    {/* Add company form */}
+                    <div className="border-t border-gray-100 pt-4 space-y-3">
+                      <div className="flex gap-2">
+                        <input
+                          className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          value={newSessionName}
+                          onChange={e => setNewSessionName(e.target.value)}
+                          placeholder="Company / organisation name"
+                        />
+                        <select
+                          className="w-48 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white flex-shrink-0"
+                          value={newSessionSector}
+                          onChange={e => setNewSessionSector(e.target.value)}
+                        >
+                          <option value="">Select sector…</option>
+                          {SECTORS.map(s => <option key={s} value={s}>{s}</option>)}
+                        </select>
+                      </div>
+                      <div className="flex gap-2">
+                        <div className="flex-1">
+                          <input
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono"
+                            value={newSessionUen}
+                            onChange={e => setNewSessionUen(e.target.value)}
+                            placeholder="UEN (optional) — links rounds together, e.g. 202312345A"
+                          />
+                          {/* Existing rounds hint when UEN matches */}
+                          {matchingUenSessions.length > 0 && (
+                            <div className="mt-1.5 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                              <p className="text-xs font-semibold text-amber-700 mb-1">
+                                {matchingUenSessions.length} existing round{matchingUenSessions.length !== 1 ? 's' : ''} for this UEN — this will become Round {matchingUenSessions.length + 1}:
+                              </p>
+                              <div className="flex flex-wrap gap-1">
+                                {matchingUenSessions.map((s, idx) => (
+                                  <span key={s.id} className="text-xs bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full">
+                                    R{idx + 1} · {s.name} · {new Date(s.created_at).toLocaleDateString()}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                        <input
+                          className="w-48 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent flex-shrink-0"
+                          value={newSessionRoundLabel}
+                          onChange={e => setNewSessionRoundLabel(e.target.value)}
+                          placeholder={
+                            matchingUenSessions.length === 0 ? 'Label, e.g. Pre-Programme'
+                            : matchingUenSessions.length === 1 ? 'e.g. Post-Programme'
+                            : `e.g. Round ${matchingUenSessions.length + 1}`
+                          }
+                        />
+                      </div>
+                      <div className="flex justify-end">
+                        <button
+                          id="btn-gen-code"
+                          type="button"
+                          disabled={!newSessionName.trim() || sessionSaving}
+                          onClick={async () => {
+                            setSessionSaving(true);
+                            setGeneratedCode(null);
+                            try {
+                              const res = await fetch('/api/sessions', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('adminToken')}` },
+                                body: JSON.stringify({
+                                  action: 'create',
+                                  name: newSessionName.trim(),
+                                  sector: newSessionSector,
+                                  company_uen: newSessionUen.trim(),
+                                  round_label: newSessionRoundLabel.trim(),
+                                })
+                              });
+                              const result = await res.json();
+                              if (!result.success) throw new Error(result.error);
+                              setGeneratedCode(result.code);
+                              setNewSessionName('');
+                              setNewSessionSector('');
+                              setNewSessionUen('');
+                              setNewSessionRoundLabel('');
+                              await fetchData(localStorage.getItem('adminToken'));
+                            } catch (err) { alert(`Failed: ${err.message}`); }
+                            finally { setSessionSaving(false); }
+                          }}
+                          className={`px-4 py-2 rounded-lg text-sm font-semibold text-white transition-colors flex-shrink-0 ${
+                            newSessionName.trim() && !sessionSaving ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-300 cursor-not-allowed'
+                          }`}
+                        >
+                          {sessionSaving ? 'Generating…' : 'Generate Code'}
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex justify-end">
-                    <button
-                      id="btn-gen-code"
-                      type="button"
-                      disabled={!newSessionName.trim() || sessionSaving}
-                      onClick={async () => {
-                        setSessionSaving(true);
-                        setGeneratedCode(null);
-                        try {
-                          const res = await fetch('/api/sessions', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('adminToken')}` },
-                            body: JSON.stringify({ action: 'create', name: newSessionName.trim(), sector: newSessionSector })
-                          });
-                          const result = await res.json();
-                          if (!result.success) throw new Error(result.error);
-                          setGeneratedCode(result.code);
-                          setNewSessionName('');
-                          setNewSessionSector('');
-                          await fetchData(localStorage.getItem('adminToken'));
-                        } catch (err) { alert(`Failed: ${err.message}`); }
-                        finally { setSessionSaving(false); }
-                      }}
-                      className={`px-4 py-2 rounded-lg text-sm font-semibold text-white transition-colors flex-shrink-0 ${
-                        newSessionName.trim() && !sessionSaving ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-300 cursor-not-allowed'
-                      }`}
-                    >
-                      {sessionSaving ? 'Generating…' : 'Generate Code'}
-                    </button>
-                  </div>
-                </div>
-              </div>
+                );
+              })()}
 
               {/* Skills & Training Courses */}
               <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">

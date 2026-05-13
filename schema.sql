@@ -30,11 +30,14 @@ INSERT INTO settings (key, value) VALUES
   ('readiness_levels',  '[{"name":"Expert Ready","persona":"Disciplined"},{"name":"Advanced Ready","persona":"Crafter"},{"name":"Moderately Ready","persona":"Explorer"},{"name":"Developing","persona":"Learner"},{"name":"Novice","persona":"Observer"}]');
 
 CREATE TABLE sessions (
-  id         INTEGER PRIMARY KEY AUTOINCREMENT,
-  name       TEXT NOT NULL,
-  sector     TEXT NOT NULL DEFAULT '',
-  code_hash  TEXT NOT NULL UNIQUE,
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  name        TEXT NOT NULL,
+  sector      TEXT NOT NULL DEFAULT '',
+  code_hash   TEXT NOT NULL UNIQUE,
+  code        TEXT,
+  company_uen TEXT,
+  round_label TEXT,
+  created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE responses (
