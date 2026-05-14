@@ -2,6 +2,22 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import RadarChart from '../components/RadarChart';
 
+// Dice-coefficient word overlap, strips common company suffixes before comparing
+function companyNameSimilarity(a, b) {
+  const norm = s => s.toLowerCase()
+    .replace(/\b(pte|ltd|llp|inc|corp|sdn|bhd|private|limited|co|sg|singapore)\b/g, '')
+    .replace(/[^a-z0-9\s]/g, '')
+    .trim();
+  const na = norm(a);
+  const nb = norm(b);
+  if (!na || !nb) return 0;
+  if (na === nb) return 1;
+  const wa = new Set(na.split(/\s+/).filter(Boolean));
+  const wb = new Set(nb.split(/\s+/).filter(Boolean));
+  const shared = [...wa].filter(w => wb.has(w)).length;
+  return (2 * shared) / (wa.size + wb.size);
+}
+
 const SECTORS = [
   'Maritime',
   'Technology',
@@ -1032,6 +1048,20 @@ function AdminPage() {
                   uenMap[uen].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
                 }
 
+                // Fuzzy name suggestions — unique companies (by UEN) that look similar
+                const nameSuggestions = (() => {
+                  const name = newSessionName.trim();
+                  if (name.length < 3 || newSessionUen.trim()) return [];
+                  const seen = new Set();
+                  const results = [];
+                  for (const s of sessionsData) {
+                    if (!s.company_uen || seen.has(s.company_uen)) continue;
+                    const score = companyNameSimilarity(name, s.name);
+                    if (score >= 0.4) { results.push({ ...s, score }); seen.add(s.company_uen); }
+                  }
+                  return results.sort((a, b) => b.score - a.score).slice(0, 3);
+                })();
+
                 // Existing UEN sessions matching the entered UEN (for create-form hint)
                 const matchingUenSessions = newSessionUen.trim()
                   ? sessionsData
@@ -1192,12 +1222,36 @@ function AdminPage() {
                     {/* Add company form */}
                     <div className="border-t border-gray-100 pt-4 space-y-3">
                       <div className="flex gap-2">
-                        <input
-                          className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          value={newSessionName}
-                          onChange={e => setNewSessionName(e.target.value)}
-                          placeholder="Company / organisation name"
-                        />
+                        <div className="flex-1">
+                          <input
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            value={newSessionName}
+                            onChange={e => setNewSessionName(e.target.value)}
+                            placeholder="Company / organisation name"
+                          />
+                          {nameSuggestions.length > 0 && (
+                            <div className="mt-1.5 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 space-y-1.5">
+                              <p className="text-xs font-semibold text-blue-700">Possible match — link as a new round?</p>
+                              {nameSuggestions.map(s => {
+                                const roundCount = sessionsData.filter(ss => ss.company_uen === s.company_uen).length;
+                                return (
+                                  <div key={s.company_uen} className="flex items-center justify-between gap-2">
+                                    <span className="text-xs text-blue-600 truncate">
+                                      {s.name} · {roundCount} round{roundCount !== 1 ? 's' : ''} · UEN {s.company_uen}
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() => setNewSessionUen(s.company_uen)}
+                                      className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-2.5 py-0.5 rounded font-semibold flex-shrink-0 transition-colors"
+                                    >
+                                      Link
+                                    </button>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
                         <select
                           className="w-48 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white flex-shrink-0"
                           value={newSessionSector}
