@@ -1191,7 +1191,7 @@ function AdminPage() {
                     ) : filtered.length === 0 ? (
                       <p className="text-sm text-gray-400 mb-4">No results for "{codeSearch}".</p>
                     ) : (
-                      <div className="space-y-4 mb-5">
+                      <div className="space-y-4 mb-5 max-h-96 overflow-y-auto pr-1">
                         {/* UEN-grouped companies */}
                         {Object.entries(uenMap).map(([uen, sessions]) => (
                           <div key={uen} className="border border-blue-100 rounded-xl overflow-hidden">
