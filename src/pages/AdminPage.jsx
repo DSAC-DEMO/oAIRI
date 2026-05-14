@@ -1238,34 +1238,48 @@ function AdminPage() {
                       </div>
                     )}
 
-                    {/* Existing codes — grouped by UEN */}
+                    {/* Existing codes — two sections: multi-round companies, then standalone */}
                     {sessionsData.length === 0 ? (
                       <p className="text-sm text-gray-400 mb-4">No companies added yet.</p>
                     ) : filtered.length === 0 ? (
                       <p className="text-sm text-gray-400 mb-4">No results for "{codeSearch}".</p>
                     ) : (
-                      <div className="space-y-4 mb-5 max-h-96 overflow-y-auto pr-1">
-                        {/* UEN-grouped companies */}
-                        {Object.entries(uenMap).map(([uen, sessions]) => (
-                          <div key={uen} className="border border-blue-100 rounded-xl overflow-hidden">
-                            <div className="bg-blue-50 px-4 py-2 flex items-center gap-2">
-                              <span className="text-xs font-bold text-blue-700">{sessions[0].name}</span>
-                              <span className="ml-auto text-xs text-blue-500">{sessions.length} round{sessions.length !== 1 ? 's' : ''}</span>
+                      <div className="space-y-5 mb-5">
+                        {/* ── Multi-round companies ── */}
+                        {Object.keys(uenMap).length > 0 && (
+                          <div>
+                            <div className="flex items-center gap-2 mb-2">
+                              <p className="text-xs font-bold text-blue-700 uppercase tracking-widest">Multi-Round Companies</p>
+                              <span className="text-xs text-blue-400">{Object.keys(uenMap).length} group{Object.keys(uenMap).length !== 1 ? 's' : ''}</span>
                             </div>
-                            <div className="divide-y divide-gray-100">
-                              {sessions.map((s, idx) => (
-                                <SessionRow key={s.id} s={s} roundLabel={`Round ${idx + 1}`} />
+                            <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
+                              {Object.entries(uenMap).map(([uen, sessions]) => (
+                                <div key={uen} className="border border-blue-100 rounded-xl overflow-hidden">
+                                  <div className="bg-blue-50 px-4 py-2 flex items-center gap-2">
+                                    <span className="text-xs font-bold text-blue-700">{sessions[0].name}</span>
+                                    <span className="ml-auto text-xs text-blue-500">{sessions.length} round{sessions.length !== 1 ? 's' : ''}</span>
+                                  </div>
+                                  <div className="divide-y divide-gray-100">
+                                    {sessions.map((s, idx) => (
+                                      <SessionRow key={s.id} s={s} roundLabel={`Round ${idx + 1}`} />
+                                    ))}
+                                  </div>
+                                </div>
                               ))}
                             </div>
                           </div>
-                        ))}
-                        {/* Sessions without UEN (standalone) */}
+                        )}
+
+                        {/* ── Standalone sessions ── */}
                         {noUen.length > 0 && (
-                          <div className="space-y-2">
-                            {Object.keys(uenMap).length > 0 && (
-                              <p className="text-xs text-gray-400 font-semibold uppercase tracking-widest pt-1">Other sessions</p>
-                            )}
-                            {noUen.map(s => <SessionRow key={s.id} s={s} roundLabel={null} />)}
+                          <div>
+                            <div className="flex items-center gap-2 mb-2">
+                              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Standalone Sessions</p>
+                              <span className="text-xs text-gray-300">{noUen.length} session{noUen.length !== 1 ? 's' : ''}</span>
+                            </div>
+                            <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+                              {noUen.map(s => <SessionRow key={s.id} s={s} roundLabel={null} />)}
+                            </div>
                           </div>
                         )}
                       </div>
