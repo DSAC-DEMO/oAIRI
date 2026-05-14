@@ -86,6 +86,16 @@ export async function onRequestPost(context) {
       return new Response(JSON.stringify({ success: true, code }), { status: 200, headers: cors });
     }
 
+    if (action === 'link') {
+      const { ids, group_id } = body;
+      if (!ids?.length) return new Response(JSON.stringify({ error: 'ids required' }), { status: 400, headers: cors });
+      const gid = (group_id || '').trim() || `grp_${Math.min(...ids)}`;
+      await Promise.all(ids.map(id =>
+        env.DB.prepare('UPDATE sessions SET company_uen = ? WHERE id = ?').bind(gid, id).run()
+      ));
+      return new Response(JSON.stringify({ success: true, group_id: gid }), { status: 200, headers: cors });
+    }
+
     if (action === 'delete') {
       const { id } = body;
       if (!id) return new Response(JSON.stringify({ error: 'id required' }), { status: 400, headers: cors });

@@ -276,8 +276,8 @@ function AdminPage() {
   const [shownCodes, setShownCodes] = useState({});
   // New session sector
   const [newSessionSector, setNewSessionSector] = useState('');
-  // New session UEN + round label
-  const [newSessionUen, setNewSessionUen] = useState('');
+  // New session: pending link to an existing company + round label
+  const [pendingLink, setPendingLink] = useState(null); // { id, name, company_uen }
   const [newSessionRoundLabel, setNewSessionRoundLabel] = useState('');
   // Company codes search filter
   const [codeSearch, setCodeSearch] = useState('');
@@ -1025,12 +1025,37 @@ function AdminPage() {
 
               {/* Company Codes */}
               {(() => {
+                // ── Duplicate detection: pairs of sessions not yet grouped with similar names ──
+                const duplicatePairs = [];
+                for (let i = 0; i < sessionsData.length; i++) {
+                  for (let j = i + 1; j < sessionsData.length; j++) {
+                    const a = sessionsData[i], b = sessionsData[j];
+                    if (a.company_uen && a.company_uen === b.company_uen) continue;
+                    if (companyNameSimilarity(a.name, b.name) >= 0.5) duplicatePairs.push({ a, b });
+                  }
+                }
+
+                const groupSessions = async (ids, existingUen) => {
+                  const groupId = existingUen || `grp_${Math.min(...ids)}`;
+                  setSessionSaving(true);
+                  try {
+                    const res = await fetch('/api/sessions', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('adminToken')}` },
+                      body: JSON.stringify({ action: 'link', ids, group_id: groupId })
+                    });
+                    const result = await res.json();
+                    if (!result.success) throw new Error(result.error);
+                    await fetchData(localStorage.getItem('adminToken'));
+                  } catch (err) { alert(`Failed: ${err.message}`); }
+                  finally { setSessionSaving(false); }
+                };
+
                 // Build grouped display: sessions sharing a UEN are shown as rounds under one company
                 const searchLower = codeSearch.trim().toLowerCase();
                 const filtered = sessionsData.filter(s =>
                   !searchLower ||
-                  s.name.toLowerCase().includes(searchLower) ||
-                  (s.company_uen && s.company_uen.toLowerCase().includes(searchLower))
+                  s.name.toLowerCase().includes(searchLower)
                 );
 
                 // Group by UEN; sessions without UEN stand alone
@@ -1048,26 +1073,21 @@ function AdminPage() {
                   uenMap[uen].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
                 }
 
-                // Fuzzy name suggestions — unique companies (by UEN) that look similar
+                // Fuzzy name suggestions while typing — skip if already linked
                 const nameSuggestions = (() => {
+                  if (pendingLink) return [];
                   const name = newSessionName.trim();
-                  if (name.length < 3 || newSessionUen.trim()) return [];
+                  if (name.length < 3) return [];
                   const seen = new Set();
                   const results = [];
                   for (const s of sessionsData) {
-                    if (!s.company_uen || seen.has(s.company_uen)) continue;
+                    const key = s.company_uen || `solo_${s.id}`;
+                    if (seen.has(key)) continue;
                     const score = companyNameSimilarity(name, s.name);
-                    if (score >= 0.4) { results.push({ ...s, score }); seen.add(s.company_uen); }
+                    if (score >= 0.4) { results.push({ ...s, score }); seen.add(key); }
                   }
                   return results.sort((a, b) => b.score - a.score).slice(0, 3);
                 })();
-
-                // Existing UEN sessions matching the entered UEN (for create-form hint)
-                const matchingUenSessions = newSessionUen.trim()
-                  ? sessionsData
-                      .filter(s => s.company_uen === newSessionUen.trim())
-                      .sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
-                  : [];
 
                 const deleteSession = async (s) => {
                   if (!window.confirm(`Remove "${s.name}"? Their ${s.response_count} response(s) will be kept but unlinked.`)) return;
@@ -1185,6 +1205,39 @@ function AdminPage() {
                       </div>
                     )}
 
+                    {/* Possible duplicates banner */}
+                    {duplicatePairs.length > 0 && (
+                      <div className="mb-4 border border-amber-200 rounded-xl overflow-hidden">
+                        <div className="bg-amber-50 px-4 py-2 flex items-center gap-2">
+                          <span className="text-xs font-bold text-amber-700">{duplicatePairs.length} possible duplicate{duplicatePairs.length !== 1 ? 's' : ''} detected</span>
+                          <span className="text-xs text-amber-500">— group them to track rounds together</span>
+                        </div>
+                        <div className="divide-y divide-amber-100">
+                          {duplicatePairs.map(({ a, b }) => {
+                            const existingUen = a.company_uen || b.company_uen || null;
+                            return (
+                              <div key={`${a.id}-${b.id}`} className="px-4 py-2.5 flex items-center justify-between gap-3 bg-white">
+                                <div className="text-xs text-gray-600 min-w-0">
+                                  <span className="font-semibold">{a.name}</span>
+                                  <span className="text-gray-400 mx-1.5">·</span>
+                                  <span className="font-semibold">{b.name}</span>
+                                  <span className="text-gray-400 ml-1.5">({new Date(a.created_at).toLocaleDateString()} &amp; {new Date(b.created_at).toLocaleDateString()})</span>
+                                </div>
+                                <button
+                                  type="button"
+                                  disabled={sessionSaving}
+                                  onClick={() => groupSessions([a.id, b.id], existingUen)}
+                                  className="text-xs bg-amber-500 hover:bg-amber-600 text-white px-3 py-1 rounded-lg font-semibold flex-shrink-0 transition-colors disabled:opacity-50"
+                                >
+                                  Group
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
                     {/* Existing codes — grouped by UEN */}
                     {sessionsData.length === 0 ? (
                       <p className="text-sm text-gray-400 mb-4">No companies added yet.</p>
@@ -1197,7 +1250,6 @@ function AdminPage() {
                           <div key={uen} className="border border-blue-100 rounded-xl overflow-hidden">
                             <div className="bg-blue-50 px-4 py-2 flex items-center gap-2">
                               <span className="text-xs font-bold text-blue-700">{sessions[0].name}</span>
-                              <span className="text-xs text-blue-400">· UEN {uen}</span>
                               <span className="ml-auto text-xs text-blue-500">{sessions.length} round{sessions.length !== 1 ? 's' : ''}</span>
                             </div>
                             <div className="divide-y divide-gray-100">
@@ -1231,17 +1283,19 @@ function AdminPage() {
                           />
                           {nameSuggestions.length > 0 && (
                             <div className="mt-1.5 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 space-y-1.5">
-                              <p className="text-xs font-semibold text-blue-700">Possible match — link as a new round?</p>
+                              <p className="text-xs font-semibold text-blue-700">Possible match — add as a new round?</p>
                               {nameSuggestions.map(s => {
-                                const roundCount = sessionsData.filter(ss => ss.company_uen === s.company_uen).length;
+                                const roundCount = s.company_uen
+                                  ? sessionsData.filter(ss => ss.company_uen === s.company_uen).length
+                                  : 1;
                                 return (
-                                  <div key={s.company_uen} className="flex items-center justify-between gap-2">
+                                  <div key={s.id} className="flex items-center justify-between gap-2">
                                     <span className="text-xs text-blue-600 truncate">
-                                      {s.name} · {roundCount} round{roundCount !== 1 ? 's' : ''} · UEN {s.company_uen}
+                                      {s.name} · {roundCount} round{roundCount !== 1 ? 's' : ''}
                                     </span>
                                     <button
                                       type="button"
-                                      onClick={() => setNewSessionUen(s.company_uen)}
+                                      onClick={() => setPendingLink({ id: s.id, name: s.name, company_uen: s.company_uen })}
                                       className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-2.5 py-0.5 rounded font-semibold flex-shrink-0 transition-colors"
                                     >
                                       Link
@@ -1261,39 +1315,22 @@ function AdminPage() {
                           {SECTORS.map(s => <option key={s} value={s}>{s}</option>)}
                         </select>
                       </div>
-                      <div className="flex gap-2">
-                        <div className="flex-1">
-                          <input
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono"
-                            value={newSessionUen}
-                            onChange={e => setNewSessionUen(e.target.value)}
-                            placeholder="UEN (optional) — links rounds together, e.g. 202312345A"
-                          />
-                          {/* Existing rounds hint when UEN matches */}
-                          {matchingUenSessions.length > 0 && (
-                            <div className="mt-1.5 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-                              <p className="text-xs font-semibold text-amber-700 mb-1">
-                                {matchingUenSessions.length} existing round{matchingUenSessions.length !== 1 ? 's' : ''} for this UEN — this will become Round {matchingUenSessions.length + 1}:
-                              </p>
-                              <div className="flex flex-wrap gap-1">
-                                {matchingUenSessions.map((s, idx) => (
-                                  <span key={s.id} className="text-xs bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full">
-                                    R{idx + 1} · {s.name} · {new Date(s.created_at).toLocaleDateString()}
-                                  </span>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                        </div>
+                      <div className="flex gap-2 items-start">
+                        {pendingLink ? (
+                          <div className="flex-1 flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
+                            <span className="text-xs text-blue-700 font-semibold flex-1 truncate">
+                              → Linked to {pendingLink.name}
+                            </span>
+                            <button type="button" onClick={() => setPendingLink(null)} className="text-blue-400 hover:text-blue-600 text-lg leading-none flex-shrink-0">×</button>
+                          </div>
+                        ) : (
+                          <div className="flex-1 h-10" />
+                        )}
                         <input
                           className="w-48 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent flex-shrink-0"
                           value={newSessionRoundLabel}
                           onChange={e => setNewSessionRoundLabel(e.target.value)}
-                          placeholder={
-                            matchingUenSessions.length === 0 ? 'Label, e.g. Pre-Programme'
-                            : matchingUenSessions.length === 1 ? 'e.g. Post-Programme'
-                            : `e.g. Round ${matchingUenSessions.length + 1}`
-                          }
+                          placeholder="Label, e.g. Pre-Programme"
                         />
                       </div>
                       <div className="flex justify-end">
@@ -1305,6 +1342,24 @@ function AdminPage() {
                             setSessionSaving(true);
                             setGeneratedCode(null);
                             try {
+                              // Determine group ID from pending link (if any)
+                              let company_uen = null;
+                              if (pendingLink) {
+                                if (pendingLink.company_uen) {
+                                  company_uen = pendingLink.company_uen;
+                                } else {
+                                  // Existing session has no UEN yet — generate one and link it
+                                  const groupId = `grp_${pendingLink.id}`;
+                                  const linkRes = await fetch('/api/sessions', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('adminToken')}` },
+                                    body: JSON.stringify({ action: 'link', ids: [pendingLink.id], group_id: groupId })
+                                  });
+                                  const linkResult = await linkRes.json();
+                                  if (!linkResult.success) throw new Error(linkResult.error);
+                                  company_uen = groupId;
+                                }
+                              }
                               const res = await fetch('/api/sessions', {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('adminToken')}` },
@@ -1312,7 +1367,7 @@ function AdminPage() {
                                   action: 'create',
                                   name: newSessionName.trim(),
                                   sector: newSessionSector,
-                                  company_uen: newSessionUen.trim(),
+                                  company_uen,
                                   round_label: newSessionRoundLabel.trim(),
                                 })
                               });
@@ -1321,8 +1376,8 @@ function AdminPage() {
                               setGeneratedCode(result.code);
                               setNewSessionName('');
                               setNewSessionSector('');
-                              setNewSessionUen('');
                               setNewSessionRoundLabel('');
+                              setPendingLink(null);
                               await fetchData(localStorage.getItem('adminToken'));
                             } catch (err) { alert(`Failed: ${err.message}`); }
                             finally { setSessionSaving(false); }
