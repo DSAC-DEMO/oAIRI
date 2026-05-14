@@ -1395,116 +1395,178 @@ function AdminPage() {
               })()}
 
               {/* Skills & Training Courses */}
-              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                <h2 className="text-lg font-bold text-gray-900 mb-1">Skills &amp; Training Courses</h2>
-                <p className="text-xs text-gray-500 mb-5">
-                  Define courses shown on the results page. Tick the readiness levels each course applies to (highest → lowest).
-                </p>
+              {(() => {
+                const pillarNames = [...new Set((questions || []).map(q => q.category))];
 
-                {/* Column headers */}
-                {workingCourses.length > 0 && (
-                  <div className="flex items-end gap-2 mb-1 px-4">
-                    <span className="flex-1 text-xs font-semibold text-gray-400">Course name</span>
-                    {workingReadiness.map((lvl, i) => (
-                      <div key={i} className="w-12 text-center flex-shrink-0">
-                        <span className={`text-xs font-semibold ${READINESS_LEVEL_STYLES[i].text}`} title={lvl.name}>
-                          {4 - i}
-                        </span>
+                const updateCourse = (ci, fn) =>
+                  setEditCourses(workingCourses.map((c, j) => j === ci ? fn(c) : c));
+
+                const LevelCheckboxes = ({ levels, onChange }) => (
+                  <>
+                    {[0, 1, 2, 3, 4].map(li => (
+                      <div key={li} className="w-12 flex justify-center flex-shrink-0">
+                        <input
+                          type="checkbox"
+                          checked={levels?.includes(li) ?? false}
+                          onChange={e => {
+                            const next = e.target.checked
+                              ? [...(levels ?? []), li].sort((a, b) => a - b)
+                              : (levels ?? []).filter(l => l !== li);
+                            onChange(next);
+                          }}
+                          className="w-4 h-4 text-blue-600 rounded accent-blue-600"
+                        />
                       </div>
                     ))}
-                    <div className="w-6" />
-                  </div>
-                )}
+                  </>
+                );
 
-                {/* Course rows */}
-                <div className="space-y-2 mb-4">
-                  {workingCourses.length === 0 && (
-                    <p className="text-sm text-gray-400">No courses added yet. Click "+ Add Course" below.</p>
-                  )}
-                  {workingCourses.map((course, ci) => (
-                    <div key={ci} className="bg-gray-50 rounded-lg px-4 py-3 border border-gray-100 space-y-2">
-                      <div className="flex items-center gap-2">
-                        <input
-                          className="flex-1 border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
-                          value={course.name}
-                          onChange={e => {
-                            const next = workingCourses.map((c, j) => j === ci ? { ...c, name: e.target.value } : c);
-                            setEditCourses(next);
-                          }}
-                          placeholder="Course name"
-                        />
-                        {[0, 1, 2, 3, 4].map(li => (
-                          <div key={li} className="w-12 flex justify-center flex-shrink-0">
-                            <input
-                              type="checkbox"
-                              checked={course.levels?.includes(li) ?? false}
-                              onChange={e => {
-                                const next = workingCourses.map((c, j) => {
-                                  if (j !== ci) return c;
-                                  const newLevels = e.target.checked
-                                    ? [...(c.levels ?? []), li].sort((a, b) => a - b)
-                                    : (c.levels ?? []).filter(l => l !== li);
-                                  return { ...c, levels: newLevels };
-                                });
-                                setEditCourses(next);
-                              }}
-                              className="w-4 h-4 text-blue-600 rounded accent-blue-600"
-                            />
+                return (
+                  <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                    <h2 className="text-lg font-bold text-gray-900 mb-1">Skills &amp; Training Courses</h2>
+                    <p className="text-xs text-gray-500 mb-5">
+                      Define courses shown on the results page. Set overall readiness levels and optionally add pillar-specific conditions — a course appears if <span className="font-semibold">any</span> condition matches.
+                    </p>
+
+                    {/* Column headers */}
+                    {workingCourses.length > 0 && (
+                      <div className="flex items-end gap-2 mb-1 px-4">
+                        <span className="flex-1 text-xs font-semibold text-gray-400">Course name / pillar</span>
+                        {workingReadiness.map((lvl, i) => (
+                          <div key={i} className="w-12 text-center flex-shrink-0">
+                            <span className={`text-xs font-semibold ${READINESS_LEVEL_STYLES[i].text}`} title={lvl.name}>
+                              {4 - i}
+                            </span>
                           </div>
                         ))}
-                        <button
-                          type="button"
-                          onClick={() => setEditCourses(workingCourses.filter((_, j) => j !== ci))}
-                          className="w-6 text-red-400 hover:text-red-600 text-xl leading-none flex-shrink-0 text-center"
-                          title="Remove course"
-                        >×</button>
+                        <div className="w-6" />
                       </div>
-                      <textarea
-                        rows={2}
-                        className="w-full border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white resize-none"
-                        value={course.description ?? ''}
-                        onChange={e => {
-                          const next = workingCourses.map((c, j) => j === ci ? { ...c, description: e.target.value } : c);
-                          setEditCourses(next);
-                        }}
-                        placeholder="Description shown on the results page…"
-                      />
-                    </div>
-                  ))}
-                </div>
+                    )}
 
-                {/* Add + Save */}
-                <div className="flex items-center justify-between border-t border-gray-100 pt-4">
-                  <button
-                    type="button"
-                    onClick={() => setEditCourses([...workingCourses, { name: '', levels: [], description: '' }])}
-                    className="text-sm text-blue-600 hover:underline font-semibold"
-                  >
-                    + Add Course
-                  </button>
-                  <div className="flex gap-2">
-                    {editCourses && (
+                    {/* Course rows */}
+                    <div className="space-y-3 mb-4">
+                      {workingCourses.length === 0 && (
+                        <p className="text-sm text-gray-400">No courses added yet. Click "+ Add Course" below.</p>
+                      )}
+                      {workingCourses.map((course, ci) => (
+                        <div key={ci} className="bg-gray-50 rounded-lg px-4 py-3 border border-gray-100 space-y-2">
+
+                          {/* Overall readiness row */}
+                          <div className="flex items-center gap-2">
+                            <input
+                              className="flex-1 border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                              value={course.name}
+                              onChange={e => updateCourse(ci, c => ({ ...c, name: e.target.value }))}
+                              placeholder="Course name"
+                            />
+                            <LevelCheckboxes
+                              levels={course.levels}
+                              onChange={next => updateCourse(ci, c => ({ ...c, levels: next }))}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setEditCourses(workingCourses.filter((_, j) => j !== ci))}
+                              className="w-6 text-red-400 hover:text-red-600 text-xl leading-none flex-shrink-0 text-center"
+                              title="Remove course"
+                            >×</button>
+                          </div>
+
+                          {/* Description */}
+                          <textarea
+                            rows={2}
+                            className="w-full border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white resize-none"
+                            value={course.description ?? ''}
+                            onChange={e => updateCourse(ci, c => ({ ...c, description: e.target.value }))}
+                            placeholder="Description shown on the results page…"
+                          />
+
+                          {/* Pillar conditions */}
+                          {(course.pillarConditions?.length > 0) && (
+                            <div className="space-y-1.5 pt-1">
+                              <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Pillar conditions</p>
+                              {course.pillarConditions.map((pc, pi) => (
+                                <div key={pi} className="flex items-center gap-2">
+                                  <select
+                                    className="flex-1 border border-gray-200 rounded-md px-2 py-1.5 text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    value={pc.pillar}
+                                    onChange={e => updateCourse(ci, c => ({
+                                      ...c,
+                                      pillarConditions: c.pillarConditions.map((p, k) => k === pi ? { ...p, pillar: e.target.value } : p)
+                                    }))}
+                                  >
+                                    <option value="">Select pillar…</option>
+                                    {pillarNames.map(p => <option key={p} value={p}>{p}</option>)}
+                                  </select>
+                                  <LevelCheckboxes
+                                    levels={pc.levels}
+                                    onChange={next => updateCourse(ci, c => ({
+                                      ...c,
+                                      pillarConditions: c.pillarConditions.map((p, k) => k === pi ? { ...p, levels: next } : p)
+                                    }))}
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => updateCourse(ci, c => ({
+                                      ...c,
+                                      pillarConditions: c.pillarConditions.filter((_, k) => k !== pi)
+                                    }))}
+                                    className="w-6 text-red-400 hover:text-red-600 text-xl leading-none flex-shrink-0 text-center"
+                                  >×</button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* Add pillar condition */}
+                          <button
+                            type="button"
+                            onClick={() => updateCourse(ci, c => ({
+                              ...c,
+                              pillarConditions: [...(c.pillarConditions ?? []), { pillar: '', levels: [] }]
+                            }))}
+                            className="text-xs text-blue-500 hover:underline font-medium"
+                          >
+                            + Add pillar condition
+                          </button>
+
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Add + Save */}
+                    <div className="flex items-center justify-between border-t border-gray-100 pt-4">
                       <button
                         type="button"
-                        onClick={() => setEditCourses(null)}
-                        className="px-4 py-2 rounded-lg text-sm font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200 transition-colors"
+                        onClick={() => setEditCourses([...workingCourses, { name: '', levels: [], description: '', pillarConditions: [] }])}
+                        className="text-sm text-blue-600 hover:underline font-semibold"
                       >
-                        Reset
+                        + Add Course
                       </button>
-                    )}
-                    <button
-                      type="button"
-                      disabled={!coursesValid || coursesSaving}
-                      onClick={saveCourses}
-                      className={`px-5 py-2 rounded-lg text-sm font-semibold text-white transition-colors ${
-                        coursesValid && !coursesSaving ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-300 cursor-not-allowed'
-                      }`}
-                    >
-                      {coursesSaving ? 'Saving…' : 'Save'}
-                    </button>
+                      <div className="flex gap-2">
+                        {editCourses && (
+                          <button
+                            type="button"
+                            onClick={() => setEditCourses(null)}
+                            className="px-4 py-2 rounded-lg text-sm font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200 transition-colors"
+                          >
+                            Reset
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          disabled={!coursesValid || coursesSaving}
+                          onClick={saveCourses}
+                          className={`px-5 py-2 rounded-lg text-sm font-semibold text-white transition-colors ${
+                            coursesValid && !coursesSaving ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-300 cursor-not-allowed'
+                          }`}
+                        >
+                          {coursesSaving ? 'Saving…' : 'Save'}
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
+                );
+              })()}
 
             </div>
           );
