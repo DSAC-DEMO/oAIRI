@@ -372,14 +372,35 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
     }];
   }, [activeRound, perRoundStats, pillarOrder, sorted]);
 
-  const pillarLayout = useMemo(() => ({
-    barmode: activeRound === 'overall' ? 'group' : undefined,
-    xaxis: { range: [0, activeRound === 'overall' ? 6.8 : 5.8], gridcolor: '#f3f4f6', linecolor: '#e5e7eb', tickfont: { size: 10 } },
-    yaxis: { gridcolor: 'transparent', linecolor: '#e5e7eb', tickfont: { size: 10 }, automargin: true },
-    showlegend: activeRound === 'overall',
-    legend: { orientation: 'h', x: 0, y: 1.12, font: { size: 9 } },
-    margin: { t: activeRound === 'overall' ? 48 : 10, b: 36, l: 10, r: 48 },
-  }), [activeRound]);
+  const pillarLayout = useMemo(() => {
+    const annotations = [];
+    if (activeRound === 'overall' && perRoundStats && perRoundStats.length > 1) {
+      const first = perRoundStats[0];
+      const last  = perRoundStats[perRoundStats.length - 1];
+      for (const name of pillarOrder) {
+        const a = first.pillarList.find(p => p.name === name)?.avg ?? 0;
+        const b = last.pillarList.find(p => p.name === name)?.avg ?? 0;
+        const delta = b - a;
+        annotations.push({
+          x: 1.02, xref: 'paper',
+          y: name,  yref: 'y',
+          text: `<b>${delta >= 0 ? '+' : ''}${delta.toFixed(2)}</b>`,
+          showarrow: false,
+          font: { size: 10, color: delta > 0 ? '#22c55e' : delta < 0 ? '#f87171' : '#9ca3af' },
+          xanchor: 'left',
+        });
+      }
+    }
+    return {
+      barmode: activeRound === 'overall' ? 'group' : undefined,
+      annotations,
+      xaxis: { range: [0, activeRound === 'overall' ? 6.8 : 5.8], gridcolor: '#f3f4f6', linecolor: '#e5e7eb', tickfont: { size: 10 } },
+      yaxis: { gridcolor: 'transparent', linecolor: '#e5e7eb', tickfont: { size: 10 }, automargin: true },
+      showlegend: activeRound === 'overall',
+      legend: { orientation: 'h', x: 0, y: 1.12, font: { size: 9 } },
+      margin: { t: activeRound === 'overall' ? 48 : 10, b: 36, l: 10, r: activeRound === 'overall' ? 72 : 48 },
+    };
+  }, [activeRound, perRoundStats, pillarOrder]);
 
   const accentColor       = selectedLevel !== null ? LEVEL_COLORS[selectedLevel] : '#3b82f6';
   const selectedLevelName = selectedLevel !== null ? (readinessLevels[selectedLevel]?.name ?? readinessLevels[selectedLevel]) : null;
@@ -627,7 +648,20 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
                 <div className="text-xs font-semibold text-gray-600 mt-0.5">Average Score</div>
                 <div className="text-xs text-gray-400 mt-0.5">out of 5.00</div>
               </div>
-              <KpiCard label="Score Range" value={filteredTotal > 0 ? `${minScore.toFixed(1)} – ${maxScore.toFixed(1)}` : '—'} sub="min – max" accent="#2563eb" />
+              <div className="bg-white rounded-xl p-4 flex flex-col justify-center border border-gray-200 shadow-sm">
+                <div className="text-xs font-semibold text-gray-600 mb-1">Top Pillar</div>
+                {pillarList.length > 0 ? (() => {
+                  const top = [...pillarList].sort((a, b) => b.avg - a.avg)[0];
+                  return (
+                    <>
+                      <div className="text-sm font-bold text-gray-800 leading-tight truncate">{top.name}</div>
+                      <div className="text-lg font-bold tabular-nums mt-0.5" style={{ color: accentColor }}>
+                        {top.avg.toFixed(2)} <span className="text-xs font-normal text-gray-400">/ 5</span>
+                      </div>
+                    </>
+                  );
+                })() : <div className="text-sm text-gray-400">—</div>}
+              </div>
             </div>
           )}
 
