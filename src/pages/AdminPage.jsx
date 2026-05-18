@@ -281,6 +281,9 @@ function AdminPage() {
   const [newSessionRoundLabel, setNewSessionRoundLabel] = useState('');
   // Company codes search filter
   const [codeSearch, setCodeSearch] = useState('');
+  // Company codes date range filter
+  const [codeFromDate, setCodeFromDate] = useState('');
+  const [codeToDate, setCodeToDate] = useState('');
   // Sector slicer filter (null = All)
   const [sectorFilter, setSectorFilter] = useState(null);
 
@@ -1053,10 +1056,15 @@ function AdminPage() {
 
                 // Build grouped display: sessions sharing a UEN are shown as rounds under one company
                 const searchLower = codeSearch.trim().toLowerCase();
-                const filtered = sessionsData.filter(s =>
-                  !searchLower ||
-                  s.name.toLowerCase().includes(searchLower)
-                );
+                const fromMs = codeFromDate ? new Date(codeFromDate).getTime() : null;
+                const toMs   = codeToDate   ? new Date(codeToDate + 'T23:59:59').getTime() : null;
+                const filtered = sessionsData.filter(s => {
+                  if (searchLower && !s.name.toLowerCase().includes(searchLower)) return false;
+                  const t = new Date(s.created_at).getTime();
+                  if (fromMs && t < fromMs) return false;
+                  if (toMs   && t > toMs)   return false;
+                  return true;
+                });
 
                 // Group by UEN; sessions without UEN stand alone
                 const uenMap = {};
@@ -1193,15 +1201,40 @@ function AdminPage() {
                       </div>
                     )}
 
-                    {/* Search bar */}
+                    {/* Search + date filter */}
                     {sessionsData.length > 0 && (
-                      <div className="mb-4">
+                      <div className="mb-4 space-y-2">
                         <input
                           className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50 placeholder-gray-400"
                           value={codeSearch}
                           onChange={e => setCodeSearch(e.target.value)}
-                          placeholder="Search by company name or UEN…"
+                          placeholder="Search by company name…"
                         />
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-gray-400 flex-shrink-0">Added from</span>
+                          <input
+                            type="date"
+                            className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-transparent flex-1"
+                            value={codeFromDate}
+                            onChange={e => setCodeFromDate(e.target.value)}
+                          />
+                          <span className="text-xs text-gray-400 flex-shrink-0">to</span>
+                          <input
+                            type="date"
+                            className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-transparent flex-1"
+                            value={codeToDate}
+                            onChange={e => setCodeToDate(e.target.value)}
+                          />
+                          {(codeFromDate || codeToDate) && (
+                            <button
+                              type="button"
+                              onClick={() => { setCodeFromDate(''); setCodeToDate(''); }}
+                              className="text-xs text-gray-400 hover:text-gray-600"
+                            >
+                              Clear
+                            </button>
+                          )}
+                        </div>
                       </div>
                     )}
 
@@ -1242,7 +1275,7 @@ function AdminPage() {
                     {sessionsData.length === 0 ? (
                       <p className="text-sm text-gray-400 mb-4">No companies added yet.</p>
                     ) : filtered.length === 0 ? (
-                      <p className="text-sm text-gray-400 mb-4">No results for "{codeSearch}".</p>
+                      <p className="text-sm text-gray-400 mb-4">No sessions match the current filters.</p>
                     ) : (
                       <div className="space-y-5 mb-5">
                         {/* ── Multi-round companies ── */}
