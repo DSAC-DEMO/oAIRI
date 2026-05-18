@@ -63,7 +63,6 @@ export async function onRequestGet(context) {
     const { results: dailyTrend } = await env.DB.prepare(`
       SELECT DATE(submitted_at) as date, COUNT(*) as count
       FROM responses
-      WHERE submitted_at >= DATE('now', '-30 days')
       GROUP BY DATE(submitted_at)
       ORDER BY date ASC
     `).all();

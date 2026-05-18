@@ -1,6 +1,20 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import RadarChart from '../components/RadarChart';
+
+function CompanyPlotlyChart({ plotly, data, layout }) {
+  const divRef = useRef(null);
+  useEffect(() => {
+    if (!plotly || !divRef.current || !data?.length) return;
+    plotly.react(divRef.current, data, {
+      ...layout,
+      paper_bgcolor: 'transparent',
+      plot_bgcolor: 'transparent',
+      font: { family: 'inherit' },
+    }, { responsive: true, displayModeBar: 'hover', modeBarButtonsToRemove: ['toImage', 'sendDataToCloud', 'lasso2d', 'select2d'] });
+  }, [plotly, data, layout]);
+  return <div ref={divRef} className="w-full" style={{ minHeight: 320 }} />;
+}
 
 // Dice-coefficient word overlap, strips common company suffixes before comparing
 function companyNameSimilarity(a, b) {
@@ -286,6 +300,17 @@ function AdminPage() {
   const [codeToDate, setCodeToDate] = useState('');
   // Sector slicer filter (null = All)
   const [sectorFilter, setSectorFilter] = useState(null);
+  // Global analytics time range filter
+  const [analyticsFromDate, setAnalyticsFromDate] = useState('');
+  const [analyticsToDate, setAnalyticsToDate] = useState('');
+  // Company comparison selector (array of company keys)
+  const [selectedCompanyKeys, setSelectedCompanyKeys] = useState([]);
+  // Plotly library (lazy-loaded)
+  const [plotlyLib, setPlotlyLib] = useState(null);
+
+  useEffect(() => {
+    import('plotly.js-dist-min').then(m => setPlotlyLib(m.default)).catch(() => {});
+  }, []);
 
   useEffect(() => {
     const token = localStorage.getItem('adminToken');
@@ -396,17 +421,65 @@ function AdminPage() {
   const sessionSectorMap = {};
   for (const s of sessionsData) sessionSectorMap[s.id] = s.sector || '';
 
-  // unique sectors that have at least one response
+  // Global time filter applied first
+  const analyticsFromMs = analyticsFromDate ? new Date(analyticsFromDate).getTime() : null;
+  const analyticsToMs   = analyticsToDate   ? new Date(analyticsToDate + 'T23:59:59').getTime() : null;
+  const timeFilteredResponses = responses.filter(r => {
+    const t = new Date(r.submitted_at).getTime();
+    if (analyticsFromMs && t < analyticsFromMs) return false;
+    if (analyticsToMs   && t > analyticsToMs)   return false;
+    return true;
+  });
+
+  // unique sectors that have at least one response (within time filter)
   const sectorResponseCounts = {};
-  for (const r of responses) {
+  for (const r of timeFilteredResponses) {
     const sec = sessionSectorMap[r.session_id] || '';
     if (sec) sectorResponseCounts[sec] = (sectorResponseCounts[sec] || 0) + 1;
   }
   const availableSectors = Object.keys(sectorResponseCounts).sort();
 
   const sectorFilteredResponses = sectorFilter === null
-    ? responses
-    : responses.filter(r => (sessionSectorMap[r.session_id] || '') === sectorFilter);
+    ? timeFilteredResponses
+    : timeFilteredResponses.filter(r => (sessionSectorMap[r.session_id] || '') === sectorFilter);
+
+  // Company entries for comparison selector
+  const companyEntries = (() => {
+    const uenGroups = {};
+    const solos = [];
+    for (const s of sessionsData) {
+      if (s.company_uen) {
+        if (!uenGroups[s.company_uen]) uenGroups[s.company_uen] = [];
+        uenGroups[s.company_uen].push(s);
+      } else {
+        solos.push({ key: `solo_${s.id}`, name: s.name, sessions: [s] });
+      }
+    }
+    const grouped = Object.entries(uenGroups).map(([uen, ss]) => ({
+      key: uen,
+      name: ss[0].name,
+      sessions: ss.sort((a, b) => new Date(a.created_at) - new Date(b.created_at)),
+    }));
+    return [...grouped, ...solos];
+  })();
+
+  const computeCompanyPillars = (entry) => {
+    const sessionIds = new Set(entry.sessions.map(s => s.id));
+    const entryResponses = timeFilteredResponses.filter(r => sessionIds.has(r.session_id));
+    const acc = {};
+    for (const r of entryResponses) {
+      let ans = {};
+      try { ans = JSON.parse(r.answers_json); } catch {}
+      for (const q of questions) {
+        const score = parseFloat(ans[q.id]);
+        if (isNaN(score)) continue;
+        if (!acc[q.category]) acc[q.category] = { sum: 0, count: 0 };
+        acc[q.category].sum += score;
+        acc[q.category].count += 1;
+      }
+    }
+    return Object.entries(acc).map(([name, { sum, count }]) => ({ name, avg: count > 0 ? sum / count : 0 }));
+  };
 
   const filteredResponses = levelFilter === null
     ? sectorFilteredResponses
@@ -499,6 +572,38 @@ function AdminPage() {
         {/* ── Analytics Tab ─────────────────────────────────────────────── */}
         {activeTab === 'analytics' && (
           <>
+            {/* Global time slicer */}
+            <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 mb-3">
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Filter by Date Range</p>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs text-gray-500">From</span>
+                <input
+                  type="date"
+                  className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  value={analyticsFromDate}
+                  onChange={e => setAnalyticsFromDate(e.target.value)}
+                />
+                <span className="text-xs text-gray-500">to</span>
+                <input
+                  type="date"
+                  className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  value={analyticsToDate}
+                  onChange={e => setAnalyticsToDate(e.target.value)}
+                />
+                {(analyticsFromDate || analyticsToDate) && (
+                  <button
+                    onClick={() => { setAnalyticsFromDate(''); setAnalyticsToDate(''); }}
+                    className="text-xs text-gray-400 hover:text-gray-600 underline"
+                  >
+                    Clear
+                  </button>
+                )}
+                {(analyticsFromDate || analyticsToDate) && (
+                  <span className="text-xs text-blue-600 font-semibold ml-2">{timeFilteredResponses.length} of {responses.length} responses</span>
+                )}
+              </div>
+            </div>
+
             {/* Sector slicer */}
             {availableSectors.length > 0 && (
               <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 mb-3">
@@ -512,7 +617,7 @@ function AdminPage() {
                         : 'bg-white text-gray-500 border-gray-200 hover:border-blue-400 hover:text-blue-500'
                     }`}
                   >
-                    All ({responses.length})
+                    All ({timeFilteredResponses.length})
                   </button>
                   {availableSectors.map(sector => (
                     <button
@@ -617,10 +722,10 @@ function AdminPage() {
 
             {/* Submission Trend */}
             <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 mb-8">
-              <h2 className="text-lg font-bold text-gray-900 mb-1">Submissions — Last 30 Days</h2>
-              <p className="text-xs text-gray-500 mb-5">Cumulative total submissions over time</p>
+              <h2 className="text-lg font-bold text-gray-900 mb-1">Cumulative Submissions</h2>
+              <p className="text-xs text-gray-500 mb-5">All-time total submissions over time</p>
               {cumulativeTrend.length === 0 ? (
-                <p className="text-gray-400 text-sm">No submissions in the last 30 days</p>
+                <p className="text-gray-400 text-sm">No submissions yet</p>
               ) : (() => {
                 const SVG_H = 140;
                 const PAD = { top: 12, bottom: 28, left: 36, right: 12 };
@@ -716,6 +821,126 @@ function AdminPage() {
                 )}
               </div>
             </div>
+
+            {/* Company Comparison */}
+            {(() => {
+              const COMPARE_COLORS = ['#2563eb', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899'];
+              const selectedEntries = selectedCompanyKeys
+                .map(k => companyEntries.find(e => e.key === k))
+                .filter(Boolean);
+
+              // Gather all pillar names from questions
+              const allPillarNames = [...new Set((questions || []).map(q => q.category))];
+
+              // Build Plotly traces for 2+ companies
+              const buildTraces = () => selectedEntries.map((entry, i) => {
+                const pillars = computeCompanyPillars(entry);
+                const avgs = allPillarNames.map(pn => pillars.find(p => p.name === pn)?.avg ?? 0);
+                return {
+                  type: 'bar',
+                  name: entry.name,
+                  x: allPillarNames,
+                  y: avgs,
+                  marker: { color: COMPARE_COLORS[i % COMPARE_COLORS.length] },
+                  text: avgs.map(a => a > 0 ? a.toFixed(2) : ''),
+                  textposition: 'outside',
+                  textfont: { size: 10 },
+                };
+              });
+
+              const buildAnnotations = () => {
+                if (selectedEntries.length !== 2) return [];
+                const p1 = computeCompanyPillars(selectedEntries[0]);
+                const p2 = computeCompanyPillars(selectedEntries[1]);
+                return allPillarNames.map(pn => {
+                  const a = p1.find(p => p.name === pn)?.avg ?? 0;
+                  const b = p2.find(p => p.name === pn)?.avg ?? 0;
+                  const delta = b - a;
+                  return {
+                    x: pn, y: Math.max(a, b) + 0.55,
+                    text: `Δ ${delta >= 0 ? '+' : ''}${delta.toFixed(2)}`,
+                    showarrow: false,
+                    font: { size: 9, color: delta > 0 ? '#22c55e' : delta < 0 ? '#f87171' : '#9ca3af' },
+                    xanchor: 'center',
+                  };
+                });
+              };
+
+              return (
+                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 mb-8">
+                  <h2 className="text-lg font-bold text-gray-900 mb-1">Company Comparison</h2>
+                  <p className="text-xs text-gray-500 mb-4">Select companies to compare pillar performance. Single selection shows a radar; two or more shows a grouped bar chart with delta labels.</p>
+
+                  {/* Company selector */}
+                  <div className="flex flex-wrap gap-2 mb-5">
+                    {companyEntries.map(entry => {
+                      const isSelected = selectedCompanyKeys.includes(entry.key);
+                      return (
+                        <button
+                          key={entry.key}
+                          onClick={() => setSelectedCompanyKeys(prev =>
+                            isSelected ? prev.filter(k => k !== entry.key) : [...prev, entry.key]
+                          )}
+                          className={`px-3 py-1.5 rounded-full text-sm font-semibold border transition-colors ${
+                            isSelected
+                              ? 'bg-blue-600 text-white border-blue-600'
+                              : 'bg-white text-gray-500 border-gray-200 hover:border-blue-400 hover:text-blue-500'
+                          }`}
+                        >
+                          {entry.name}
+                          {entry.sessions.length > 1 && <span className="ml-1 text-xs opacity-60">{entry.sessions.length}R</span>}
+                        </button>
+                      );
+                    })}
+                    {selectedCompanyKeys.length > 0 && (
+                      <button
+                        onClick={() => setSelectedCompanyKeys([])}
+                        className="text-xs text-gray-400 hover:text-gray-600 underline px-2"
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
+
+                  {selectedCompanyKeys.length === 0 && (
+                    <p className="text-sm text-gray-400 text-center py-8">Select one or more companies above to compare.</p>
+                  )}
+
+                  {selectedCompanyKeys.length === 1 && (() => {
+                    const entry = selectedEntries[0];
+                    const pillars = computeCompanyPillars(entry);
+                    return pillars.length === 0
+                      ? <p className="text-sm text-gray-400 text-center py-6">No responses for this company in the selected time range.</p>
+                      : (
+                        <div className="flex flex-col items-center py-2">
+                          <p className="text-sm font-bold text-gray-700 mb-3">{entry.name}</p>
+                          <RadarChart
+                            pillars={pillars.map(p => ({ name: p.name, pct: Math.round((p.avg / 5) * 100) }))}
+                            size={240}
+                          />
+                        </div>
+                      );
+                  })()}
+
+                  {selectedCompanyKeys.length >= 2 && (() => {
+                    const traces = buildTraces();
+                    const annotations = buildAnnotations();
+                    const layout = {
+                      barmode: 'group',
+                      annotations,
+                      xaxis: { gridcolor: '#f3f4f6', tickfont: { size: 10 }, automargin: true },
+                      yaxis: { range: [0, 6], gridcolor: '#f3f4f6', tickfont: { size: 10 }, title: { text: 'Avg Score (0–5)', font: { size: 11 } } },
+                      showlegend: true,
+                      legend: { orientation: 'h', x: 0, y: 1.12, font: { size: 10 } },
+                      margin: { t: 48, b: 60, l: 48, r: 20 },
+                    };
+                    return plotlyLib
+                      ? <CompanyPlotlyChart plotly={plotlyLib} data={traces} layout={layout} />
+                      : <p className="text-sm text-gray-400 text-center py-8">Loading chart…</p>;
+                  })()}
+                </div>
+              );
+            })()}
 
             {/* Sector competency radar charts */}
             {(() => {
