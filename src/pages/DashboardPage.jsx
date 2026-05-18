@@ -412,10 +412,19 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
   const kpiSection = useMemo(() => {
     if (activeRound === 'overall' && perRoundStats) {
       const totalAll = perRoundStats.reduce((s, rs) => s + rs.totalResponses, 0);
-      const allScores = rounds.flatMap(r => r.responses.map(res => res.score_pct || 0));
-      const overallMin = allScores.length ? Math.min(...allScores) : 0;
-      const overallMax = allScores.length ? Math.max(...allScores) : 0;
-      return { mode: 'overall', totalAll, perRoundStats, overallMin, overallMax };
+      // Most improved pillar: compare first round vs last round pillar avgs
+      const first = perRoundStats[0];
+      const last  = perRoundStats[perRoundStats.length - 1];
+      let mostImproved = null;
+      if (first && last && first !== last) {
+        const deltas = first.pillarList.map(p => {
+          const latest = last.pillarList.find(lp => lp.name === p.name);
+          return { name: p.name, delta: latest ? latest.avg - p.avg : 0 };
+        });
+        const best = deltas.reduce((a, b) => b.delta > a.delta ? b : a, deltas[0] ?? null);
+        if (best) mostImproved = best;
+      }
+      return { mode: 'overall', totalAll, perRoundStats, mostImproved };
     }
     return { mode: 'single' };
   }, [activeRound, perRoundStats, rounds]);
@@ -586,12 +595,21 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
                   ))}
                 </div>
               </div>
-              <KpiCard
-                label="Score Range (All Rounds)"
-                value={kpiSection.totalAll > 0 ? `${kpiSection.overallMin.toFixed(1)} – ${kpiSection.overallMax.toFixed(1)}` : '—'}
-                sub="min – max"
-                accent="#2563eb"
-              />
+              {/* Most improved pillar card */}
+              <div className="bg-white rounded-xl p-4 flex flex-col justify-center border border-gray-200 shadow-sm">
+                <div className="text-xs font-semibold text-gray-600 mb-1">Most Improved Pillar</div>
+                {kpiSection.mostImproved ? (
+                  <>
+                    <div className="text-sm font-bold text-gray-800 leading-tight">{kpiSection.mostImproved.name}</div>
+                    <div className={`text-lg font-bold tabular-nums mt-0.5 ${kpiSection.mostImproved.delta >= 0 ? 'text-green-500' : 'text-red-400'}`}>
+                      {kpiSection.mostImproved.delta >= 0 ? '+' : ''}{kpiSection.mostImproved.delta.toFixed(2)}
+                      <span className="text-xs font-normal text-gray-400 ml-1">R1 → R{perRoundStats.length}</span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-sm text-gray-400">—</div>
+                )}
+              </div>
             </div>
           ) : (
             <div className="grid grid-rows-3 gap-2 min-h-0">
