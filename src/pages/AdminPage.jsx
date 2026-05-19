@@ -564,29 +564,29 @@ function AdminPage() {
   const cumulativeMax = cumulativeTrend.length ? cumulativeTrend[cumulativeTrend.length - 1].cumulative : 1;
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4">
-      <div className="max-w-7xl mx-auto">
+    <div className="h-screen bg-gray-50 flex flex-col overflow-hidden">
 
-        {/* Header */}
-        <div className="flex flex-wrap justify-between items-center mb-6 gap-4">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
-            <p className="text-sm text-gray-500 mt-1">Readiness Assessment Analytics</p>
-          </div>
-          <div className="flex gap-3">
-            <button onClick={exportCSV} className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-5 py-2 rounded-lg transition-colors text-sm">Export CSV</button>
-            <button onClick={() => fetchData(localStorage.getItem('adminToken'))} className="bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold px-5 py-2 rounded-lg transition-colors text-sm">Refresh</button>
-            <button onClick={handleLogout} className="bg-red-600 hover:bg-red-700 text-white font-semibold px-5 py-2 rounded-lg transition-colors text-sm">Logout</button>
-          </div>
+      {/* ── Header ── */}
+      <div className="flex-shrink-0 h-14 bg-white border-b border-gray-200 flex items-center justify-between px-6 shadow-sm">
+        <div>
+          <h1 className="text-base font-bold text-gray-900 leading-tight">Admin Dashboard</h1>
+          <p className="text-xs text-gray-400">Readiness Assessment Analytics</p>
         </div>
+        <div className="flex gap-2">
+          <button onClick={exportCSV} className="text-xs bg-white hover:bg-gray-50 border border-gray-200 text-gray-600 px-3 py-1.5 rounded-lg font-semibold transition-colors">Export CSV</button>
+          <button onClick={() => fetchData(localStorage.getItem('adminToken'))} className="text-xs bg-white hover:bg-gray-50 border border-gray-200 text-gray-600 px-3 py-1.5 rounded-lg transition-colors">Refresh</button>
+          <button onClick={handleLogout} className="text-xs bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-lg font-semibold transition-colors">Logout</button>
+        </div>
+      </div>
 
-        {/* Tabs */}
-        <div className="flex gap-1 mb-8 bg-gray-200 rounded-xl p-1 w-fit">
+      {/* ── Tabs ── */}
+      <div className="flex-shrink-0 bg-white border-b border-gray-100 px-6 py-2">
+        <div className="flex gap-1 bg-gray-100 rounded-lg p-1 w-fit">
           {['analytics', 'questions', 'settings'].map(tab => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`px-6 py-2 rounded-lg text-sm font-semibold capitalize transition-colors ${
+              className={`px-5 py-1.5 rounded-md text-sm font-semibold capitalize transition-colors ${
                 activeTab === tab ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
               }`}
             >
@@ -594,11 +594,12 @@ function AdminPage() {
             </button>
           ))}
         </div>
+      </div>
 
-        {/* ── Analytics Tab ─────────────────────────────────────────────── */}
-        {activeTab === 'analytics' && (
-          <>
-            {/* Combined Filters */}
+      {/* ── Analytics Tab ── */}
+      {activeTab === 'analytics' && (
+        <div className="flex-1 flex flex-col min-h-0 p-3 gap-3 overflow-hidden">
+          {/* Combined Filters */}
             {(() => {
               const levelCounts = readinessLevels.map((_, i) =>
                 sectorFilteredResponses.filter(r => {
@@ -714,7 +715,7 @@ function AdminPage() {
               );
             })()}
 
-            {/* Analytics grid — captured for PDF */}
+            {/* ── Dashboard grid ── */}
             {(() => {
               const fAvg = filteredTotal > 0 ? filteredResponses.reduce((s, r) => s + (r.score_pct || 0), 0) / filteredTotal : 0;
               const fMax = filteredTotal > 0 ? Math.max(...filteredResponses.map(r => r.score_pct || 0)) : 0;
@@ -773,51 +774,56 @@ function AdminPage() {
               };
 
               return (
-                <div ref={analyticsRef} className="space-y-6">
+                <div ref={analyticsRef} className="flex-1 min-h-0 grid gap-3" style={{ gridTemplateColumns: '1fr 1fr 1fr', gridTemplateRows: '1fr 1fr' }}>
 
-                  {/* Row 1 — KPI cards */}
-                  <div className="grid grid-cols-3 gap-4">
-                    <StatCard label="Total Responses" value={filteredTotal} color="text-blue-600" />
-                    <StatCard label="Average Score" value={fAvg.toFixed(2)} sub="out of 5.00" color="text-blue-700" />
-                    <StatCard label="Highest Score" value={fMax.toFixed(2)} sub="out of 5.00" color="text-blue-900" />
-                  </div>
-
-                  {/* Row 2 — Distribution + Cumulative Submissions */}
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                      <h2 className="text-lg font-bold text-gray-900 mb-5">Readiness Level Distribution</h2>
-                      <div className="space-y-4">
-                        {readinessLevels.map((lvl, i) => {
-                          const c = distCounts[i];
-                          const pct = filteredTotal ? (c / filteredTotal) * 100 : 0;
-                          const colors = READINESS_LEVEL_STYLES[i];
-                          return (
-                            <div key={i}>
-                              <div className="flex justify-between text-sm mb-1">
-                                <span className={`font-semibold ${colors.text}`}>{lvl.name}</span>
-                                <span className="text-gray-500">{c}</span>
-                              </div>
-                              <Bar pct={pct} colorClass={colors.bar} />
+                  {/* Row 1, Col 1 — Readiness Distribution */}
+                  <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 flex flex-col min-h-0">
+                    <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3 flex-shrink-0">Readiness Distribution</p>
+                    <div className="flex-1 min-h-0 overflow-y-auto space-y-3">
+                      {readinessLevels.map((lvl, i) => {
+                        const c = distCounts[i]; const pct = filteredTotal ? (c / filteredTotal) * 100 : 0;
+                        const colors = READINESS_LEVEL_STYLES[i];
+                        return (
+                          <div key={i}>
+                            <div className="flex justify-between text-xs mb-1">
+                              <span className={`font-semibold ${colors.text}`}>{lvl.name}</span>
+                              <span className="text-gray-500">{c}</span>
                             </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-
-                    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                      <h2 className="text-lg font-bold text-gray-900 mb-1">Cumulative Submissions</h2>
-                      <p className="text-xs text-gray-500 mb-5">All-time total submissions over time</p>
-                      {renderTrend()}
+                            <Bar pct={pct} colorClass={colors.bar} />
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
 
-                  {/* Row 3 — Performance by Pillar + Dimension */}
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                      <h2 className="text-lg font-bold text-gray-900 mb-1">Performance by Pillar</h2>
-                      <p className="text-xs text-gray-500 mb-5">Average score per pillar (sorted hardest → easiest)</p>
-                      {total === 0 ? <p className="text-gray-400 text-sm">No data yet</p> : (
-                        <div className="space-y-3">
+                  {/* Row 1, Col 2 — Cumulative Submissions */}
+                  <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 flex flex-col min-h-0">
+                    <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1 flex-shrink-0">Cumulative Submissions</p>
+                    <p className="text-xs text-gray-400 mb-3 flex-shrink-0">All-time total over time</p>
+                    <div className="flex-1 min-h-0 overflow-x-auto">{renderTrend()}</div>
+                  </div>
+
+                  {/* Row 1, Col 3 — KPI cards stacked */}
+                  <div className="grid grid-rows-3 gap-3">
+                    {[
+                      { label: 'Total Responses', value: filteredTotal, color: '#2563eb' },
+                      { label: 'Average Score', value: fAvg.toFixed(2), sub: 'out of 5.00', color: '#1d4ed8' },
+                      { label: 'Highest Score', value: fMax.toFixed(2), sub: 'out of 5.00', color: '#1e3a8a' },
+                    ].map(({ label, value, sub, color }) => (
+                      <div key={label} className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 flex flex-col justify-center">
+                        <div className="text-2xl font-bold tabular-nums" style={{ color }}>{value}</div>
+                        <div className="text-xs font-semibold text-gray-600 mt-0.5">{label}</div>
+                        {sub && <div className="text-xs text-gray-400 mt-0.5">{sub}</div>}
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Row 2, Col 1-2 — Performance by Pillar */}
+                  <div className="col-span-2 bg-white rounded-xl border border-gray-200 shadow-sm p-4 flex flex-col min-h-0">
+                    <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3 flex-shrink-0">Performance by Pillar</p>
+                    {total === 0
+                      ? <p className="text-sm text-gray-400">No data yet</p>
+                      : <div className="flex-1 min-h-0 overflow-y-auto space-y-2">
                           {pillarPerfList.map(({ name, avg }) => {
                             const pct = (avg / 5) * 100;
                             const barColor = pct >= 70 ? 'bg-blue-600' : pct >= 50 ? 'bg-blue-400' : 'bg-blue-200';
@@ -832,179 +838,70 @@ function AdminPage() {
                             );
                           })}
                         </div>
-                      )}
-                    </div>
-
-                    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                      <h2 className="text-lg font-bold text-gray-900 mb-1">Performance by Dimension</h2>
-                      <p className="text-xs text-gray-500 mb-5">Average score per dimension (sorted hardest → easiest)</p>
-                      {total === 0 ? <p className="text-gray-400 text-sm">No data yet</p> : dimensionPerfList.length === 0 ? (
-                        <p className="text-gray-400 text-sm">No dimensions set on questions yet</p>
-                      ) : (
-                        <div className="space-y-3">
-                          {dimensionPerfList.map(({ name, avg, pillars }) => {
-                            const pct = (avg / 5) * 100;
-                            const barColor = pct >= 70 ? 'bg-blue-600' : pct >= 50 ? 'bg-blue-400' : 'bg-blue-200';
-                            return (
-                              <div key={name}>
-                                <div className="flex justify-between text-xs mb-1">
-                                  <div>
-                                    <span className="font-semibold text-gray-700">{name}</span>
-                                    <span className="text-gray-400 ml-2">{pillars.join(', ')}</span>
-                                  </div>
-                                  <span className="text-gray-500 flex-shrink-0 ml-2">{avg.toFixed(2)} / 5</span>
-                                </div>
-                                <Bar pct={pct} colorClass={barColor} />
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
+                    }
                   </div>
 
-                  {/* Row 4 — Company Comparison */}
-                  {companyEntries.length > 0 && (
-                    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                      <h2 className="text-lg font-bold text-gray-900 mb-1">Company Comparison</h2>
-                      <p className="text-xs text-gray-500 mb-4">Select one company for a radar view, or two or more for a grouped bar chart with delta annotations.</p>
-                      <div className="flex flex-wrap gap-2 mb-5">
-                        {companyEntries.map(entry => {
-                          const isSelected = selectedCompanyKeys.includes(entry.key);
-                          return (
-                            <button
-                              key={entry.key}
-                              onClick={() => setSelectedCompanyKeys(prev => isSelected ? prev.filter(k => k !== entry.key) : [...prev, entry.key])}
-                              className={`px-3 py-1.5 rounded-full text-sm font-semibold border transition-colors ${isSelected ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-500 border-gray-200 hover:border-blue-400 hover:text-blue-500'}`}
-                            >
-                              {entry.name}{entry.sessions.length > 1 && <span className="ml-1 text-xs opacity-60">{entry.sessions.length}R</span>}
-                            </button>
-                          );
-                        })}
-                        {selectedCompanyKeys.length > 0 && (
-                          <button onClick={() => setSelectedCompanyKeys([])} className="text-xs text-gray-400 hover:text-gray-600 underline px-2">Clear</button>
-                        )}
-                      </div>
-
-                      {selectedCompanyKeys.length === 0 && (
-                        <p className="text-sm text-gray-400 text-center py-8">Select one or more companies above to compare.</p>
+                  {/* Row 2, Col 3 — Company Comparison */}
+                  <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 flex flex-col min-h-0">
+                    <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 flex-shrink-0">Company Comparison</p>
+                    <div className="flex flex-wrap gap-1.5 mb-2 flex-shrink-0">
+                      {companyEntries.map(entry => {
+                        const isSel = selectedCompanyKeys.includes(entry.key);
+                        return (
+                          <button key={entry.key}
+                            onClick={() => setSelectedCompanyKeys(prev => isSel ? prev.filter(k => k !== entry.key) : [...prev, entry.key])}
+                            className={`px-2.5 py-1 rounded-full text-xs font-semibold border transition-colors ${isSel ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-500 border-gray-200 hover:border-blue-400 hover:text-blue-500'}`}
+                          >
+                            {entry.name}{entry.sessions.length > 1 && <span className="ml-1 opacity-60">{entry.sessions.length}R</span>}
+                          </button>
+                        );
+                      })}
+                      {selectedCompanyKeys.length > 0 && (
+                        <button onClick={() => setSelectedCompanyKeys([])} className="text-xs text-gray-400 hover:text-gray-600 underline px-1">Clear</button>
                       )}
-
+                    </div>
+                    <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+                      {selectedCompanyKeys.length === 0 && (
+                        <p className="text-xs text-gray-400 text-center mt-4">Select one company for radar,<br/>two or more for bar chart.</p>
+                      )}
                       {selectedCompanyKeys.length === 1 && (() => {
                         const entry = selectedEntries[0];
                         const pillars = computeCompanyPillars(entry);
                         return pillars.length === 0
-                          ? <p className="text-sm text-gray-400 text-center py-6">No responses for this company in the selected time range.</p>
-                          : (
-                            <div className="flex flex-col items-center py-2">
-                              <p className="text-sm font-bold text-gray-700 mb-3">{entry.name}</p>
-                              <RadarChart pillars={pillars.map(p => ({ name: p.name, pct: Math.round((p.avg / 5) * 100) }))} size={240} />
-                            </div>
-                          );
+                          ? <p className="text-xs text-gray-400 text-center mt-4">No responses for this company.</p>
+                          : <div className="flex-1 flex flex-col items-center justify-center min-h-0">
+                              <p className="text-xs font-bold text-gray-700 mb-2">{entry.name}</p>
+                              <RadarChart pillars={pillars.map(p => ({ name: p.name, pct: Math.round((p.avg / 5) * 100) }))} size={180} />
+                            </div>;
                       })()}
-
                       {selectedCompanyKeys.length >= 2 && (() => {
                         const traces = buildCompareTraces();
                         const annotations = buildCompareAnnotations();
                         const layout = {
                           barmode: 'group', annotations,
-                          xaxis: { gridcolor: '#f3f4f6', tickfont: { size: 10 }, automargin: true },
-                          yaxis: { range: [0, 6], gridcolor: '#f3f4f6', tickfont: { size: 10 }, title: { text: 'Avg Score (0–5)', font: { size: 11 } } },
+                          xaxis: { gridcolor: '#f3f4f6', tickfont: { size: 9 }, automargin: true },
+                          yaxis: { range: [0, 6], gridcolor: '#f3f4f6', tickfont: { size: 9 } },
                           showlegend: true,
-                          legend: { orientation: 'h', x: 0, y: 1.12, font: { size: 10 } },
-                          margin: { t: 48, b: 60, l: 48, r: 20 },
+                          legend: { orientation: 'h', x: 0, y: 1.15, font: { size: 9 } },
+                          margin: { t: 36, b: 48, l: 36, r: 12 },
                         };
                         return plotlyLib
-                          ? <CompanyPlotlyChart plotly={plotlyLib} data={traces} layout={layout} />
-                          : <p className="text-sm text-gray-400 text-center py-8">Loading chart…</p>;
+                          ? <div className="flex-1 min-h-0"><CompanyPlotlyChart plotly={plotlyLib} data={traces} layout={layout} /></div>
+                          : <p className="text-xs text-gray-400 text-center mt-4">Loading chart…</p>;
                       })()}
                     </div>
-                  )}
+                  </div>
 
                 </div>
               );
             })()}
+        </div>
+      )}
 
-            {/* Responses Table */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mt-6">
-              <div className="px-6 py-4 border-b flex justify-between items-center">
-                <h2 className="text-lg font-bold text-gray-900">All Responses</h2>
-                <span className="text-sm text-gray-400">{filteredResponses.length}{levelFilter !== null ? ` of ${responses.length}` : ''} records</span>
-              </div>
-              {filteredResponses.length === 0 ? (
-                <div className="text-center py-16 text-gray-400">No responses yet</div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-100">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">#</th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Readiness Level</th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Score</th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Submitted</th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Details</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                      {filteredResponses.map(r => {
-                        const rlIdx = r.score_pct >= 4 ? 0 : r.score_pct >= 3 ? 1 : r.score_pct >= 2 ? 2 : r.score_pct >= 1 ? 3 : 4;
-                        const colors = READINESS_LEVEL_STYLES[rlIdx];
-                        const isExpanded = expandedRow === r.id;
-                        let parsedAnswers = {};
-                        try { parsedAnswers = JSON.parse(r.answers_json); } catch {}
-                        return (
-                          <>
-                            <tr key={r.id} className="hover:bg-gray-50 transition-colors">
-                              <td className="px-4 py-3 text-sm text-gray-500">{r.id}</td>
-                              <td className="px-4 py-3">
-                                <span className={`px-2 py-1 text-xs font-semibold rounded-full ${colors.bg} ${colors.text}`}>{readinessLevels[rlIdx].name}</span>
-                              </td>
-                              <td className="px-4 py-3 text-sm font-semibold text-gray-800">{(r.score_pct || 0).toFixed(2)} / 5</td>
-                              <td className="px-4 py-3 text-sm text-gray-500">{new Date(r.submitted_at).toLocaleString()}</td>
-                              <td className="px-4 py-3">
-                                <button onClick={() => setExpandedRow(isExpanded ? null : r.id)} className="text-xs text-blue-600 hover:underline">
-                                  {isExpanded ? 'Hide' : 'View'} answers
-                                </button>
-                              </td>
-                            </tr>
-                            {isExpanded && (
-                              <tr key={`${r.id}-expand`} className="bg-blue-50">
-                                <td colSpan={5} className="px-4 py-4">
-                                  <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-2">
-                                    {questions.map(q => {
-                                      const score = parsedAnswers[q.id];
-                                      const maxW = q.options.length ? Math.max(...q.options.map(o => o.weight)) : 5;
-                                      return (
-                                        <div key={q.id} className="text-center">
-                                          <div className="text-xs text-gray-500 mb-1 truncate" title={q.category}>{q.category}</div>
-                                          <div className={`text-sm font-bold rounded px-2 py-1 ${
-                                            score === undefined ? 'bg-gray-100 text-gray-400' :
-                                            score / maxW >= 0.8 ? 'bg-blue-100 text-blue-700' :
-                                            score / maxW >= 0.6 ? 'bg-blue-50 text-blue-500' :
-                                            'bg-slate-100 text-slate-500'
-                                          }`}>
-                                            {score !== undefined ? `${score}/${maxW}` : 'N/A'}
-                                          </div>
-                                        </div>
-                                      );
-                                    })}
-                                  </div>
-                                </td>
-                              </tr>
-                            )}
-                          </>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          </>
-        )}
-
-        {/* ── Settings Tab ──────────────────────────────────────────────── */}
-        {activeTab === 'settings' && (() => {
+      {/* ── Settings Tab ── */}
+      {activeTab === 'settings' && (
+        <div className="flex-1 overflow-y-auto p-6">
+        {(() => {
           const workingOptionLevels = editLevels ?? levels;
           const optionLevelsValid = workingOptionLevels.every(l => l.trim().length > 0);
 
@@ -1765,9 +1662,13 @@ function AdminPage() {
             </div>
           );
         })()}
+        </div>
+      )}
 
-        {/* ── Questions Tab ─────────────────────────────────────────────── */}
-        {activeTab === 'questions' && (() => {
+      {/* ── Questions Tab ── */}
+      {activeTab === 'questions' && (
+        <div className="flex-1 overflow-y-auto p-6">
+        {(() => {
           // Group questions by pillar, preserving order of first appearance
           const pillarMap = new Map();
           for (const q of questions) {
@@ -1959,10 +1860,9 @@ function AdminPage() {
             </div>
           );
         })()}
+        </div>
+      )}
 
-      </div>
     </div>
   );
 }
-
-export default AdminPage;
