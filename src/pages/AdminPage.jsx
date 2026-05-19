@@ -572,71 +572,7 @@ function AdminPage() {
         {/* ── Analytics Tab ─────────────────────────────────────────────── */}
         {activeTab === 'analytics' && (
           <>
-            {/* Global time slicer */}
-            <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 mb-3">
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Filter by Date Range</p>
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-xs text-gray-500">From</span>
-                <input
-                  type="date"
-                  className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  value={analyticsFromDate}
-                  onChange={e => setAnalyticsFromDate(e.target.value)}
-                />
-                <span className="text-xs text-gray-500">to</span>
-                <input
-                  type="date"
-                  className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  value={analyticsToDate}
-                  onChange={e => setAnalyticsToDate(e.target.value)}
-                />
-                {(analyticsFromDate || analyticsToDate) && (
-                  <button
-                    onClick={() => { setAnalyticsFromDate(''); setAnalyticsToDate(''); }}
-                    className="text-xs text-gray-400 hover:text-gray-600 underline"
-                  >
-                    Clear
-                  </button>
-                )}
-                {(analyticsFromDate || analyticsToDate) && (
-                  <span className="text-xs text-blue-600 font-semibold ml-2">{timeFilteredResponses.length} of {responses.length} responses</span>
-                )}
-              </div>
-            </div>
-
-            {/* Sector slicer */}
-            {availableSectors.length > 0 && (
-              <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 mb-3">
-                <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Filter by Sector</p>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    onClick={() => setSectorFilter(null)}
-                    className={`px-4 py-1.5 rounded-full text-sm font-semibold border transition-colors ${
-                      sectorFilter === null
-                        ? 'bg-blue-600 text-white border-blue-600'
-                        : 'bg-white text-gray-500 border-gray-200 hover:border-blue-400 hover:text-blue-500'
-                    }`}
-                  >
-                    All ({timeFilteredResponses.length})
-                  </button>
-                  {availableSectors.map(sector => (
-                    <button
-                      key={sector}
-                      onClick={() => setSectorFilter(sectorFilter === sector ? null : sector)}
-                      className={`px-4 py-1.5 rounded-full text-sm font-semibold border transition-colors ${
-                        sectorFilter === sector
-                          ? 'bg-blue-600 text-white border-blue-600'
-                          : 'bg-white text-gray-500 border-gray-200 hover:border-blue-400 hover:text-blue-500'
-                      }`}
-                    >
-                      {sector} ({sectorResponseCounts[sector]})
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Readiness level slicer */}
+            {/* Combined Filters */}
             {(() => {
               const levelCounts = readinessLevels.map((_, i) =>
                 sectorFilteredResponses.filter(r => {
@@ -644,9 +580,76 @@ function AdminPage() {
                   return idx === i;
                 }).length
               );
+              const hasActiveFilter = !!(analyticsFromDate || analyticsToDate || sectorFilter !== null || levelFilter !== null);
               return (
                 <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 mb-6">
-                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Filter by Readiness Level</p>
+                  <div className="flex items-center justify-between mb-4">
+                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Filters</p>
+                    {hasActiveFilter && (
+                      <button
+                        onClick={() => { setSectorFilter(null); setLevelFilter(null); setAnalyticsFromDate(''); setAnalyticsToDate(''); }}
+                        className="text-xs text-blue-500 hover:text-blue-700 font-semibold transition-colors"
+                      >
+                        Clear all
+                      </button>
+                    )}
+                  </div>
+
+                  <p className="text-xs font-medium text-gray-400 mb-2">Date Range</p>
+                  <div className="flex flex-wrap items-center gap-2 mb-4">
+                    <span className="text-xs text-gray-500">From</span>
+                    <input
+                      type="date"
+                      className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      value={analyticsFromDate}
+                      onChange={e => setAnalyticsFromDate(e.target.value)}
+                    />
+                    <span className="text-xs text-gray-500">to</span>
+                    <input
+                      type="date"
+                      className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      value={analyticsToDate}
+                      onChange={e => setAnalyticsToDate(e.target.value)}
+                    />
+                    {(analyticsFromDate || analyticsToDate) && (
+                      <span className="text-xs text-blue-600 font-semibold ml-1">{timeFilteredResponses.length} of {responses.length} responses</span>
+                    )}
+                  </div>
+
+                  {availableSectors.length > 0 && (
+                    <>
+                      <div className="border-t border-gray-100 mb-4" />
+                      <p className="text-xs font-medium text-gray-400 mb-2">Sector</p>
+                      <div className="flex flex-wrap gap-2 mb-4">
+                        <button
+                          onClick={() => setSectorFilter(null)}
+                          className={`px-4 py-1.5 rounded-full text-sm font-semibold border transition-colors ${
+                            sectorFilter === null
+                              ? 'bg-blue-600 text-white border-blue-600'
+                              : 'bg-white text-gray-500 border-gray-200 hover:border-blue-400 hover:text-blue-500'
+                          }`}
+                        >
+                          All ({timeFilteredResponses.length})
+                        </button>
+                        {availableSectors.map(sector => (
+                          <button
+                            key={sector}
+                            onClick={() => setSectorFilter(sectorFilter === sector ? null : sector)}
+                            className={`px-4 py-1.5 rounded-full text-sm font-semibold border transition-colors ${
+                              sectorFilter === sector
+                                ? 'bg-blue-600 text-white border-blue-600'
+                                : 'bg-white text-gray-500 border-gray-200 hover:border-blue-400 hover:text-blue-500'
+                            }`}
+                          >
+                            {sector} ({sectorResponseCounts[sector]})
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  )}
+
+                  <div className="border-t border-gray-100 mb-4" />
+                  <p className="text-xs font-medium text-gray-400 mb-2">Readiness Level</p>
                   <div className="flex flex-wrap gap-2">
                     <button
                       onClick={() => setLevelFilter(null)}
