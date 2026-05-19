@@ -88,6 +88,23 @@ function ResultsPage() {
   const levelIdx      = (overallMean ?? 0) >= 4 ? 0 : (overallMean ?? 0) >= 3 ? 1 : (overallMean ?? 0) >= 2 ? 2 : (overallMean ?? 0) >= 1 ? 3 : 4;
   const levelPosition = 5 - levelIdx;
 
+  // Per-pillar competency index (0–4) for matching pillar conditions on courses
+  const pillarCompetencyMap = Object.fromEntries(
+    pillarEntries.map(([name, { avg }]) => [name, getCompetencyIndex(avg ?? 0)])
+  );
+
+  const relevantCourses = courses.filter(c => {
+    if (Array.isArray(c.levels) && c.levels.includes(levelIdx)) return true;
+    if (Array.isArray(c.pillarConditions)) {
+      return c.pillarConditions.some(pc =>
+        pc.pillar &&
+        Array.isArray(pc.levels) &&
+        pc.levels.includes(pillarCompetencyMap[pc.pillar] ?? -1)
+      );
+    }
+    return false;
+  });
+
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 py-10 px-4 sm:px-6 lg:px-8">
@@ -146,7 +163,6 @@ function ResultsPage() {
 
         {/* ── Encouragement + Recommended courses ──────────────────── */}
         {(() => {
-          const relevant = courses.filter(c => Array.isArray(c.levels) && c.levels.includes(levelIdx));
           const encouragement = LEVEL_ENCOURAGEMENT[levelIdx] ?? LEVEL_ENCOURAGEMENT[4];
           return (
             <div className={`rounded-xl border p-8 ${styles.badge}`}>
@@ -156,29 +172,25 @@ function ResultsPage() {
           );
         })()}
 
-        {(() => {
-          const relevant = courses.filter(c => Array.isArray(c.levels) && c.levels.includes(levelIdx));
-          if (relevant.length === 0) return null;
-          return (
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8">
-              <h2 className="text-xl font-bold text-gray-900 mb-2">Recommended Programmes &amp; Training</h2>
-              <p className="text-gray-500 text-sm mb-5">
-                Curated for your readiness level — explore these to keep growing.
-              </p>
-              <ul className="space-y-4">
-                {relevant.map((course, i) => (
-                  <li key={i} className="flex gap-3 items-start">
-                    <span className={`mt-0.5 font-bold flex-shrink-0 text-lg ${styles.icon}`}>→</span>
-                    <div>
-                      <p className="text-gray-800 font-semibold">{course.name}</p>
-                      {course.description && <p className="text-gray-500 text-sm mt-0.5 leading-relaxed">{course.description}</p>}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          );
-        })()}
+        {relevantCourses.length > 0 && (
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8">
+            <h2 className="text-xl font-bold text-gray-900 mb-2">Recommended Programmes &amp; Training</h2>
+            <p className="text-gray-500 text-sm mb-5">
+              Curated for your readiness level — explore these to keep growing.
+            </p>
+            <ul className="space-y-4">
+              {relevantCourses.map((course, i) => (
+                <li key={i} className="flex gap-3 items-start">
+                  <span className={`mt-0.5 font-bold flex-shrink-0 text-lg ${styles.icon}`}>→</span>
+                  <div>
+                    <p className="text-gray-800 font-semibold">{course.name}</p>
+                    {course.description && <p className="text-gray-500 text-sm mt-0.5 leading-relaxed">{course.description}</p>}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         {/* ── Retake ───────────────────────────────────────────────── */}
         <div className="text-center pb-4">

@@ -90,18 +90,28 @@ export async function onRequestPost(context) {
 
     if (action === 'update_courses') {
       const { courses } = body;
-      if (
-        !Array.isArray(courses) ||
-        courses.some(c => !c?.name?.trim() || !Array.isArray(c.levels) || c.levels.some(l => !Number.isInteger(l) || l < 0 || l > 4))
-      ) {
+      if (!Array.isArray(courses) || courses.some(c => !c?.name?.trim())) {
         return new Response(
-          JSON.stringify({ error: 'courses must be an array of {name: string, levels: number[]}' }),
+          JSON.stringify({ error: 'courses must be an array of objects with a non-empty name' }),
           { status: 400, headers: cors }
         );
       }
+      const sanitised = courses.map(c => ({
+        name: c.name.trim(),
+        levels: Array.isArray(c.levels) ? c.levels.filter(l => Number.isInteger(l) && l >= 0 && l <= 4) : [],
+        description: (c.description ?? '').trim(),
+        pillarConditions: Array.isArray(c.pillarConditions)
+          ? c.pillarConditions
+              .filter(pc => pc?.pillar)
+              .map(pc => ({
+                pillar: pc.pillar,
+                levels: Array.isArray(pc.levels) ? pc.levels.filter(l => Number.isInteger(l) && l >= 0 && l <= 4) : [],
+              }))
+          : [],
+      }));
       await env.DB.prepare(
         "INSERT INTO settings (key, value) VALUES ('courses', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value"
-      ).bind(JSON.stringify(courses.map(c => ({ name: c.name.trim(), levels: c.levels, description: (c.description ?? '').trim() })))).run();
+      ).bind(JSON.stringify(sanitised)).run();
 
       logSecurityEvent('ADMIN_COURSES_UPDATED', { ip });
       return new Response(JSON.stringify({ success: true }), { status: 200, headers: cors });

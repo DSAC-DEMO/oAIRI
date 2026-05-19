@@ -63,13 +63,12 @@ export async function onRequestGet(context) {
     const { results: dailyTrend } = await env.DB.prepare(`
       SELECT DATE(submitted_at) as date, COUNT(*) as count
       FROM responses
-      WHERE submitted_at >= DATE('now', '-30 days')
       GROUP BY DATE(submitted_at)
       ORDER BY date ASC
     `).all();
 
     const { results: responses } = await env.DB.prepare(
-      'SELECT id, readiness_level, total_score, score_pct, answers_json, is_sp_staff, department, submitted_at FROM responses ORDER BY submitted_at DESC'
+      'SELECT id, session_id, readiness_level, total_score, score_pct, answers_json, is_sp_staff, department, submitted_at FROM responses ORDER BY submitted_at DESC'
     ).all();
 
     const { results: questions } = await env.DB.prepare(
@@ -108,7 +107,7 @@ export async function onRequestGet(context) {
     const courses = coursesRow ? JSON.parse(coursesRow.value) : [];
 
     const { results: sessions } = await env.DB.prepare(`
-      SELECT s.id, s.name, s.sector, s.code, s.created_at, COUNT(r.id) AS response_count
+      SELECT s.id, s.name, s.sector, s.code, s.company_uen, s.round_label, s.created_at, COUNT(r.id) AS response_count
       FROM sessions s
       LEFT JOIN responses r ON r.session_id = s.id
       GROUP BY s.id

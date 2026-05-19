@@ -1,6 +1,36 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import RadarChart from '../components/RadarChart';
+
+function CompanyPlotlyChart({ plotly, data, layout }) {
+  const divRef = useRef(null);
+  useEffect(() => {
+    if (!plotly || !divRef.current || !data?.length) return;
+    plotly.react(divRef.current, data, {
+      ...layout,
+      paper_bgcolor: 'transparent',
+      plot_bgcolor: 'transparent',
+      font: { family: 'inherit' },
+    }, { responsive: true, displayModeBar: 'hover', modeBarButtonsToRemove: ['toImage', 'sendDataToCloud', 'lasso2d', 'select2d'] });
+  }, [plotly, data, layout]);
+  return <div ref={divRef} className="w-full" style={{ minHeight: 320 }} />;
+}
+
+// Dice-coefficient word overlap, strips common company suffixes before comparing
+function companyNameSimilarity(a, b) {
+  const norm = s => s.toLowerCase()
+    .replace(/\b(pte|ltd|llp|inc|corp|sdn|bhd|private|limited|co|sg|singapore)\b/g, '')
+    .replace(/[^a-z0-9\s]/g, '')
+    .trim();
+  const na = norm(a);
+  const nb = norm(b);
+  if (!na || !nb) return 0;
+  if (na === nb) return 1;
+  const wa = new Set(na.split(/\s+/).filter(Boolean));
+  const wb = new Set(nb.split(/\s+/).filter(Boolean));
+  const shared = [...wa].filter(w => wb.has(w)).length;
+  return (2 * shared) / (wa.size + wb.size);
+}
 
 const SECTORS = [
   'Maritime',
@@ -260,8 +290,27 @@ function AdminPage() {
   const [shownCodes, setShownCodes] = useState({});
   // New session sector
   const [newSessionSector, setNewSessionSector] = useState('');
+  // New session: pending link to an existing company + round label
+  const [pendingLink, setPendingLink] = useState(null); // { id, name, company_uen }
+  const [newSessionRoundLabel, setNewSessionRoundLabel] = useState('');
+  // Company codes search filter
+  const [codeSearch, setCodeSearch] = useState('');
+  // Company codes date range filter
+  const [codeFromDate, setCodeFromDate] = useState('');
+  const [codeToDate, setCodeToDate] = useState('');
   // Sector slicer filter (null = All)
   const [sectorFilter, setSectorFilter] = useState(null);
+  // Global analytics time range filter
+  const [analyticsFromDate, setAnalyticsFromDate] = useState('');
+  const [analyticsToDate, setAnalyticsToDate] = useState('');
+  // Company comparison selector (array of company keys)
+  const [selectedCompanyKeys, setSelectedCompanyKeys] = useState([]);
+  // Plotly library (lazy-loaded)
+  const [plotlyLib, setPlotlyLib] = useState(null);
+
+  useEffect(() => {
+    import('plotly.js-dist-min').then(m => setPlotlyLib(m.default)).catch(() => {});
+  }, []);
 
   useEffect(() => {
     const token = localStorage.getItem('adminToken');
@@ -372,17 +421,65 @@ function AdminPage() {
   const sessionSectorMap = {};
   for (const s of sessionsData) sessionSectorMap[s.id] = s.sector || '';
 
-  // unique sectors that have at least one response
+  // Global time filter applied first
+  const analyticsFromMs = analyticsFromDate ? new Date(analyticsFromDate).getTime() : null;
+  const analyticsToMs   = analyticsToDate   ? new Date(analyticsToDate + 'T23:59:59').getTime() : null;
+  const timeFilteredResponses = responses.filter(r => {
+    const t = new Date(r.submitted_at).getTime();
+    if (analyticsFromMs && t < analyticsFromMs) return false;
+    if (analyticsToMs   && t > analyticsToMs)   return false;
+    return true;
+  });
+
+  // unique sectors that have at least one response (within time filter)
   const sectorResponseCounts = {};
-  for (const r of responses) {
+  for (const r of timeFilteredResponses) {
     const sec = sessionSectorMap[r.session_id] || '';
     if (sec) sectorResponseCounts[sec] = (sectorResponseCounts[sec] || 0) + 1;
   }
   const availableSectors = Object.keys(sectorResponseCounts).sort();
 
   const sectorFilteredResponses = sectorFilter === null
-    ? responses
-    : responses.filter(r => (sessionSectorMap[r.session_id] || '') === sectorFilter);
+    ? timeFilteredResponses
+    : timeFilteredResponses.filter(r => (sessionSectorMap[r.session_id] || '') === sectorFilter);
+
+  // Company entries for comparison selector
+  const companyEntries = (() => {
+    const uenGroups = {};
+    const solos = [];
+    for (const s of sessionsData) {
+      if (s.company_uen) {
+        if (!uenGroups[s.company_uen]) uenGroups[s.company_uen] = [];
+        uenGroups[s.company_uen].push(s);
+      } else {
+        solos.push({ key: `solo_${s.id}`, name: s.name, sessions: [s] });
+      }
+    }
+    const grouped = Object.entries(uenGroups).map(([uen, ss]) => ({
+      key: uen,
+      name: ss[0].name,
+      sessions: ss.sort((a, b) => new Date(a.created_at) - new Date(b.created_at)),
+    }));
+    return [...grouped, ...solos];
+  })();
+
+  const computeCompanyPillars = (entry) => {
+    const sessionIds = new Set(entry.sessions.map(s => s.id));
+    const entryResponses = timeFilteredResponses.filter(r => sessionIds.has(r.session_id));
+    const acc = {};
+    for (const r of entryResponses) {
+      let ans = {};
+      try { ans = JSON.parse(r.answers_json); } catch {}
+      for (const q of questions) {
+        const score = parseFloat(ans[q.id]);
+        if (isNaN(score)) continue;
+        if (!acc[q.category]) acc[q.category] = { sum: 0, count: 0 };
+        acc[q.category].sum += score;
+        acc[q.category].count += 1;
+      }
+    }
+    return Object.entries(acc).map(([name, { sum, count }]) => ({ name, avg: count > 0 ? sum / count : 0 }));
+  };
 
   const filteredResponses = levelFilter === null
     ? sectorFilteredResponses
@@ -475,6 +572,38 @@ function AdminPage() {
         {/* ── Analytics Tab ─────────────────────────────────────────────── */}
         {activeTab === 'analytics' && (
           <>
+            {/* Global time slicer */}
+            <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 mb-3">
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Filter by Date Range</p>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs text-gray-500">From</span>
+                <input
+                  type="date"
+                  className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  value={analyticsFromDate}
+                  onChange={e => setAnalyticsFromDate(e.target.value)}
+                />
+                <span className="text-xs text-gray-500">to</span>
+                <input
+                  type="date"
+                  className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  value={analyticsToDate}
+                  onChange={e => setAnalyticsToDate(e.target.value)}
+                />
+                {(analyticsFromDate || analyticsToDate) && (
+                  <button
+                    onClick={() => { setAnalyticsFromDate(''); setAnalyticsToDate(''); }}
+                    className="text-xs text-gray-400 hover:text-gray-600 underline"
+                  >
+                    Clear
+                  </button>
+                )}
+                {(analyticsFromDate || analyticsToDate) && (
+                  <span className="text-xs text-blue-600 font-semibold ml-2">{timeFilteredResponses.length} of {responses.length} responses</span>
+                )}
+              </div>
+            </div>
+
             {/* Sector slicer */}
             {availableSectors.length > 0 && (
               <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 mb-3">
@@ -488,7 +617,7 @@ function AdminPage() {
                         : 'bg-white text-gray-500 border-gray-200 hover:border-blue-400 hover:text-blue-500'
                     }`}
                   >
-                    All ({responses.length})
+                    All ({timeFilteredResponses.length})
                   </button>
                   {availableSectors.map(sector => (
                     <button
@@ -593,10 +722,10 @@ function AdminPage() {
 
             {/* Submission Trend */}
             <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 mb-8">
-              <h2 className="text-lg font-bold text-gray-900 mb-1">Submissions — Last 30 Days</h2>
-              <p className="text-xs text-gray-500 mb-5">Cumulative total submissions over time</p>
+              <h2 className="text-lg font-bold text-gray-900 mb-1">Cumulative Submissions</h2>
+              <p className="text-xs text-gray-500 mb-5">All-time total submissions over time</p>
               {cumulativeTrend.length === 0 ? (
-                <p className="text-gray-400 text-sm">No submissions in the last 30 days</p>
+                <p className="text-gray-400 text-sm">No submissions yet</p>
               ) : (() => {
                 const SVG_H = 140;
                 const PAD = { top: 12, bottom: 28, left: 36, right: 12 };
@@ -693,6 +822,126 @@ function AdminPage() {
               </div>
             </div>
 
+            {/* Company Comparison */}
+            {(() => {
+              const COMPARE_COLORS = ['#2563eb', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899'];
+              const selectedEntries = selectedCompanyKeys
+                .map(k => companyEntries.find(e => e.key === k))
+                .filter(Boolean);
+
+              // Gather all pillar names from questions
+              const allPillarNames = [...new Set((questions || []).map(q => q.category))];
+
+              // Build Plotly traces for 2+ companies
+              const buildTraces = () => selectedEntries.map((entry, i) => {
+                const pillars = computeCompanyPillars(entry);
+                const avgs = allPillarNames.map(pn => pillars.find(p => p.name === pn)?.avg ?? 0);
+                return {
+                  type: 'bar',
+                  name: entry.name,
+                  x: allPillarNames,
+                  y: avgs,
+                  marker: { color: COMPARE_COLORS[i % COMPARE_COLORS.length] },
+                  text: avgs.map(a => a > 0 ? a.toFixed(2) : ''),
+                  textposition: 'outside',
+                  textfont: { size: 10 },
+                };
+              });
+
+              const buildAnnotations = () => {
+                if (selectedEntries.length !== 2) return [];
+                const p1 = computeCompanyPillars(selectedEntries[0]);
+                const p2 = computeCompanyPillars(selectedEntries[1]);
+                return allPillarNames.map(pn => {
+                  const a = p1.find(p => p.name === pn)?.avg ?? 0;
+                  const b = p2.find(p => p.name === pn)?.avg ?? 0;
+                  const delta = b - a;
+                  return {
+                    x: pn, y: Math.max(a, b) + 0.55,
+                    text: `Δ ${delta >= 0 ? '+' : ''}${delta.toFixed(2)}`,
+                    showarrow: false,
+                    font: { size: 9, color: delta > 0 ? '#22c55e' : delta < 0 ? '#f87171' : '#9ca3af' },
+                    xanchor: 'center',
+                  };
+                });
+              };
+
+              return (
+                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 mb-8">
+                  <h2 className="text-lg font-bold text-gray-900 mb-1">Company Comparison</h2>
+                  <p className="text-xs text-gray-500 mb-4">Select companies to compare pillar performance. Single selection shows a radar; two or more shows a grouped bar chart with delta labels.</p>
+
+                  {/* Company selector */}
+                  <div className="flex flex-wrap gap-2 mb-5">
+                    {companyEntries.map(entry => {
+                      const isSelected = selectedCompanyKeys.includes(entry.key);
+                      return (
+                        <button
+                          key={entry.key}
+                          onClick={() => setSelectedCompanyKeys(prev =>
+                            isSelected ? prev.filter(k => k !== entry.key) : [...prev, entry.key]
+                          )}
+                          className={`px-3 py-1.5 rounded-full text-sm font-semibold border transition-colors ${
+                            isSelected
+                              ? 'bg-blue-600 text-white border-blue-600'
+                              : 'bg-white text-gray-500 border-gray-200 hover:border-blue-400 hover:text-blue-500'
+                          }`}
+                        >
+                          {entry.name}
+                          {entry.sessions.length > 1 && <span className="ml-1 text-xs opacity-60">{entry.sessions.length}R</span>}
+                        </button>
+                      );
+                    })}
+                    {selectedCompanyKeys.length > 0 && (
+                      <button
+                        onClick={() => setSelectedCompanyKeys([])}
+                        className="text-xs text-gray-400 hover:text-gray-600 underline px-2"
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
+
+                  {selectedCompanyKeys.length === 0 && (
+                    <p className="text-sm text-gray-400 text-center py-8">Select one or more companies above to compare.</p>
+                  )}
+
+                  {selectedCompanyKeys.length === 1 && (() => {
+                    const entry = selectedEntries[0];
+                    const pillars = computeCompanyPillars(entry);
+                    return pillars.length === 0
+                      ? <p className="text-sm text-gray-400 text-center py-6">No responses for this company in the selected time range.</p>
+                      : (
+                        <div className="flex flex-col items-center py-2">
+                          <p className="text-sm font-bold text-gray-700 mb-3">{entry.name}</p>
+                          <RadarChart
+                            pillars={pillars.map(p => ({ name: p.name, pct: Math.round((p.avg / 5) * 100) }))}
+                            size={240}
+                          />
+                        </div>
+                      );
+                  })()}
+
+                  {selectedCompanyKeys.length >= 2 && (() => {
+                    const traces = buildTraces();
+                    const annotations = buildAnnotations();
+                    const layout = {
+                      barmode: 'group',
+                      annotations,
+                      xaxis: { gridcolor: '#f3f4f6', tickfont: { size: 10 }, automargin: true },
+                      yaxis: { range: [0, 6], gridcolor: '#f3f4f6', tickfont: { size: 10 }, title: { text: 'Avg Score (0–5)', font: { size: 11 } } },
+                      showlegend: true,
+                      legend: { orientation: 'h', x: 0, y: 1.12, font: { size: 10 } },
+                      margin: { t: 48, b: 60, l: 48, r: 20 },
+                    };
+                    return plotlyLib
+                      ? <CompanyPlotlyChart plotly={plotlyLib} data={traces} layout={layout} />
+                      : <p className="text-sm text-gray-400 text-center py-8">Loading chart…</p>;
+                  })()}
+                </div>
+              );
+            })()}
+
             {/* Sector competency radar charts */}
             {(() => {
               const sectorAccum = {};
@@ -711,21 +960,32 @@ function AdminPage() {
                   sectorAccum[sector][q.category].count += 1;
                 }
               }
-              const sectorEntries = Object.entries(sectorAccum);
-              if (sectorEntries.length === 0) return null;
+              const sortedSectors = [...SECTORS].sort((a, b) => (sectorAccum[b] ? 1 : 0) - (sectorAccum[a] ? 1 : 0));
               return (
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 mb-8">
                   <h2 className="text-lg font-bold text-gray-900 mb-1">Sector Competency Profiles</h2>
                   <p className="text-xs text-gray-500 mb-6">Average pillar scores per industry sector</p>
                   <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6">
-                    {sectorEntries.map(([sector, pillarsRaw]) => {
+                    {sortedSectors.map(sector => {
+                      const pillarsRaw = sectorAccum[sector];
+                      const responseCount = filteredResponses.filter(r => (sessionSectorMap[r.session_id] || '') === sector).length;
+                      if (!pillarsRaw) {
+                        return (
+                          <div key={sector} className="flex flex-col items-center">
+                            <p className="text-sm font-bold text-gray-400 mb-0.5 text-center">{sector}</p>
+                            <p className="text-xs text-gray-300 mb-2">No responses</p>
+                            <div className="w-[180px] h-[180px] rounded-full border-2 border-dashed border-gray-200 flex items-center justify-center">
+                              <p className="text-xs text-gray-300 text-center px-4">No data yet</p>
+                            </div>
+                          </div>
+                        );
+                      }
                       const pillars = Object.entries(pillarsRaw).map(([name, { sum, count }]) => ({
                         name,
                         pct: Math.round(((sum / count) / 5) * 100),
                       }));
                       const strongest = [...pillars].sort((a, b) => b.pct - a.pct)[0];
                       const weakest   = [...pillars].sort((a, b) => a.pct - b.pct)[0];
-                      const responseCount = filteredResponses.filter(r => (sessionSectorMap[r.session_id] || '') === sector).length;
                       return (
                         <div key={sector} className="flex flex-col items-center">
                           <p className="text-sm font-bold text-gray-800 mb-0.5 text-center">{sector}</p>
@@ -992,267 +1252,593 @@ function AdminPage() {
               </div>
 
               {/* Company Codes */}
-              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                <h2 className="text-lg font-bold text-gray-900 mb-1">Company Codes</h2>
-                <p className="text-xs text-gray-500 mb-5">
-                  Add a company by name — a code is generated automatically. Share the code with their staff so their survey responses are grouped together. The company can view their consolidated results at <span className="font-mono text-blue-600">/dashboard</span>.
-                </p>
+              {(() => {
+                // ── Duplicate detection: pairs of sessions not yet grouped with similar names ──
+                const duplicatePairs = [];
+                for (let i = 0; i < sessionsData.length; i++) {
+                  for (let j = i + 1; j < sessionsData.length; j++) {
+                    const a = sessionsData[i], b = sessionsData[j];
+                    if (a.company_uen && a.company_uen === b.company_uen) continue;
+                    if (companyNameSimilarity(a.name, b.name) >= 0.5) duplicatePairs.push({ a, b });
+                  }
+                }
 
-                {/* Generated code banner */}
-                {generatedCode && (
-                  <div className="mb-5 bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <p className="text-xs font-semibold text-blue-700 mb-1">Code generated — share this with the company. You can also reveal it later via the Show button.</p>
-                    <div className="flex items-center gap-3 mt-2">
-                      <span className="font-mono text-xl font-bold text-blue-800 tracking-widest">{generatedCode}</span>
-                      <button
-                        type="button"
-                        onClick={() => { navigator.clipboard.writeText(generatedCode); setCodeCopied(true); setTimeout(() => setCodeCopied(false), 2000); }}
-                        className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg font-semibold transition-colors"
-                      >
-                        {codeCopied ? 'Copied!' : 'Copy'}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setGeneratedCode(null)}
-                        className="text-xs text-blue-500 hover:underline ml-auto"
-                      >
-                        Dismiss
-                      </button>
-                    </div>
-                  </div>
-                )}
+                const groupSessions = async (ids, existingUen) => {
+                  const groupId = existingUen || `grp_${Math.min(...ids)}`;
+                  setSessionSaving(true);
+                  try {
+                    const res = await fetch('/api/sessions', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('adminToken')}` },
+                      body: JSON.stringify({ action: 'link', ids, group_id: groupId })
+                    });
+                    const result = await res.json();
+                    if (!result.success) throw new Error(result.error);
+                    await fetchData(localStorage.getItem('adminToken'));
+                  } catch (err) { alert(`Failed: ${err.message}`); }
+                  finally { setSessionSaving(false); }
+                };
 
-                {/* Existing codes */}
-                {sessionsData.length === 0 ? (
-                  <p className="text-sm text-gray-400 mb-4">No companies added yet.</p>
-                ) : (
-                  <div className="space-y-2 mb-5">
-                    {sessionsData.map(s => (
-                      <div key={s.id} className="bg-gray-50 rounded-lg px-4 py-3 border border-gray-100">
-                        <div className="flex items-center justify-between gap-3">
-                          <div>
-                            <p className="text-sm font-semibold text-gray-800">{s.name}</p>
-                            <p className="text-xs text-gray-400 mt-0.5">
-                              {s.sector && <span className="font-medium text-blue-600 mr-1">{s.sector} ·</span>}
-                              {s.response_count} response{s.response_count !== 1 ? 's' : ''} · Added {new Date(s.created_at).toLocaleDateString()}
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-3 flex-shrink-0">
-                            <button
-                              type="button"
-                              onClick={() => setShownCodes(prev => ({ ...prev, [s.id]: !prev[s.id] }))}
-                              className="text-xs text-blue-600 hover:underline font-medium"
-                            >
-                              {shownCodes[s.id] ? 'Hide' : 'Show'}
-                            </button>
-                            <button
-                              type="button"
-                              disabled={sessionSaving}
-                              onClick={async () => {
-                                if (!window.confirm(`Remove "${s.name}"? Their ${s.response_count} response(s) will be kept but unlinked.`)) return;
-                                setSessionSaving(true);
-                                try {
-                                  const res = await fetch('/api/sessions', {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('adminToken')}` },
-                                    body: JSON.stringify({ action: 'delete', id: s.id })
-                                  });
-                                  const result = await res.json();
-                                  if (!result.success) throw new Error(result.error);
-                                  await fetchData(localStorage.getItem('adminToken'));
-                                } catch (err) { alert(`Failed: ${err.message}`); }
-                                finally { setSessionSaving(false); }
-                              }}
-                              className="text-xs text-red-500 hover:underline font-medium"
-                            >
-                              Remove
-                            </button>
-                          </div>
+                // Build grouped display: sessions sharing a UEN are shown as rounds under one company
+                const searchLower = codeSearch.trim().toLowerCase();
+                const fromMs = codeFromDate ? new Date(codeFromDate).getTime() : null;
+                const toMs   = codeToDate   ? new Date(codeToDate + 'T23:59:59').getTime() : null;
+                const filtered = sessionsData.filter(s => {
+                  if (searchLower && !s.name.toLowerCase().includes(searchLower)) return false;
+                  const t = new Date(s.created_at).getTime();
+                  if (fromMs && t < fromMs) return false;
+                  if (toMs   && t > toMs)   return false;
+                  return true;
+                });
+
+                // Group by UEN; sessions without UEN stand alone
+                const uenMap = {};
+                const noUen = [];
+                for (const s of filtered) {
+                  if (s.company_uen) {
+                    if (!uenMap[s.company_uen]) uenMap[s.company_uen] = [];
+                    uenMap[s.company_uen].push(s);
+                  } else {
+                    noUen.push(s);
+                  }
+                }
+                for (const uen of Object.keys(uenMap)) {
+                  uenMap[uen].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+                }
+
+                // Fuzzy name suggestions while typing — skip if already linked
+                const nameSuggestions = (() => {
+                  if (pendingLink) return [];
+                  const name = newSessionName.trim();
+                  if (name.length < 3) return [];
+                  const seen = new Set();
+                  const results = [];
+                  for (const s of sessionsData) {
+                    const key = s.company_uen || `solo_${s.id}`;
+                    if (seen.has(key)) continue;
+                    const score = companyNameSimilarity(name, s.name);
+                    if (score >= 0.4) { results.push({ ...s, score }); seen.add(key); }
+                  }
+                  return results.sort((a, b) => b.score - a.score).slice(0, 3);
+                })();
+
+                const deleteSession = async (s) => {
+                  if (!window.confirm(`Remove "${s.name}"? Their ${s.response_count} response(s) will be kept but unlinked.`)) return;
+                  setSessionSaving(true);
+                  try {
+                    const res = await fetch('/api/sessions', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('adminToken')}` },
+                      body: JSON.stringify({ action: 'delete', id: s.id })
+                    });
+                    const result = await res.json();
+                    if (!result.success) throw new Error(result.error);
+                    await fetchData(localStorage.getItem('adminToken'));
+                  } catch (err) { alert(`Failed: ${err.message}`); }
+                  finally { setSessionSaving(false); }
+                };
+
+                const SessionRow = ({ s, roundLabel }) => (
+                  <div key={s.id} className="bg-gray-50 rounded-lg px-4 py-3 border border-gray-100">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-semibold text-gray-800">{s.name}</p>
+                          {roundLabel && (
+                            <span className="text-xs font-semibold bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">{roundLabel}</span>
+                          )}
+                          {s.round_label && (
+                            <span className="text-xs text-gray-400 italic">{s.round_label}</span>
+                          )}
                         </div>
-                        {shownCodes[s.id] && (
-                          <div className="mt-2 pt-2 border-t border-gray-200 flex items-center gap-3">
-                            {s.code
-                              ? <span className="font-mono text-base font-bold text-blue-700 tracking-widest">{s.code}</span>
-                              : <span className="text-xs text-gray-400 italic">Code not available (created before this feature)</span>
-                            }
-                            {s.code && (
-                              <button
-                                type="button"
-                                onClick={() => navigator.clipboard.writeText(s.code)}
-                                className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-2.5 py-1 rounded font-semibold transition-colors"
-                              >
-                                Copy
-                              </button>
-                            )}
+                        <p className="text-xs text-gray-400 mt-0.5">
+                          {s.sector && <span className="font-medium text-blue-600 mr-1">{s.sector} ·</span>}
+                          {s.response_count} response{s.response_count !== 1 ? 's' : ''} · Added {new Date(s.created_at).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-3 flex-shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => setShownCodes(prev => ({ ...prev, [s.id]: !prev[s.id] }))}
+                          className="text-xs text-blue-600 hover:underline font-medium"
+                        >
+                          {shownCodes[s.id] ? 'Hide' : 'Show'}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={sessionSaving}
+                          onClick={() => deleteSession(s)}
+                          className="text-xs text-red-500 hover:underline font-medium"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                    {shownCodes[s.id] && (
+                      <div className="mt-2 pt-2 border-t border-gray-200 flex items-center gap-3">
+                        {s.code
+                          ? <span className="font-mono text-base font-bold text-blue-700 tracking-widest">{s.code}</span>
+                          : <span className="text-xs text-gray-400 italic">Code not available (created before this feature)</span>
+                        }
+                        {s.code && (
+                          <button
+                            type="button"
+                            onClick={() => navigator.clipboard.writeText(s.code)}
+                            className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-2.5 py-1 rounded font-semibold transition-colors"
+                          >
+                            Copy
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+
+                return (
+                  <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                    <h2 className="text-lg font-bold text-gray-900 mb-1">Company Codes</h2>
+                    <p className="text-xs text-gray-500 mb-5">
+                      Add a company by name — a code is generated automatically. Linking sessions to the same UEN groups them as rounds, letting companies track AI readiness over time.
+                      The company views results at <span className="font-mono text-blue-600">/dashboard</span>.
+                    </p>
+
+                    {/* Generated code banner */}
+                    {generatedCode && (
+                      <div className="mb-5 bg-blue-50 border border-blue-200 rounded-lg p-4">
+                        <p className="text-xs font-semibold text-blue-700 mb-1">Code generated — share this with the company. You can also reveal it later via the Show button.</p>
+                        <div className="flex items-center gap-3 mt-2">
+                          <span className="font-mono text-xl font-bold text-blue-800 tracking-widest">{generatedCode}</span>
+                          <button
+                            type="button"
+                            onClick={() => { navigator.clipboard.writeText(generatedCode); setCodeCopied(true); setTimeout(() => setCodeCopied(false), 2000); }}
+                            className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg font-semibold transition-colors"
+                          >
+                            {codeCopied ? 'Copied!' : 'Copy'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setGeneratedCode(null)}
+                            className="text-xs text-blue-500 hover:underline ml-auto"
+                          >
+                            Dismiss
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Search + date filter */}
+                    {sessionsData.length > 0 && (
+                      <div className="mb-4 space-y-2">
+                        <input
+                          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50 placeholder-gray-400"
+                          value={codeSearch}
+                          onChange={e => setCodeSearch(e.target.value)}
+                          placeholder="Search by company name…"
+                        />
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-gray-400 flex-shrink-0">Added from</span>
+                          <input
+                            type="date"
+                            className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-transparent flex-1"
+                            value={codeFromDate}
+                            onChange={e => setCodeFromDate(e.target.value)}
+                          />
+                          <span className="text-xs text-gray-400 flex-shrink-0">to</span>
+                          <input
+                            type="date"
+                            className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-transparent flex-1"
+                            value={codeToDate}
+                            onChange={e => setCodeToDate(e.target.value)}
+                          />
+                          {(codeFromDate || codeToDate) && (
+                            <button
+                              type="button"
+                              onClick={() => { setCodeFromDate(''); setCodeToDate(''); }}
+                              className="text-xs text-gray-400 hover:text-gray-600"
+                            >
+                              Clear
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Possible duplicates banner */}
+                    {duplicatePairs.length > 0 && (
+                      <div className="mb-4 border border-amber-200 rounded-xl overflow-hidden">
+                        <div className="bg-amber-50 px-4 py-2 flex items-center gap-2">
+                          <span className="text-xs font-bold text-amber-700">{duplicatePairs.length} possible duplicate{duplicatePairs.length !== 1 ? 's' : ''} detected</span>
+                          <span className="text-xs text-amber-500">— group them to track rounds together</span>
+                        </div>
+                        <div className="divide-y divide-amber-100">
+                          {duplicatePairs.map(({ a, b }) => {
+                            const existingUen = a.company_uen || b.company_uen || null;
+                            return (
+                              <div key={`${a.id}-${b.id}`} className="px-4 py-2.5 flex items-center justify-between gap-3 bg-white">
+                                <div className="text-xs text-gray-600 min-w-0">
+                                  <span className="font-semibold">{a.name}</span>
+                                  <span className="text-gray-400 mx-1.5">·</span>
+                                  <span className="font-semibold">{b.name}</span>
+                                  <span className="text-gray-400 ml-1.5">({new Date(a.created_at).toLocaleDateString()} &amp; {new Date(b.created_at).toLocaleDateString()})</span>
+                                </div>
+                                <button
+                                  type="button"
+                                  disabled={sessionSaving}
+                                  onClick={() => groupSessions([a.id, b.id], existingUen)}
+                                  className="text-xs bg-amber-500 hover:bg-amber-600 text-white px-3 py-1 rounded-lg font-semibold flex-shrink-0 transition-colors disabled:opacity-50"
+                                >
+                                  Group
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Existing codes — two sections: multi-round companies, then standalone */}
+                    {sessionsData.length === 0 ? (
+                      <p className="text-sm text-gray-400 mb-4">No companies added yet.</p>
+                    ) : filtered.length === 0 ? (
+                      <p className="text-sm text-gray-400 mb-4">No sessions match the current filters.</p>
+                    ) : (
+                      <div className="space-y-5 mb-5">
+                        {/* ── Multi-round companies ── */}
+                        {Object.keys(uenMap).length > 0 && (
+                          <div>
+                            <div className="flex items-center gap-2 mb-2">
+                              <p className="text-xs font-bold text-blue-700 uppercase tracking-widest">Multi-Round Companies</p>
+                              <span className="text-xs text-blue-400">{Object.keys(uenMap).length} group{Object.keys(uenMap).length !== 1 ? 's' : ''}</span>
+                            </div>
+                            <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
+                              {Object.entries(uenMap).map(([uen, sessions]) => (
+                                <div key={uen} className="border border-blue-100 rounded-xl overflow-hidden">
+                                  <div className="bg-blue-50 px-4 py-2 flex items-center gap-2">
+                                    <span className="text-xs font-bold text-blue-700">{sessions[0].name}</span>
+                                    <span className="ml-auto text-xs text-blue-500">{sessions.length} round{sessions.length !== 1 ? 's' : ''}</span>
+                                  </div>
+                                  <div className="divide-y divide-gray-100">
+                                    {sessions.map((s, idx) => (
+                                      <SessionRow key={s.id} s={s} roundLabel={`Round ${idx + 1}`} />
+                                    ))}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* ── Standalone sessions ── */}
+                        {noUen.length > 0 && (
+                          <div>
+                            <div className="flex items-center gap-2 mb-2">
+                              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Standalone Sessions</p>
+                              <span className="text-xs text-gray-300">{noUen.length} session{noUen.length !== 1 ? 's' : ''}</span>
+                            </div>
+                            <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+                              {noUen.map(s => <SessionRow key={s.id} s={s} roundLabel={null} />)}
+                            </div>
                           </div>
                         )}
                       </div>
-                    ))}
-                  </div>
-                )}
+                    )}
 
-                {/* Add company */}
-                <div className="border-t border-gray-100 pt-4 space-y-2">
-                  <div className="flex gap-2">
-                    <input
-                      className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      value={newSessionName}
-                      onChange={e => setNewSessionName(e.target.value)}
-                      placeholder="Company / organisation name"
-                    />
-                    <select
-                      className="w-52 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white flex-shrink-0"
-                      value={newSessionSector}
-                      onChange={e => setNewSessionSector(e.target.value)}
-                    >
-                      <option value="">Select sector…</option>
-                      {SECTORS.map(s => <option key={s} value={s}>{s}</option>)}
-                    </select>
+                    {/* Add company form */}
+                    <div className="border-t border-gray-100 pt-4 space-y-3">
+                      <div className="flex gap-2">
+                        <div className="flex-1">
+                          <input
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            value={newSessionName}
+                            onChange={e => setNewSessionName(e.target.value)}
+                            placeholder="Company / organisation name"
+                          />
+                          {nameSuggestions.length > 0 && (
+                            <div className="mt-1.5 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 space-y-1.5">
+                              <p className="text-xs font-semibold text-blue-700">Possible match — add as a new round?</p>
+                              {nameSuggestions.map(s => {
+                                const roundCount = s.company_uen
+                                  ? sessionsData.filter(ss => ss.company_uen === s.company_uen).length
+                                  : 1;
+                                return (
+                                  <div key={s.id} className="flex items-center justify-between gap-2">
+                                    <span className="text-xs text-blue-600 truncate">
+                                      {s.name} · {roundCount} round{roundCount !== 1 ? 's' : ''}
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() => setPendingLink({ id: s.id, name: s.name, company_uen: s.company_uen })}
+                                      className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-2.5 py-0.5 rounded font-semibold flex-shrink-0 transition-colors"
+                                    >
+                                      Link
+                                    </button>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                        <select
+                          className="w-48 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white flex-shrink-0"
+                          value={newSessionSector}
+                          onChange={e => setNewSessionSector(e.target.value)}
+                        >
+                          <option value="">Select sector…</option>
+                          {SECTORS.map(s => <option key={s} value={s}>{s}</option>)}
+                        </select>
+                      </div>
+                      <div className="flex gap-2 items-start">
+                        {pendingLink ? (
+                          <div className="flex-1 flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
+                            <span className="text-xs text-blue-700 font-semibold flex-1 truncate">
+                              → Linked to {pendingLink.name}
+                            </span>
+                            <button type="button" onClick={() => setPendingLink(null)} className="text-blue-400 hover:text-blue-600 text-lg leading-none flex-shrink-0">×</button>
+                          </div>
+                        ) : (
+                          <div className="flex-1 h-10" />
+                        )}
+                        <input
+                          className="w-48 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent flex-shrink-0"
+                          value={newSessionRoundLabel}
+                          onChange={e => setNewSessionRoundLabel(e.target.value)}
+                          placeholder="Label, e.g. Pre-Programme"
+                        />
+                      </div>
+                      <div className="flex justify-end">
+                        <button
+                          id="btn-gen-code"
+                          type="button"
+                          disabled={!newSessionName.trim() || sessionSaving}
+                          onClick={async () => {
+                            setSessionSaving(true);
+                            setGeneratedCode(null);
+                            try {
+                              // Determine group ID from pending link (if any)
+                              let company_uen = null;
+                              if (pendingLink) {
+                                if (pendingLink.company_uen) {
+                                  company_uen = pendingLink.company_uen;
+                                } else {
+                                  // Existing session has no UEN yet — generate one and link it
+                                  const groupId = `grp_${pendingLink.id}`;
+                                  const linkRes = await fetch('/api/sessions', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('adminToken')}` },
+                                    body: JSON.stringify({ action: 'link', ids: [pendingLink.id], group_id: groupId })
+                                  });
+                                  const linkResult = await linkRes.json();
+                                  if (!linkResult.success) throw new Error(linkResult.error);
+                                  company_uen = groupId;
+                                }
+                              }
+                              const res = await fetch('/api/sessions', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('adminToken')}` },
+                                body: JSON.stringify({
+                                  action: 'create',
+                                  name: newSessionName.trim(),
+                                  sector: newSessionSector,
+                                  company_uen,
+                                  round_label: newSessionRoundLabel.trim(),
+                                })
+                              });
+                              const result = await res.json();
+                              if (!result.success) throw new Error(result.error);
+                              setGeneratedCode(result.code);
+                              setNewSessionName('');
+                              setNewSessionSector('');
+                              setNewSessionRoundLabel('');
+                              setPendingLink(null);
+                              await fetchData(localStorage.getItem('adminToken'));
+                            } catch (err) { alert(`Failed: ${err.message}`); }
+                            finally { setSessionSaving(false); }
+                          }}
+                          className={`px-4 py-2 rounded-lg text-sm font-semibold text-white transition-colors flex-shrink-0 ${
+                            newSessionName.trim() && !sessionSaving ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-300 cursor-not-allowed'
+                          }`}
+                        >
+                          {sessionSaving ? 'Generating…' : 'Generate Code'}
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex justify-end">
-                    <button
-                      id="btn-gen-code"
-                      type="button"
-                      disabled={!newSessionName.trim() || sessionSaving}
-                      onClick={async () => {
-                        setSessionSaving(true);
-                        setGeneratedCode(null);
-                        try {
-                          const res = await fetch('/api/sessions', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('adminToken')}` },
-                            body: JSON.stringify({ action: 'create', name: newSessionName.trim(), sector: newSessionSector })
-                          });
-                          const result = await res.json();
-                          if (!result.success) throw new Error(result.error);
-                          setGeneratedCode(result.code);
-                          setNewSessionName('');
-                          setNewSessionSector('');
-                          await fetchData(localStorage.getItem('adminToken'));
-                        } catch (err) { alert(`Failed: ${err.message}`); }
-                        finally { setSessionSaving(false); }
-                      }}
-                      className={`px-4 py-2 rounded-lg text-sm font-semibold text-white transition-colors flex-shrink-0 ${
-                        newSessionName.trim() && !sessionSaving ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-300 cursor-not-allowed'
-                      }`}
-                    >
-                      {sessionSaving ? 'Generating…' : 'Generate Code'}
-                    </button>
-                  </div>
-                </div>
-              </div>
+                );
+              })()}
 
               {/* Skills & Training Courses */}
-              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                <h2 className="text-lg font-bold text-gray-900 mb-1">Skills &amp; Training Courses</h2>
-                <p className="text-xs text-gray-500 mb-5">
-                  Define courses shown on the results page. Tick the readiness levels each course applies to (highest → lowest).
-                </p>
+              {(() => {
+                const pillarNames = [...new Set((questions || []).map(q => q.category))];
 
-                {/* Column headers */}
-                {workingCourses.length > 0 && (
-                  <div className="flex items-end gap-2 mb-1 px-4">
-                    <span className="flex-1 text-xs font-semibold text-gray-400">Course name</span>
-                    {workingReadiness.map((lvl, i) => (
-                      <div key={i} className="w-12 text-center flex-shrink-0">
-                        <span className={`text-xs font-semibold ${READINESS_LEVEL_STYLES[i].text}`} title={lvl.name}>
-                          {4 - i}
-                        </span>
+                const updateCourse = (ci, fn) =>
+                  setEditCourses(workingCourses.map((c, j) => j === ci ? fn(c) : c));
+
+                const LevelCheckboxes = ({ levels, onChange }) => (
+                  <>
+                    {[0, 1, 2, 3, 4].map(li => (
+                      <div key={li} className="w-12 flex justify-center flex-shrink-0">
+                        <input
+                          type="checkbox"
+                          checked={levels?.includes(li) ?? false}
+                          onChange={e => {
+                            const next = e.target.checked
+                              ? [...(levels ?? []), li].sort((a, b) => a - b)
+                              : (levels ?? []).filter(l => l !== li);
+                            onChange(next);
+                          }}
+                          className="w-4 h-4 text-blue-600 rounded accent-blue-600"
+                        />
                       </div>
                     ))}
-                    <div className="w-6" />
-                  </div>
-                )}
+                  </>
+                );
 
-                {/* Course rows */}
-                <div className="space-y-2 mb-4">
-                  {workingCourses.length === 0 && (
-                    <p className="text-sm text-gray-400">No courses added yet. Click "+ Add Course" below.</p>
-                  )}
-                  {workingCourses.map((course, ci) => (
-                    <div key={ci} className="bg-gray-50 rounded-lg px-4 py-3 border border-gray-100 space-y-2">
-                      <div className="flex items-center gap-2">
-                        <input
-                          className="flex-1 border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
-                          value={course.name}
-                          onChange={e => {
-                            const next = workingCourses.map((c, j) => j === ci ? { ...c, name: e.target.value } : c);
-                            setEditCourses(next);
-                          }}
-                          placeholder="Course name"
-                        />
-                        {[0, 1, 2, 3, 4].map(li => (
-                          <div key={li} className="w-12 flex justify-center flex-shrink-0">
-                            <input
-                              type="checkbox"
-                              checked={course.levels?.includes(li) ?? false}
-                              onChange={e => {
-                                const next = workingCourses.map((c, j) => {
-                                  if (j !== ci) return c;
-                                  const newLevels = e.target.checked
-                                    ? [...(c.levels ?? []), li].sort((a, b) => a - b)
-                                    : (c.levels ?? []).filter(l => l !== li);
-                                  return { ...c, levels: newLevels };
-                                });
-                                setEditCourses(next);
-                              }}
-                              className="w-4 h-4 text-blue-600 rounded accent-blue-600"
-                            />
+                return (
+                  <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                    <h2 className="text-lg font-bold text-gray-900 mb-1">Skills &amp; Training Courses</h2>
+                    <p className="text-xs text-gray-500 mb-5">
+                      Define courses shown on the results page. Set overall readiness levels and optionally add pillar-specific conditions — a course appears if <span className="font-semibold">any</span> condition matches.
+                    </p>
+
+                    {/* Column headers */}
+                    {workingCourses.length > 0 && (
+                      <div className="flex items-end gap-2 mb-1 px-4">
+                        <span className="flex-1 text-xs font-semibold text-gray-400">Course name / pillar</span>
+                        {workingReadiness.map((lvl, i) => (
+                          <div key={i} className="w-12 text-center flex-shrink-0">
+                            <span className={`text-xs font-semibold ${READINESS_LEVEL_STYLES[i].text}`} title={lvl.name}>
+                              {4 - i}
+                            </span>
                           </div>
                         ))}
-                        <button
-                          type="button"
-                          onClick={() => setEditCourses(workingCourses.filter((_, j) => j !== ci))}
-                          className="w-6 text-red-400 hover:text-red-600 text-xl leading-none flex-shrink-0 text-center"
-                          title="Remove course"
-                        >×</button>
+                        <div className="w-6" />
                       </div>
-                      <textarea
-                        rows={2}
-                        className="w-full border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white resize-none"
-                        value={course.description ?? ''}
-                        onChange={e => {
-                          const next = workingCourses.map((c, j) => j === ci ? { ...c, description: e.target.value } : c);
-                          setEditCourses(next);
-                        }}
-                        placeholder="Description shown on the results page…"
-                      />
-                    </div>
-                  ))}
-                </div>
+                    )}
 
-                {/* Add + Save */}
-                <div className="flex items-center justify-between border-t border-gray-100 pt-4">
-                  <button
-                    type="button"
-                    onClick={() => setEditCourses([...workingCourses, { name: '', levels: [], description: '' }])}
-                    className="text-sm text-blue-600 hover:underline font-semibold"
-                  >
-                    + Add Course
-                  </button>
-                  <div className="flex gap-2">
-                    {editCourses && (
+                    {/* Course rows */}
+                    <div className="space-y-3 mb-4">
+                      {workingCourses.length === 0 && (
+                        <p className="text-sm text-gray-400">No courses added yet. Click "+ Add Course" below.</p>
+                      )}
+                      {workingCourses.map((course, ci) => (
+                        <div key={ci} className="bg-gray-50 rounded-lg px-4 py-3 border border-gray-100 space-y-2">
+
+                          {/* Overall readiness row */}
+                          <div className="flex items-center gap-2">
+                            <input
+                              className="flex-1 border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                              value={course.name}
+                              onChange={e => updateCourse(ci, c => ({ ...c, name: e.target.value }))}
+                              placeholder="Course name"
+                            />
+                            <LevelCheckboxes
+                              levels={course.levels}
+                              onChange={next => updateCourse(ci, c => ({ ...c, levels: next }))}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setEditCourses(workingCourses.filter((_, j) => j !== ci))}
+                              className="w-6 text-red-400 hover:text-red-600 text-xl leading-none flex-shrink-0 text-center"
+                              title="Remove course"
+                            >×</button>
+                          </div>
+
+                          {/* Description */}
+                          <textarea
+                            rows={2}
+                            className="w-full border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white resize-none"
+                            value={course.description ?? ''}
+                            onChange={e => updateCourse(ci, c => ({ ...c, description: e.target.value }))}
+                            placeholder="Description shown on the results page…"
+                          />
+
+                          {/* Pillar conditions */}
+                          {(course.pillarConditions?.length > 0) && (
+                            <div className="space-y-1.5 pt-1">
+                              <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Pillar conditions</p>
+                              {course.pillarConditions.map((pc, pi) => (
+                                <div key={pi} className="flex items-center gap-2">
+                                  <select
+                                    className="flex-1 border border-gray-200 rounded-md px-2 py-1.5 text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    value={pc.pillar}
+                                    onChange={e => updateCourse(ci, c => ({
+                                      ...c,
+                                      pillarConditions: c.pillarConditions.map((p, k) => k === pi ? { ...p, pillar: e.target.value } : p)
+                                    }))}
+                                  >
+                                    <option value="">Select pillar…</option>
+                                    {pillarNames.map(p => <option key={p} value={p}>{p}</option>)}
+                                  </select>
+                                  <LevelCheckboxes
+                                    levels={pc.levels}
+                                    onChange={next => updateCourse(ci, c => ({
+                                      ...c,
+                                      pillarConditions: c.pillarConditions.map((p, k) => k === pi ? { ...p, levels: next } : p)
+                                    }))}
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => updateCourse(ci, c => ({
+                                      ...c,
+                                      pillarConditions: c.pillarConditions.filter((_, k) => k !== pi)
+                                    }))}
+                                    className="w-6 text-red-400 hover:text-red-600 text-xl leading-none flex-shrink-0 text-center"
+                                  >×</button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* Add pillar condition */}
+                          <button
+                            type="button"
+                            onClick={() => updateCourse(ci, c => ({
+                              ...c,
+                              pillarConditions: [...(c.pillarConditions ?? []), { pillar: '', levels: [] }]
+                            }))}
+                            className="text-xs text-blue-500 hover:underline font-medium"
+                          >
+                            + Add pillar condition
+                          </button>
+
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Add + Save */}
+                    <div className="flex items-center justify-between border-t border-gray-100 pt-4">
                       <button
                         type="button"
-                        onClick={() => setEditCourses(null)}
-                        className="px-4 py-2 rounded-lg text-sm font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200 transition-colors"
+                        onClick={() => setEditCourses([...workingCourses, { name: '', levels: [], description: '', pillarConditions: [] }])}
+                        className="text-sm text-blue-600 hover:underline font-semibold"
                       >
-                        Reset
+                        + Add Course
                       </button>
-                    )}
-                    <button
-                      type="button"
-                      disabled={!coursesValid || coursesSaving}
-                      onClick={saveCourses}
-                      className={`px-5 py-2 rounded-lg text-sm font-semibold text-white transition-colors ${
-                        coursesValid && !coursesSaving ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-300 cursor-not-allowed'
-                      }`}
-                    >
-                      {coursesSaving ? 'Saving…' : 'Save'}
-                    </button>
+                      <div className="flex gap-2">
+                        {editCourses && (
+                          <button
+                            type="button"
+                            onClick={() => setEditCourses(null)}
+                            className="px-4 py-2 rounded-lg text-sm font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200 transition-colors"
+                          >
+                            Reset
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          disabled={!coursesValid || coursesSaving}
+                          onClick={saveCourses}
+                          className={`px-5 py-2 rounded-lg text-sm font-semibold text-white transition-colors ${
+                            coursesValid && !coursesSaving ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-300 cursor-not-allowed'
+                          }`}
+                        >
+                          {coursesSaving ? 'Saving…' : 'Save'}
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
+                );
+              })()}
 
             </div>
           );

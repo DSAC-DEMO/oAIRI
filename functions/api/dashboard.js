@@ -26,7 +26,7 @@ export async function onRequestPost(context) {
   try {
     const codeHash = await hashCode(code.trim());
     const session = await env.DB.prepare(
-      'SELECT id, name, created_at FROM sessions WHERE code_hash = ?'
+      'SELECT id, name, created_at, company_uen, round_label FROM sessions WHERE code_hash = ?'
     ).bind(codeHash).first();
 
     if (!session) {
@@ -62,6 +62,32 @@ export async function onRequestPost(context) {
       if (olRow?.value) optionLevels = JSON.parse(olRow.value);
     } catch {}
 
+    // Fetch sibling sessions (same company_uen) for multi-round view
+    let rounds = [];
+    if (session.company_uen) {
+      const { results: siblings } = await env.DB.prepare(
+        'SELECT id, name, created_at, round_label FROM sessions WHERE company_uen = ? ORDER BY created_at ASC'
+      ).bind(session.company_uen).all();
+
+      if (siblings.length > 1) {
+        rounds = await Promise.all(
+          siblings.map(async (s, idx) => {
+            const { results: sibResponses } = await env.DB.prepare(
+              'SELECT id, answers_json, score_pct, readiness_level, submitted_at FROM responses WHERE session_id = ? ORDER BY submitted_at DESC'
+            ).bind(s.id).all();
+            return {
+              roundNum: idx + 1,
+              sessionId: s.id,
+              label: s.round_label || null,
+              createdAt: s.created_at,
+              name: s.name,
+              responses: sibResponses,
+            };
+          })
+        );
+      }
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
@@ -70,6 +96,7 @@ export async function onRequestPost(context) {
         questions,
         readinessLevels,
         optionLevels,
+        rounds,
       }),
       { status: 200, headers: cors }
     );
