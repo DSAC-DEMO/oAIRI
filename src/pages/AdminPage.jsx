@@ -307,6 +307,9 @@ function AdminPage() {
   const [selectedCompanyKeys, setSelectedCompanyKeys] = useState([]);
   // Plotly library (lazy-loaded)
   const [plotlyLib, setPlotlyLib] = useState(null);
+  // Analytics PDF export
+  const [exportingPDF, setExportingPDF] = useState(false);
+  const analyticsRef = useRef(null);
 
   useEffect(() => {
     import('plotly.js-dist-min').then(m => setPlotlyLib(m.default)).catch(() => {});
@@ -337,6 +340,29 @@ function AdminPage() {
   const handleLogout = () => {
     localStorage.removeItem('adminToken');
     setIsAuthenticated(false); setData(null); navigate('/');
+  };
+
+  const exportAdminPDF = async () => {
+    const el = analyticsRef.current;
+    if (!el) return;
+    setExportingPDF(true);
+    try {
+      const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([
+        import('html2canvas'),
+        import('jspdf'),
+      ]);
+      const canvas = await html2canvas(el, { scale: 2, useCORS: true, backgroundColor: '#f9fafb' });
+      const imgData = canvas.toDataURL('image/png');
+      const w = canvas.width / 2;
+      const h = canvas.height / 2;
+      const pdf = new jsPDF({ orientation: w > h ? 'landscape' : 'portrait', unit: 'px', format: [w, h] });
+      pdf.addImage(imgData, 'PNG', 0, 0, w, h);
+      pdf.save(`Admin_Analytics_${new Date().toISOString().slice(0, 10)}.pdf`);
+    } catch (err) {
+      alert('PDF export failed: ' + err.message);
+    } finally {
+      setExportingPDF(false);
+    }
   };
 
   const fetchData = async (token) => {
@@ -585,14 +611,23 @@ function AdminPage() {
                 <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 mb-6">
                   <div className="flex items-center justify-between mb-4">
                     <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Filters</p>
-                    {hasActiveFilter && (
+                    <div className="flex items-center gap-3">
+                      {hasActiveFilter && (
+                        <button
+                          onClick={() => { setSectorFilter(null); setLevelFilter(null); setAnalyticsFromDate(''); setAnalyticsToDate(''); }}
+                          className="text-xs text-blue-500 hover:text-blue-700 font-semibold transition-colors"
+                        >
+                          Clear all
+                        </button>
+                      )}
                       <button
-                        onClick={() => { setSectorFilter(null); setLevelFilter(null); setAnalyticsFromDate(''); setAnalyticsToDate(''); }}
-                        className="text-xs text-blue-500 hover:text-blue-700 font-semibold transition-colors"
+                        onClick={exportAdminPDF}
+                        disabled={exportingPDF}
+                        className="text-xs bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-semibold px-3 py-1.5 rounded-lg transition-colors"
                       >
-                        Clear all
+                        {exportingPDF ? 'Exporting…' : 'Export PDF'}
                       </button>
-                    )}
+                    </div>
                   </div>
 
                   <p className="text-xs font-medium text-gray-400 mb-2">Date Range</p>
@@ -679,179 +714,25 @@ function AdminPage() {
               );
             })()}
 
-            {/* KPI Cards */}
+            {/* Analytics grid — captured for PDF */}
             {(() => {
               const fAvg = filteredTotal > 0 ? filteredResponses.reduce((s, r) => s + (r.score_pct || 0), 0) / filteredTotal : 0;
               const fMax = filteredTotal > 0 ? Math.max(...filteredResponses.map(r => r.score_pct || 0)) : 0;
-              return (
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-8">
-                  <StatCard label="Total Responses" value={filteredTotal} color="text-blue-600" />
-                  <StatCard label="Average Score" value={fAvg.toFixed(2)} sub="out of 5.00" color="text-blue-700" />
-                  <StatCard label="Highest Score"  value={fMax.toFixed(2)} sub="out of 5.00" color="text-blue-900" />
-                </div>
-              );
-            })()}
-
-            {/* Readiness Level Distribution */}
-            {(() => {
               const distCounts = [0,1,2,3,4].map(i =>
                 filteredResponses.filter(r => {
                   const idx = r.score_pct >= 4 ? 0 : r.score_pct >= 3 ? 1 : r.score_pct >= 2 ? 2 : r.score_pct >= 1 ? 3 : 4;
                   return idx === i;
                 }).length
               );
-              return (
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 mb-8">
-                  <h2 className="text-lg font-bold text-gray-900 mb-5">Readiness Level Distribution</h2>
-                  <div className="space-y-4">
-                    {readinessLevels.map((lvl, i) => {
-                      const c = distCounts[i];
-                      const pct = filteredTotal ? (c / filteredTotal) * 100 : 0;
-                      const colors = READINESS_LEVEL_STYLES[i];
-                      return (
-                        <div key={i}>
-                          <div className="flex justify-between text-sm mb-1">
-                            <span className={`font-semibold ${colors.text}`}>{lvl.name}</span>
-                            <span className="text-gray-500">{c}</span>
-                          </div>
-                          <Bar pct={pct} colorClass={colors.bar} />
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })()}
-
-            {/* Submission Trend */}
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 mb-8">
-              <h2 className="text-lg font-bold text-gray-900 mb-1">Cumulative Submissions</h2>
-              <p className="text-xs text-gray-500 mb-5">All-time total submissions over time</p>
-              {cumulativeTrend.length === 0 ? (
-                <p className="text-gray-400 text-sm">No submissions yet</p>
-              ) : (() => {
-                const SVG_H = 140;
-                const PAD = { top: 12, bottom: 28, left: 36, right: 12 };
-                const plotH = SVG_H - PAD.top - PAD.bottom;
-                const pointSpacing = Math.max(20, Math.min(40, 600 / cumulativeTrend.length));
-                const plotW = Math.max((cumulativeTrend.length - 1) * pointSpacing, 200);
-                const SVG_W = plotW + PAD.left + PAD.right;
-
-                const pts = cumulativeTrend.map((d, i) => ({
-                  x: PAD.left + (cumulativeTrend.length === 1 ? plotW / 2 : (i / (cumulativeTrend.length - 1)) * plotW),
-                  y: PAD.top + plotH - (d.cumulative / cumulativeMax) * plotH,
-                  ...d
-                }));
-
-                const linePts = pts.map(p => `${p.x},${p.y}`).join(' ');
-                const fillPath = `M ${pts[0].x} ${PAD.top + plotH} L ${pts.map(p => `${p.x} ${p.y}`).join(' L ')} L ${pts[pts.length - 1].x} ${PAD.top + plotH} Z`;
-                const yLabels = [
-                  { y: PAD.top + plotH, val: 0 },
-                  { y: PAD.top + plotH / 2, val: Math.round(cumulativeMax / 2) },
-                  { y: PAD.top, val: cumulativeMax },
-                ];
-                const labelStep = Math.max(1, Math.ceil(pts.length / 6));
-                const xLabels = pts.filter((_, i) => i % labelStep === 0 || i === pts.length - 1);
-
-                return (
-                  <div className="overflow-x-auto">
-                    <svg width={SVG_W} height={SVG_H} style={{ minWidth: SVG_W, display: 'block' }}>
-                      {yLabels.map(({ y }) => <line key={y} x1={PAD.left} x2={PAD.left + plotW} y1={y} y2={y} stroke="#f0f0f0" strokeWidth="1" />)}
-                      {yLabels.map(({ y, val }) => <text key={y} x={PAD.left - 4} y={y + 4} textAnchor="end" fontSize="10" fill="#9ca3af">{val}</text>)}
-                      <path d={fillPath} fill="#3b82f6" fillOpacity="0.1" />
-                      <polyline fill="none" stroke="#3b82f6" strokeWidth="2" strokeLinejoin="round" points={linePts} />
-                      {pts.map((p, i) => (
-                        <g key={i}>
-                          <circle cx={p.x} cy={p.y} r="4" fill="#3b82f6" stroke="white" strokeWidth="1.5" />
-                          <title>{p.date}: {p.cumulative} total ({p.count} new)</title>
-                        </g>
-                      ))}
-                      {xLabels.map(p => <text key={p.date} x={p.x} y={SVG_H - 4} textAnchor="middle" fontSize="10" fill="#9ca3af">{p.date.slice(5)}</text>)}
-                    </svg>
-                  </div>
-                );
-              })()}
-            </div>
-
-            {/* Performance by Pillar + Dimension side by side */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                <h2 className="text-lg font-bold text-gray-900 mb-1">Performance by Pillar</h2>
-                <p className="text-xs text-gray-500 mb-5">Average score per pillar (sorted hardest → easiest)</p>
-                {total === 0 ? <p className="text-gray-400 text-sm">No data yet</p> : (
-                  <div className="space-y-3">
-                    {pillarPerfList.map(({ name, avg }) => {
-                      const pct = (avg / 5) * 100;
-                      const barColor = pct >= 70 ? 'bg-blue-600' : pct >= 50 ? 'bg-blue-400' : 'bg-blue-200';
-                      return (
-                        <div key={name}>
-                          <div className="flex justify-between text-xs mb-1">
-                            <span className="font-semibold text-gray-700">{name}</span>
-                            <span className="text-gray-500">{avg.toFixed(2)} / 5</span>
-                          </div>
-                          <Bar pct={pct} colorClass={barColor} />
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-
-              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                <h2 className="text-lg font-bold text-gray-900 mb-1">Performance by Dimension</h2>
-                <p className="text-xs text-gray-500 mb-5">Average score per dimension (sorted hardest → easiest)</p>
-                {total === 0 ? <p className="text-gray-400 text-sm">No data yet</p> : dimensionPerfList.length === 0 ? (
-                  <p className="text-gray-400 text-sm">No dimensions set on questions yet</p>
-                ) : (
-                  <div className="space-y-3">
-                    {dimensionPerfList.map(({ name, avg, pillars }) => {
-                      const pct = (avg / 5) * 100;
-                      const barColor = pct >= 70 ? 'bg-blue-600' : pct >= 50 ? 'bg-blue-400' : 'bg-blue-200';
-                      return (
-                        <div key={name}>
-                          <div className="flex justify-between text-xs mb-1">
-                            <div>
-                              <span className="font-semibold text-gray-700">{name}</span>
-                              <span className="text-gray-400 ml-2">{pillars.join(', ')}</span>
-                            </div>
-                            <span className="text-gray-500 flex-shrink-0 ml-2">{avg.toFixed(2)} / 5</span>
-                          </div>
-                          <Bar pct={pct} colorClass={barColor} />
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Company Comparison */}
-            {(() => {
-              const COMPARE_COLORS = ['#2563eb', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899'];
-              const selectedEntries = selectedCompanyKeys
-                .map(k => companyEntries.find(e => e.key === k))
-                .filter(Boolean);
-
-              // Gather all pillar names from questions
+              const COMPARE_COLORS = ['#2563eb', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6', '#06b6d4'];
+              const selectedEntries = selectedCompanyKeys.map(k => companyEntries.find(e => e.key === k)).filter(Boolean);
               const allPillarNames = [...new Set((questions || []).map(q => q.category))];
-
-              // Build Plotly traces for 2+ companies
-              const buildTraces = () => selectedEntries.map((entry, i) => {
+              const buildCompareTraces = () => selectedEntries.map((entry, i) => {
                 const pillars = computeCompanyPillars(entry);
                 const avgs = allPillarNames.map(pn => pillars.find(p => p.name === pn)?.avg ?? 0);
-                return {
-                  type: 'bar',
-                  name: entry.name,
-                  x: allPillarNames,
-                  y: avgs,
-                  marker: { color: COMPARE_COLORS[i % COMPARE_COLORS.length] },
-                  text: avgs.map(a => a > 0 ? a.toFixed(2) : ''),
-                  textposition: 'outside',
-                  textfont: { size: 10 },
-                };
+                return { type: 'bar', name: entry.name, x: allPillarNames, y: avgs, marker: { color: COMPARE_COLORS[i % COMPARE_COLORS.length] }, text: avgs.map(a => a > 0 ? a.toFixed(2) : ''), textposition: 'outside', textfont: { size: 10 } };
               });
-
-              const buildAnnotations = () => {
+              const buildCompareAnnotations = () => {
                 if (selectedEntries.length !== 2) return [];
                 const p1 = computeCompanyPillars(selectedEntries[0]);
                 const p2 = computeCompanyPillars(selectedEntries[1]);
@@ -859,155 +740,193 @@ function AdminPage() {
                   const a = p1.find(p => p.name === pn)?.avg ?? 0;
                   const b = p2.find(p => p.name === pn)?.avg ?? 0;
                   const delta = b - a;
-                  return {
-                    x: pn, y: Math.max(a, b) + 0.55,
-                    text: `Δ ${delta >= 0 ? '+' : ''}${delta.toFixed(2)}`,
-                    showarrow: false,
-                    font: { size: 9, color: delta > 0 ? '#22c55e' : delta < 0 ? '#f87171' : '#9ca3af' },
-                    xanchor: 'center',
-                  };
+                  return { x: pn, y: Math.max(a, b) + 0.55, text: `Δ ${delta >= 0 ? '+' : ''}${delta.toFixed(2)}`, showarrow: false, font: { size: 9, color: delta > 0 ? '#22c55e' : delta < 0 ? '#f87171' : '#9ca3af' }, xanchor: 'center' };
                 });
               };
 
-              return (
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 mb-8">
-                  <h2 className="text-lg font-bold text-gray-900 mb-1">Company Comparison</h2>
-                  <p className="text-xs text-gray-500 mb-4">Select companies to compare pillar performance. Single selection shows a radar; two or more shows a grouped bar chart with delta labels.</p>
+              // SVG line chart helpers
+              const renderTrend = () => {
+                if (cumulativeTrend.length === 0) return <p className="text-gray-400 text-sm">No submissions yet</p>;
+                const SVG_H = 160; const PAD = { top: 12, bottom: 28, left: 36, right: 12 };
+                const plotH = SVG_H - PAD.top - PAD.bottom;
+                const pointSpacing = Math.max(20, Math.min(40, 560 / cumulativeTrend.length));
+                const plotW = Math.max((cumulativeTrend.length - 1) * pointSpacing, 200);
+                const SVG_W = plotW + PAD.left + PAD.right;
+                const pts = cumulativeTrend.map((d, i) => ({ x: PAD.left + (cumulativeTrend.length === 1 ? plotW / 2 : (i / (cumulativeTrend.length - 1)) * plotW), y: PAD.top + plotH - (d.cumulative / cumulativeMax) * plotH, ...d }));
+                const linePts = pts.map(p => `${p.x},${p.y}`).join(' ');
+                const fillPath = `M ${pts[0].x} ${PAD.top + plotH} L ${pts.map(p => `${p.x} ${p.y}`).join(' L ')} L ${pts[pts.length - 1].x} ${PAD.top + plotH} Z`;
+                const yLabels = [{ y: PAD.top + plotH, val: 0 }, { y: PAD.top + plotH / 2, val: Math.round(cumulativeMax / 2) }, { y: PAD.top, val: cumulativeMax }];
+                const labelStep = Math.max(1, Math.ceil(pts.length / 6));
+                const xLabels = pts.filter((_, i) => i % labelStep === 0 || i === pts.length - 1);
+                return (
+                  <div className="overflow-x-auto">
+                    <svg width={SVG_W} height={SVG_H} style={{ minWidth: SVG_W, display: 'block' }}>
+                      {yLabels.map(({ y }) => <line key={y} x1={PAD.left} x2={PAD.left + plotW} y1={y} y2={y} stroke="#f0f0f0" strokeWidth="1" />)}
+                      {yLabels.map(({ y, val }) => <text key={y} x={PAD.left - 4} y={y + 4} textAnchor="end" fontSize="10" fill="#9ca3af">{val}</text>)}
+                      <path d={fillPath} fill="#3b82f6" fillOpacity="0.1" />
+                      <polyline fill="none" stroke="#3b82f6" strokeWidth="2" strokeLinejoin="round" points={linePts} />
+                      {pts.map((p, i) => (<g key={i}><circle cx={p.x} cy={p.y} r="4" fill="#3b82f6" stroke="white" strokeWidth="1.5" /><title>{p.date}: {p.cumulative} total ({p.count} new)</title></g>))}
+                      {xLabels.map(p => <text key={p.date} x={p.x} y={SVG_H - 4} textAnchor="middle" fontSize="10" fill="#9ca3af">{p.date.slice(5)}</text>)}
+                    </svg>
+                  </div>
+                );
+              };
 
-                  {/* Company selector */}
-                  <div className="flex flex-wrap gap-2 mb-5">
-                    {companyEntries.map(entry => {
-                      const isSelected = selectedCompanyKeys.includes(entry.key);
-                      return (
-                        <button
-                          key={entry.key}
-                          onClick={() => setSelectedCompanyKeys(prev =>
-                            isSelected ? prev.filter(k => k !== entry.key) : [...prev, entry.key]
-                          )}
-                          className={`px-3 py-1.5 rounded-full text-sm font-semibold border transition-colors ${
-                            isSelected
-                              ? 'bg-blue-600 text-white border-blue-600'
-                              : 'bg-white text-gray-500 border-gray-200 hover:border-blue-400 hover:text-blue-500'
-                          }`}
-                        >
-                          {entry.name}
-                          {entry.sessions.length > 1 && <span className="ml-1 text-xs opacity-60">{entry.sessions.length}R</span>}
-                        </button>
-                      );
-                    })}
-                    {selectedCompanyKeys.length > 0 && (
-                      <button
-                        onClick={() => setSelectedCompanyKeys([])}
-                        className="text-xs text-gray-400 hover:text-gray-600 underline px-2"
-                      >
-                        Clear
-                      </button>
-                    )}
+              return (
+                <div ref={analyticsRef} className="space-y-6">
+
+                  {/* Row 1 — KPI cards */}
+                  <div className="grid grid-cols-3 gap-4">
+                    <StatCard label="Total Responses" value={filteredTotal} color="text-blue-600" />
+                    <StatCard label="Average Score" value={fAvg.toFixed(2)} sub="out of 5.00" color="text-blue-700" />
+                    <StatCard label="Highest Score" value={fMax.toFixed(2)} sub="out of 5.00" color="text-blue-900" />
                   </div>
 
-                  {selectedCompanyKeys.length === 0 && (
-                    <p className="text-sm text-gray-400 text-center py-8">Select one or more companies above to compare.</p>
+                  {/* Row 2 — Distribution + Cumulative Submissions */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                      <h2 className="text-lg font-bold text-gray-900 mb-5">Readiness Level Distribution</h2>
+                      <div className="space-y-4">
+                        {readinessLevels.map((lvl, i) => {
+                          const c = distCounts[i];
+                          const pct = filteredTotal ? (c / filteredTotal) * 100 : 0;
+                          const colors = READINESS_LEVEL_STYLES[i];
+                          return (
+                            <div key={i}>
+                              <div className="flex justify-between text-sm mb-1">
+                                <span className={`font-semibold ${colors.text}`}>{lvl.name}</span>
+                                <span className="text-gray-500">{c}</span>
+                              </div>
+                              <Bar pct={pct} colorClass={colors.bar} />
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                      <h2 className="text-lg font-bold text-gray-900 mb-1">Cumulative Submissions</h2>
+                      <p className="text-xs text-gray-500 mb-5">All-time total submissions over time</p>
+                      {renderTrend()}
+                    </div>
+                  </div>
+
+                  {/* Row 3 — Performance by Pillar + Dimension */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                      <h2 className="text-lg font-bold text-gray-900 mb-1">Performance by Pillar</h2>
+                      <p className="text-xs text-gray-500 mb-5">Average score per pillar (sorted hardest → easiest)</p>
+                      {total === 0 ? <p className="text-gray-400 text-sm">No data yet</p> : (
+                        <div className="space-y-3">
+                          {pillarPerfList.map(({ name, avg }) => {
+                            const pct = (avg / 5) * 100;
+                            const barColor = pct >= 70 ? 'bg-blue-600' : pct >= 50 ? 'bg-blue-400' : 'bg-blue-200';
+                            return (
+                              <div key={name}>
+                                <div className="flex justify-between text-xs mb-1">
+                                  <span className="font-semibold text-gray-700">{name}</span>
+                                  <span className="text-gray-500">{avg.toFixed(2)} / 5</span>
+                                </div>
+                                <Bar pct={pct} colorClass={barColor} />
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                      <h2 className="text-lg font-bold text-gray-900 mb-1">Performance by Dimension</h2>
+                      <p className="text-xs text-gray-500 mb-5">Average score per dimension (sorted hardest → easiest)</p>
+                      {total === 0 ? <p className="text-gray-400 text-sm">No data yet</p> : dimensionPerfList.length === 0 ? (
+                        <p className="text-gray-400 text-sm">No dimensions set on questions yet</p>
+                      ) : (
+                        <div className="space-y-3">
+                          {dimensionPerfList.map(({ name, avg, pillars }) => {
+                            const pct = (avg / 5) * 100;
+                            const barColor = pct >= 70 ? 'bg-blue-600' : pct >= 50 ? 'bg-blue-400' : 'bg-blue-200';
+                            return (
+                              <div key={name}>
+                                <div className="flex justify-between text-xs mb-1">
+                                  <div>
+                                    <span className="font-semibold text-gray-700">{name}</span>
+                                    <span className="text-gray-400 ml-2">{pillars.join(', ')}</span>
+                                  </div>
+                                  <span className="text-gray-500 flex-shrink-0 ml-2">{avg.toFixed(2)} / 5</span>
+                                </div>
+                                <Bar pct={pct} colorClass={barColor} />
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Row 4 — Company Comparison */}
+                  {companyEntries.length > 0 && (
+                    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                      <h2 className="text-lg font-bold text-gray-900 mb-1">Company Comparison</h2>
+                      <p className="text-xs text-gray-500 mb-4">Select one company for a radar view, or two or more for a grouped bar chart with delta annotations.</p>
+                      <div className="flex flex-wrap gap-2 mb-5">
+                        {companyEntries.map(entry => {
+                          const isSelected = selectedCompanyKeys.includes(entry.key);
+                          return (
+                            <button
+                              key={entry.key}
+                              onClick={() => setSelectedCompanyKeys(prev => isSelected ? prev.filter(k => k !== entry.key) : [...prev, entry.key])}
+                              className={`px-3 py-1.5 rounded-full text-sm font-semibold border transition-colors ${isSelected ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-500 border-gray-200 hover:border-blue-400 hover:text-blue-500'}`}
+                            >
+                              {entry.name}{entry.sessions.length > 1 && <span className="ml-1 text-xs opacity-60">{entry.sessions.length}R</span>}
+                            </button>
+                          );
+                        })}
+                        {selectedCompanyKeys.length > 0 && (
+                          <button onClick={() => setSelectedCompanyKeys([])} className="text-xs text-gray-400 hover:text-gray-600 underline px-2">Clear</button>
+                        )}
+                      </div>
+
+                      {selectedCompanyKeys.length === 0 && (
+                        <p className="text-sm text-gray-400 text-center py-8">Select one or more companies above to compare.</p>
+                      )}
+
+                      {selectedCompanyKeys.length === 1 && (() => {
+                        const entry = selectedEntries[0];
+                        const pillars = computeCompanyPillars(entry);
+                        return pillars.length === 0
+                          ? <p className="text-sm text-gray-400 text-center py-6">No responses for this company in the selected time range.</p>
+                          : (
+                            <div className="flex flex-col items-center py-2">
+                              <p className="text-sm font-bold text-gray-700 mb-3">{entry.name}</p>
+                              <RadarChart pillars={pillars.map(p => ({ name: p.name, pct: Math.round((p.avg / 5) * 100) }))} size={240} />
+                            </div>
+                          );
+                      })()}
+
+                      {selectedCompanyKeys.length >= 2 && (() => {
+                        const traces = buildCompareTraces();
+                        const annotations = buildCompareAnnotations();
+                        const layout = {
+                          barmode: 'group', annotations,
+                          xaxis: { gridcolor: '#f3f4f6', tickfont: { size: 10 }, automargin: true },
+                          yaxis: { range: [0, 6], gridcolor: '#f3f4f6', tickfont: { size: 10 }, title: { text: 'Avg Score (0–5)', font: { size: 11 } } },
+                          showlegend: true,
+                          legend: { orientation: 'h', x: 0, y: 1.12, font: { size: 10 } },
+                          margin: { t: 48, b: 60, l: 48, r: 20 },
+                        };
+                        return plotlyLib
+                          ? <CompanyPlotlyChart plotly={plotlyLib} data={traces} layout={layout} />
+                          : <p className="text-sm text-gray-400 text-center py-8">Loading chart…</p>;
+                      })()}
+                    </div>
                   )}
 
-                  {selectedCompanyKeys.length === 1 && (() => {
-                    const entry = selectedEntries[0];
-                    const pillars = computeCompanyPillars(entry);
-                    return pillars.length === 0
-                      ? <p className="text-sm text-gray-400 text-center py-6">No responses for this company in the selected time range.</p>
-                      : (
-                        <div className="flex flex-col items-center py-2">
-                          <p className="text-sm font-bold text-gray-700 mb-3">{entry.name}</p>
-                          <RadarChart
-                            pillars={pillars.map(p => ({ name: p.name, pct: Math.round((p.avg / 5) * 100) }))}
-                            size={240}
-                          />
-                        </div>
-                      );
-                  })()}
-
-                  {selectedCompanyKeys.length >= 2 && (() => {
-                    const traces = buildTraces();
-                    const annotations = buildAnnotations();
-                    const layout = {
-                      barmode: 'group',
-                      annotations,
-                      xaxis: { gridcolor: '#f3f4f6', tickfont: { size: 10 }, automargin: true },
-                      yaxis: { range: [0, 6], gridcolor: '#f3f4f6', tickfont: { size: 10 }, title: { text: 'Avg Score (0–5)', font: { size: 11 } } },
-                      showlegend: true,
-                      legend: { orientation: 'h', x: 0, y: 1.12, font: { size: 10 } },
-                      margin: { t: 48, b: 60, l: 48, r: 20 },
-                    };
-                    return plotlyLib
-                      ? <CompanyPlotlyChart plotly={plotlyLib} data={traces} layout={layout} />
-                      : <p className="text-sm text-gray-400 text-center py-8">Loading chart…</p>;
-                  })()}
-                </div>
-              );
-            })()}
-
-            {/* Sector competency radar charts */}
-            {(() => {
-              const sectorAccum = {};
-              for (const r of filteredResponses) {
-                const sector = sessionSectorMap[r.session_id] || '';
-                if (!sector) continue;
-                let ans = {};
-                try { ans = JSON.parse(r.answers_json); } catch {}
-                if (!sectorAccum[sector]) sectorAccum[sector] = {};
-                for (const q of questions) {
-                  const score = parseFloat(ans[q.id]);
-                  if (isNaN(score)) continue;
-                  if (!sectorAccum[sector][q.category])
-                    sectorAccum[sector][q.category] = { sum: 0, count: 0 };
-                  sectorAccum[sector][q.category].sum   += score;
-                  sectorAccum[sector][q.category].count += 1;
-                }
-              }
-              const sortedSectors = [...SECTORS].sort((a, b) => (sectorAccum[b] ? 1 : 0) - (sectorAccum[a] ? 1 : 0));
-              return (
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 mb-8">
-                  <h2 className="text-lg font-bold text-gray-900 mb-1">Sector Competency Profiles</h2>
-                  <p className="text-xs text-gray-500 mb-6">Average pillar scores per industry sector</p>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6">
-                    {sortedSectors.map(sector => {
-                      const pillarsRaw = sectorAccum[sector];
-                      const responseCount = filteredResponses.filter(r => (sessionSectorMap[r.session_id] || '') === sector).length;
-                      if (!pillarsRaw) {
-                        return (
-                          <div key={sector} className="flex flex-col items-center">
-                            <p className="text-sm font-bold text-gray-400 mb-0.5 text-center">{sector}</p>
-                            <p className="text-xs text-gray-300 mb-2">No responses</p>
-                            <div className="w-[180px] h-[180px] rounded-full border-2 border-dashed border-gray-200 flex items-center justify-center">
-                              <p className="text-xs text-gray-300 text-center px-4">No data yet</p>
-                            </div>
-                          </div>
-                        );
-                      }
-                      const pillars = Object.entries(pillarsRaw).map(([name, { sum, count }]) => ({
-                        name,
-                        pct: Math.round(((sum / count) / 5) * 100),
-                      }));
-                      const strongest = [...pillars].sort((a, b) => b.pct - a.pct)[0];
-                      const weakest   = [...pillars].sort((a, b) => a.pct - b.pct)[0];
-                      return (
-                        <div key={sector} className="flex flex-col items-center">
-                          <p className="text-sm font-bold text-gray-800 mb-0.5 text-center">{sector}</p>
-                          <p className="text-xs text-gray-400 mb-2">{responseCount} response{responseCount !== 1 ? 's' : ''}</p>
-                          <RadarChart pillars={pillars} size={180} />
-                          <div className="mt-2 text-center space-y-0.5">
-                            <p className="text-xs text-green-600 font-medium">Strongest: {strongest?.name}</p>
-                            <p className="text-xs text-blue-400 font-medium">Weakest: {weakest?.name}</p>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
                 </div>
               );
             })()}
 
             {/* Responses Table */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mt-6">
               <div className="px-6 py-4 border-b flex justify-between items-center">
                 <h2 className="text-lg font-bold text-gray-900">All Responses</h2>
                 <span className="text-sm text-gray-400">{filteredResponses.length}{levelFilter !== null ? ` of ${responses.length}` : ''} records</span>
