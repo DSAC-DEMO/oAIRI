@@ -639,13 +639,17 @@ function AdminPage() {
       const date = r.submitted_at.slice(0, 10);
       counts[date] = (counts[date] || 0) + 1;
     }
-    return Object.entries(counts)
+    const sorted = Object.entries(counts)
       .sort(([a], [b]) => a.localeCompare(b))
       .reduce((acc, [date, count], i) => {
         const prev = i === 0 ? 0 : acc[i - 1].cumulative;
         acc.push({ date, count, cumulative: prev + count });
         return acc;
       }, []);
+    // Prepend a zero-start point one day before the first real date
+    const d = new Date(sorted[0].date);
+    d.setDate(d.getDate() - 1);
+    return [{ date: d.toISOString().slice(0, 10), count: 0, cumulative: 0 }, ...sorted];
   })();
   const cumulativeMax = cumulativeTrend.length ? cumulativeTrend[cumulativeTrend.length - 1].cumulative : 1;
 
