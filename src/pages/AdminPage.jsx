@@ -79,7 +79,7 @@ function CompanyPlotlyChart({ plotly, data, layout }) {
       font: { family: 'inherit' },
     }, { responsive: true, displayModeBar: false, scrollZoom: false });
   }, [plotly, data, layout]);
-  return <div ref={divRef} className="w-full" style={{ minHeight: 320 }} />;
+  return <div ref={divRef} className="w-full h-full" style={{ minHeight: 0 }} />;
 }
 
 // Dice-coefficient word overlap, strips common company suffixes before comparing
@@ -956,7 +956,7 @@ function AdminPage() {
                     const layout = {
                       barmode: 'group', bargap: 0.25, bargroupgap: 0.08,
                       annotations,
-                      uirevision: 'fixed',
+                      uirevision: selectedCompanyKeys.join(','),
                       xaxis: { gridcolor: 'transparent', tickfont: { size: 9 }, automargin: true, fixedrange: true },
                       yaxis: { range: [0, 6], autorange: false, gridcolor: '#f3f4f6', tickfont: { size: 9 }, fixedrange: true },
                       showlegend: true,
