@@ -947,8 +947,8 @@ function AdminPage() {
                 )}
               </div>
 
-              {/* Row 3, Col 1-2 — Performance by Pillar */}
-              <div className="col-span-2 bg-white rounded-xl border border-gray-200 shadow-sm p-3 flex flex-col min-h-0 overflow-hidden">
+              {/* Row 3, Col 1 — Performance by Pillar */}
+              <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-3 flex flex-col min-h-0 overflow-hidden">
                 <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 flex-shrink-0">Performance by Pillar</p>
                 {bottomFilteredResponses.length === 0
                   ? <p className="text-sm text-gray-400">No data yet</p>
@@ -970,8 +970,8 @@ function AdminPage() {
                 }
               </div>
 
-              {/* Row 3, Col 3 — Company Comparison chart */}
-              <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-3 flex flex-col min-h-0 overflow-hidden">
+              {/* Row 3, Col 2-3 — Company Comparison chart */}
+              <div className="col-span-2 bg-white rounded-xl border border-gray-200 shadow-sm p-3 flex flex-col min-h-0 overflow-hidden">
                 <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1.5 flex-shrink-0">Company Comparison</p>
                 <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
                   {selectedCompanyKeys.length === 0 && (
