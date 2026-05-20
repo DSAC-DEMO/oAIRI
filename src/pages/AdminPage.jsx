@@ -627,34 +627,22 @@ function AdminPage() {
         const selectedEntries = selectedCompanyKeys.map(k => companyEntries.find(e => e.key === k)).filter(Boolean);
         const allPillarNames = [...new Set((questions || []).map(q => q.category))];
 
-        const buildCompareTraces = () => selectedEntries.map((entry, i) => {
-          const pillars = computeCompanyPillars(entry);
-          const avgs = allPillarNames.map(pn => pillars.find(p => p.name === pn)?.avg ?? 0);
-          return {
+        // Overlay chart: sort entries tallest-first so shorter bars paint on top
+        const buildCompareTraces = () => {
+          const withAvgs = selectedEntries.map((entry, i) => {
+            const pillars = computeCompanyPillars(entry);
+            const avgs = allPillarNames.map(pn => pillars.find(p => p.name === pn)?.avg ?? 0);
+            const overallAvg = avgs.reduce((s, v) => s + v, 0) / (avgs.length || 1);
+            return { entry, avgs, overallAvg, colorIdx: i };
+          });
+          // tallest (highest avg) drawn first → ends up behind shorter bars
+          withAvgs.sort((a, b) => b.overallAvg - a.overallAvg);
+          return withAvgs.map(({ entry, avgs, colorIdx }) => ({
             type: 'bar', name: entry.name,
             x: allPillarNames, y: avgs,
-            marker: { color: COMPARE_COLORS[i % COMPARE_COLORS.length] },
-            text: avgs.map(a => a > 0 ? a.toFixed(2) : ''),
-            textposition: 'outside', textfont: { size: 10 },
-          };
-        });
-
-        const buildCompareAnnotations = () => {
-          if (selectedEntries.length !== 2) return [];
-          const p1 = computeCompanyPillars(selectedEntries[0]);
-          const p2 = computeCompanyPillars(selectedEntries[1]);
-          return allPillarNames.map(pn => {
-            const a = p1.find(p => p.name === pn)?.avg ?? 0;
-            const b = p2.find(p => p.name === pn)?.avg ?? 0;
-            const delta = b - a;
-            return {
-              x: pn, y: Math.max(a, b) + 0.7,
-              text: `Δ ${delta >= 0 ? '+' : ''}${delta.toFixed(2)}`,
-              showarrow: false,
-              font: { size: 10, color: delta > 0 ? '#22c55e' : delta < 0 ? '#f87171' : '#9ca3af' },
-              xanchor: 'center',
-            };
-          });
+            marker: { color: COMPARE_COLORS[colorIdx % COMPARE_COLORS.length], opacity: 0.78 },
+            hovertemplate: `<b>${entry.name}</b><br>%{x}: %{y:.2f}<extra></extra>`,
+          }));
         };
 
         const renderTrend = () => {
@@ -875,12 +863,10 @@ function AdminPage() {
                   })()}
                   {selectedCompanyKeys.length >= 2 && (() => {
                     const traces = buildCompareTraces();
-                    const annotations = buildCompareAnnotations();
                     const layout = {
-                      barmode: 'group',
-                      annotations,
+                      barmode: 'overlay',
                       xaxis: { gridcolor: '#f3f4f6', tickfont: { size: 9 }, automargin: true },
-                      yaxis: { range: [0, 6.5], gridcolor: '#f3f4f6', tickfont: { size: 9 } },
+                      yaxis: { range: [0, 5.2], gridcolor: '#f3f4f6', tickfont: { size: 9 } },
                       showlegend: true,
                       legend: { orientation: 'h', x: 0, y: 1.18, font: { size: 9 }, bgcolor: 'transparent' },
                       margin: { t: 40, b: 40, l: 36, r: 12 },
