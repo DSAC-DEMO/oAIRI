@@ -778,7 +778,7 @@ function AdminPage() {
             const b = p2.find(p => p.name === pn)?.avg ?? 0;
             const delta = b - a;
             return {
-              x: pn, y: Math.max(a, b) + 0.65,
+              x: pn, y: Math.max(a, b) + 1.1,
               text: `${delta >= 0 ? '+' : ''}${delta.toFixed(2)}`,
               showarrow: false,
               font: { size: 9, color: delta > 0 ? '#22c55e' : delta < 0 ? '#f87171' : '#9ca3af' },
@@ -995,7 +995,7 @@ function AdminPage() {
                       annotations,
                       uirevision: selectedCompanyKeys.join(','),
                       xaxis: { gridcolor: 'transparent', tickfont: { size: 9 }, automargin: true, fixedrange: true },
-                      yaxis: { range: [0, 6], autorange: false, gridcolor: '#f3f4f6', tickfont: { size: 9 }, fixedrange: true },
+                      yaxis: { range: [0, 7], autorange: false, gridcolor: '#f3f4f6', tickfont: { size: 9 }, fixedrange: true },
                       showlegend: true,
                       legend: { orientation: 'h', x: 0, y: 1.15, font: { size: 9 }, bgcolor: 'transparent' },
                       margin: { t: 36, b: 40, l: 32, r: 12 },
