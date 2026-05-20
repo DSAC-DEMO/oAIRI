@@ -631,12 +631,22 @@ function AdminPage() {
     .map(([name, { sum, count, pillars }]) => ({ name, avg: count > 0 ? sum / count : 0, pillars: [...pillars] }))
     .sort((a, b) => a.avg - b.avg);
 
-  // Cumulative trend for line chart
-  const cumulativeTrend = dailyTrend.reduce((acc, d, i) => {
-    const prev = i === 0 ? 0 : acc[i - 1].cumulative;
-    acc.push({ ...d, cumulative: prev + d.count });
-    return acc;
-  }, []);
+  // Cumulative trend built from filteredResponses so it reacts to all filters
+  const cumulativeTrend = (() => {
+    if (filteredResponses.length === 0) return [];
+    const counts = {};
+    for (const r of filteredResponses) {
+      const date = r.submitted_at.slice(0, 10);
+      counts[date] = (counts[date] || 0) + 1;
+    }
+    return Object.entries(counts)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .reduce((acc, [date, count], i) => {
+        const prev = i === 0 ? 0 : acc[i - 1].cumulative;
+        acc.push({ date, count, cumulative: prev + count });
+        return acc;
+      }, []);
+  })();
   const cumulativeMax = cumulativeTrend.length ? cumulativeTrend[cumulativeTrend.length - 1].cumulative : 1;
 
   return (
@@ -824,7 +834,7 @@ function AdminPage() {
               {/* Row 1, Col 2 — Cumulative Submissions (all-time) */}
               <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-3 flex flex-col min-h-0 overflow-hidden">
                 <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-0.5 flex-shrink-0">Cumulative Submissions</p>
-                <p className="text-xs text-gray-400 mb-1 flex-shrink-0">All-time count</p>
+                <p className="text-xs text-gray-400 mb-1 flex-shrink-0">{hasActiveFilter ? 'Filtered view' : 'All-time count'}</p>
                 <div className="flex-1 min-h-0">
                   <TrendChart trend={cumulativeTrend} maxVal={cumulativeMax} />
                 </div>
