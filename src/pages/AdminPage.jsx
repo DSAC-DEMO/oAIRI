@@ -2,6 +2,72 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import RadarChart from '../components/RadarChart';
 
+function TrendChart({ trend, maxVal }) {
+  const containerRef = useRef(null);
+  const [dims, setDims] = useState(null);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const ro = new ResizeObserver(([entry]) => {
+      const { width, height } = entry.contentRect;
+      if (width > 0 && height > 0) setDims({ w: width, h: height });
+    });
+    ro.observe(containerRef.current);
+    return () => ro.disconnect();
+  }, []);
+
+  if (trend.length === 0) {
+    return (
+      <div ref={containerRef} className="w-full h-full flex items-center justify-center">
+        <p className="text-xs text-gray-400">No submissions yet</p>
+      </div>
+    );
+  }
+
+  if (!dims) return <div ref={containerRef} className="w-full h-full" />;
+
+  const { w, h } = dims;
+  const PAD = { top: 8, bottom: 20, left: 28, right: 6 };
+  const plotW = w - PAD.left - PAD.right;
+  const plotH = h - PAD.top - PAD.bottom;
+  const safeMax = maxVal || 1;
+
+  const pts = trend.map((d, i) => ({
+    x: PAD.left + (trend.length === 1 ? plotW / 2 : (i / (trend.length - 1)) * plotW),
+    y: PAD.top + plotH - (d.cumulative / safeMax) * plotH,
+    ...d,
+  }));
+  const linePts = pts.map(p => `${p.x},${p.y}`).join(' ');
+  const fillPath = `M ${pts[0].x} ${PAD.top + plotH} L ${pts.map(p => `${p.x} ${p.y}`).join(' L ')} L ${pts[pts.length - 1].x} ${PAD.top + plotH} Z`;
+  const yLabels = [0, 0.5, 1].map(t => ({ y: PAD.top + plotH * (1 - t), val: Math.round(safeMax * t) }));
+  const labelStep = Math.max(1, Math.ceil(pts.length / 7));
+  const xLabels = pts.filter((_, i) => i % labelStep === 0 || i === pts.length - 1);
+
+  return (
+    <div ref={containerRef} className="w-full h-full">
+      <svg width={w} height={h} style={{ display: 'block' }}>
+        {yLabels.map(({ y }) => (
+          <line key={y} x1={PAD.left} x2={w - PAD.right} y1={y} y2={y} stroke="#f0f0f0" strokeWidth="1" />
+        ))}
+        {yLabels.map(({ y, val }) => (
+          <text key={y} x={PAD.left - 3} y={y + 3.5} textAnchor="end" fontSize="9" fill="#9ca3af">{val}</text>
+        ))}
+        <path d={fillPath} fill="#3b82f6" fillOpacity="0.1" />
+        <polyline fill="none" stroke="#3b82f6" strokeWidth="1.5" strokeLinejoin="round" points={linePts} />
+        {pts.map((p, i) => (
+          <g key={i}>
+            <circle cx={p.x} cy={p.y} r="2.5" fill="#3b82f6" stroke="white" strokeWidth="1.5" />
+            <title>{p.date}: {p.cumulative} total ({p.count} new)</title>
+          </g>
+        ))}
+        {xLabels.map(p => (
+          <text key={p.date} x={p.x} y={h - 3} textAnchor="middle" fontSize="9" fill="#9ca3af">{p.date.slice(5)}</text>
+        ))}
+      </svg>
+    </div>
+  );
+}
+
 function CompanyPlotlyChart({ plotly, data, layout }) {
   const divRef = useRef(null);
   useEffect(() => {
@@ -645,35 +711,7 @@ function AdminPage() {
           }));
         };
 
-        const renderTrend = () => {
-          if (cumulativeTrend.length === 0) return <p className="text-gray-400 text-sm">No submissions yet</p>;
-          const SVG_H = 140; const PAD = { top: 12, bottom: 24, left: 32, right: 8 };
-          const plotH = SVG_H - PAD.top - PAD.bottom;
-          const pointSpacing = Math.max(20, Math.min(40, 460 / cumulativeTrend.length));
-          const plotW = Math.max((cumulativeTrend.length - 1) * pointSpacing, 160);
-          const SVG_W = plotW + PAD.left + PAD.right;
-          const pts = cumulativeTrend.map((d, i) => ({
-            x: PAD.left + (cumulativeTrend.length === 1 ? plotW / 2 : (i / (cumulativeTrend.length - 1)) * plotW),
-            y: PAD.top + plotH - (d.cumulative / cumulativeMax) * plotH, ...d,
-          }));
-          const linePts = pts.map(p => `${p.x},${p.y}`).join(' ');
-          const fillPath = `M ${pts[0].x} ${PAD.top + plotH} L ${pts.map(p => `${p.x} ${p.y}`).join(' L ')} L ${pts[pts.length - 1].x} ${PAD.top + plotH} Z`;
-          const yLabels = [{ y: PAD.top + plotH, val: 0 }, { y: PAD.top + plotH / 2, val: Math.round(cumulativeMax / 2) }, { y: PAD.top, val: cumulativeMax }];
-          const labelStep = Math.max(1, Math.ceil(pts.length / 6));
-          const xLabels = pts.filter((_, i) => i % labelStep === 0 || i === pts.length - 1);
-          return (
-            <div className="overflow-x-auto w-full h-full">
-              <svg width={SVG_W} height={SVG_H} style={{ minWidth: SVG_W, display: 'block' }}>
-                {yLabels.map(({ y }) => <line key={y} x1={PAD.left} x2={PAD.left + plotW} y1={y} y2={y} stroke="#f0f0f0" strokeWidth="1" />)}
-                {yLabels.map(({ y, val }) => <text key={y} x={PAD.left - 4} y={y + 4} textAnchor="end" fontSize="10" fill="#9ca3af">{val}</text>)}
-                <path d={fillPath} fill="#3b82f6" fillOpacity="0.1" />
-                <polyline fill="none" stroke="#3b82f6" strokeWidth="2" strokeLinejoin="round" points={linePts} />
-                {pts.map((p, i) => (<g key={i}><circle cx={p.x} cy={p.y} r="3.5" fill="#3b82f6" stroke="white" strokeWidth="1.5" /><title>{p.date}: {p.cumulative} total ({p.count} new)</title></g>))}
-                {xLabels.map(p => <text key={p.date} x={p.x} y={SVG_H - 4} textAnchor="middle" fontSize="9" fill="#9ca3af">{p.date.slice(5)}</text>)}
-              </svg>
-            </div>
-          );
-        };
+
 
         return (
           <>
@@ -786,8 +824,10 @@ function AdminPage() {
               {/* Row 1, Col 2 — Cumulative Submissions (all-time) */}
               <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-3 flex flex-col min-h-0 overflow-hidden">
                 <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-0.5 flex-shrink-0">Cumulative Submissions</p>
-                <p className="text-xs text-gray-400 mb-2 flex-shrink-0">All-time count</p>
-                <div className="flex-1 min-h-0">{renderTrend()}</div>
+                <p className="text-xs text-gray-400 mb-1 flex-shrink-0">All-time count</p>
+                <div className="flex-1 min-h-0">
+                  <TrendChart trend={cumulativeTrend} maxVal={cumulativeMax} />
+                </div>
               </div>
 
               {/* Row 1, Col 3 — KPI cards */}
