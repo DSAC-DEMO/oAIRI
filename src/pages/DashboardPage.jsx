@@ -331,12 +331,16 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
 
   const distLayout = useMemo(() => ({
     barmode: activeRound === 'overall' ? 'group' : undefined,
-    xaxis: { tickfont: { size: 9 }, gridcolor: 'transparent', linecolor: '#e5e7eb', tickangle: -20 },
+    xaxis: {
+      tickfont: { size: 9 }, gridcolor: 'transparent', linecolor: '#e5e7eb', tickangle: -20,
+      categoryorder: 'array',
+      categoryarray: [...readinessLevels.map(l => l.name ?? l)].reverse(),
+    },
     yaxis: { gridcolor: '#f3f4f6', linecolor: '#e5e7eb', tickfont: { size: 10 }, dtick: 1 },
     showlegend: activeRound === 'overall',
     legend: { orientation: 'h', x: 0, y: 1.18, font: { size: 9 } },
     margin: { t: activeRound === 'overall' ? 48 : 24, b: 70, l: 36, r: 10 },
-  }), [activeRound]);
+  }), [activeRound, readinessLevels]);
 
   const sorted = useMemo(() => [...pillarList].sort((a, b) => a.avg - b.avg), [pillarList]);
 
