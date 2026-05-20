@@ -717,19 +717,38 @@ function AdminPage() {
           <>
             {/* ── Compact filter strip ── */}
             <div className="flex-shrink-0 bg-white border-b border-gray-100 px-4 py-2 space-y-1.5">
-              {/* Row 1: date range + actions */}
-              <div className="flex items-center gap-3 flex-wrap">
-                <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider flex-shrink-0">Filters</span>
-                <div className="flex items-center gap-1.5 flex-shrink-0">
-                  <span className="text-xs text-gray-400">From</span>
-                  <input type="date" className="border border-gray-200 rounded px-2 py-1 text-xs bg-gray-50 focus:ring-1 focus:ring-blue-500" value={analyticsFromDate} onChange={e => setAnalyticsFromDate(e.target.value)} />
-                  <span className="text-xs text-gray-400">to</span>
-                  <input type="date" className="border border-gray-200 rounded px-2 py-1 text-xs bg-gray-50 focus:ring-1 focus:ring-blue-500" value={analyticsToDate} onChange={e => setAnalyticsToDate(e.target.value)} />
+              {/* Row 1: date range + company pills + actions */}
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5 overflow-x-auto flex-1 min-w-0" style={{ scrollbarWidth: 'none' }}>
+                  <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider flex-shrink-0">Filters</span>
+                  <span className="text-xs text-gray-400 flex-shrink-0">From</span>
+                  <input type="date" className="border border-gray-200 rounded px-2 py-1 text-xs bg-gray-50 flex-shrink-0" value={analyticsFromDate} onChange={e => setAnalyticsFromDate(e.target.value)} />
+                  <span className="text-xs text-gray-400 flex-shrink-0">to</span>
+                  <input type="date" className="border border-gray-200 rounded px-2 py-1 text-xs bg-gray-50 flex-shrink-0" value={analyticsToDate} onChange={e => setAnalyticsToDate(e.target.value)} />
                   {(analyticsFromDate || analyticsToDate) && (
-                    <span className="text-xs text-blue-600 font-semibold">{companyFilteredResponses.length}/{responses.length}</span>
+                    <span className="text-xs text-blue-600 font-semibold flex-shrink-0">{companyFilteredResponses.length}/{responses.length}</span>
+                  )}
+                  {companyEntries.length > 0 && (
+                    <>
+                      <div className="w-px h-4 bg-gray-200 flex-shrink-0 mx-0.5" />
+                      <span className="text-xs text-gray-400 font-medium flex-shrink-0">Co:</span>
+                      <button
+                        onClick={() => setCompanyFilter([])}
+                        className={`flex-shrink-0 px-2.5 py-0.5 rounded-full text-xs font-semibold border transition-colors ${companyFilter.length === 0 ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-500 border-gray-200 hover:border-blue-400'}`}
+                      >All</button>
+                      {companyEntries.map(e => {
+                        const sel = companyFilter.includes(e.key);
+                        return (
+                          <button key={e.key}
+                            onClick={() => setCompanyFilter(prev => sel ? prev.filter(k => k !== e.key) : [...prev, e.key])}
+                            className={`flex-shrink-0 px-2.5 py-0.5 rounded-full text-xs font-semibold border transition-colors ${sel ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-500 border-gray-200 hover:border-blue-400'}`}
+                          >{e.name}{e.sessions.length > 1 && <span className="ml-0.5 opacity-60 text-xs">{e.sessions.length}R</span>}</button>
+                        );
+                      })}
+                    </>
                   )}
                 </div>
-                <div className="ml-auto flex items-center gap-2 flex-shrink-0">
+                <div className="flex items-center gap-2 flex-shrink-0">
                   {hasActiveFilter && (
                     <button
                       onClick={() => { setSectorFilter(null); setLevelFilter(null); setAnalyticsFromDate(''); setAnalyticsToDate(''); setCompanyFilter([]); }}
@@ -743,27 +762,8 @@ function AdminPage() {
                   >{exportingPDF ? 'Exporting…' : 'Export PDF'}</button>
                 </div>
               </div>
-              {/* Row 2: company + sector + level pills (scrollable) */}
+              {/* Row 2: sector + level pills */}
               <div className="flex items-center gap-1.5 overflow-x-auto" style={{ scrollbarWidth: 'thin' }}>
-                {companyEntries.length > 0 && (
-                  <>
-                    <span className="text-xs text-gray-400 font-medium flex-shrink-0">Co:</span>
-                    <button
-                      onClick={() => setCompanyFilter([])}
-                      className={`flex-shrink-0 px-2.5 py-0.5 rounded-full text-xs font-semibold border transition-colors ${companyFilter.length === 0 ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-500 border-gray-200 hover:border-blue-400'}`}
-                    >All</button>
-                    {companyEntries.map(e => {
-                      const sel = companyFilter.includes(e.key);
-                      return (
-                        <button key={e.key}
-                          onClick={() => setCompanyFilter(prev => sel ? prev.filter(k => k !== e.key) : [...prev, e.key])}
-                          className={`flex-shrink-0 px-2.5 py-0.5 rounded-full text-xs font-semibold border transition-colors ${sel ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-500 border-gray-200 hover:border-blue-400'}`}
-                        >{e.name}{e.sessions.length > 1 && <span className="ml-0.5 opacity-60 text-xs">{e.sessions.length}R</span>}</button>
-                      );
-                    })}
-                    <div className="w-px h-4 bg-gray-200 flex-shrink-0 mx-1" />
-                  </>
-                )}
                 {availableSectors.length > 0 && (
                   <>
                     <span className="text-xs text-gray-400 font-medium flex-shrink-0">Sector:</span>
@@ -831,19 +831,30 @@ function AdminPage() {
               </div>
 
               {/* Row 1, Col 3 — KPI cards */}
-              <div className="grid grid-rows-3 gap-2">
-                {[
-                  { label: 'Total Responses', value: filteredTotal, color: '#2563eb' },
-                  { label: 'Average Score', value: fAvg.toFixed(2), sub: 'out of 5.00', color: '#1d4ed8' },
-                  { label: 'Highest Score', value: fMax.toFixed(2), sub: 'out of 5.00', color: '#1e3a8a' },
-                ].map(({ label, value, sub, color }) => (
-                  <div key={label} className="bg-white rounded-xl border border-gray-200 shadow-sm p-3 flex flex-col justify-center">
-                    <div className="text-2xl font-bold tabular-nums" style={{ color }}>{value}</div>
-                    <div className="text-xs font-semibold text-gray-600 mt-0.5">{label}</div>
-                    {sub && <div className="text-xs text-gray-400">{sub}</div>}
+              {(() => {
+                const topPillar = pillarPerfList.length > 0 ? pillarPerfList[pillarPerfList.length - 1] : null;
+                return (
+                  <div className="grid grid-rows-3 gap-2">
+                    {[
+                      { label: 'Total Responses', value: filteredTotal, valueClass: 'text-2xl', color: '#2563eb' },
+                      { label: 'Average Score', value: fAvg.toFixed(2), sub: 'out of 5.00', valueClass: 'text-2xl', color: '#1d4ed8' },
+                      {
+                        label: 'Top Pillar',
+                        value: topPillar ? topPillar.name : '—',
+                        sub: topPillar ? `${topPillar.avg.toFixed(2)} / 5 avg` : null,
+                        valueClass: 'text-sm leading-tight',
+                        color: '#1e3a8a',
+                      },
+                    ].map(({ label, value, sub, valueClass, color }) => (
+                      <div key={label} className="bg-white rounded-xl border border-gray-200 shadow-sm p-3 flex flex-col justify-center">
+                        <div className={`font-bold tabular-nums ${valueClass}`} style={{ color }}>{value}</div>
+                        <div className="text-xs font-semibold text-gray-600 mt-0.5">{label}</div>
+                        {sub && <div className="text-xs text-gray-400">{sub}</div>}
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
+                );
+              })()}
 
               {/* Row 2, Col 1-2 — Performance by Pillar */}
               <div className="col-span-2 bg-white rounded-xl border border-gray-200 shadow-sm p-3 flex flex-col min-h-0 overflow-hidden">
