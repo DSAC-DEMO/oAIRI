@@ -11,7 +11,7 @@ function CompanyPlotlyChart({ plotly, data, layout }) {
       paper_bgcolor: 'transparent',
       plot_bgcolor: 'transparent',
       font: { family: 'inherit' },
-    }, { responsive: true, displayModeBar: 'hover', modeBarButtonsToRemove: ['toImage', 'sendDataToCloud', 'lasso2d', 'select2d'] });
+    }, { responsive: true, displayModeBar: true, scrollZoom: true, modeBarButtonsToRemove: ['sendDataToCloud', 'lasso2d', 'select2d'] });
   }, [plotly, data, layout]);
   return <div ref={divRef} className="w-full" style={{ minHeight: 320 }} />;
 }
@@ -303,6 +303,8 @@ function AdminPage() {
   // Global analytics time range filter
   const [analyticsFromDate, setAnalyticsFromDate] = useState('');
   const [analyticsToDate, setAnalyticsToDate] = useState('');
+  // Global company filter for the analytics page
+  const [companyFilter, setCompanyFilter] = useState([]);
   // Company comparison selector (array of company keys)
   const [selectedCompanyKeys, setSelectedCompanyKeys] = useState([]);
   // Plotly library (lazy-loaded)
@@ -447,29 +449,7 @@ function AdminPage() {
   const sessionSectorMap = {};
   for (const s of sessionsData) sessionSectorMap[s.id] = s.sector || '';
 
-  // Global time filter applied first
-  const analyticsFromMs = analyticsFromDate ? new Date(analyticsFromDate).getTime() : null;
-  const analyticsToMs   = analyticsToDate   ? new Date(analyticsToDate + 'T23:59:59').getTime() : null;
-  const timeFilteredResponses = responses.filter(r => {
-    const t = new Date(r.submitted_at).getTime();
-    if (analyticsFromMs && t < analyticsFromMs) return false;
-    if (analyticsToMs   && t > analyticsToMs)   return false;
-    return true;
-  });
-
-  // unique sectors that have at least one response (within time filter)
-  const sectorResponseCounts = {};
-  for (const r of timeFilteredResponses) {
-    const sec = sessionSectorMap[r.session_id] || '';
-    if (sec) sectorResponseCounts[sec] = (sectorResponseCounts[sec] || 0) + 1;
-  }
-  const availableSectors = Object.keys(sectorResponseCounts).sort();
-
-  const sectorFilteredResponses = sectorFilter === null
-    ? timeFilteredResponses
-    : timeFilteredResponses.filter(r => (sessionSectorMap[r.session_id] || '') === sectorFilter);
-
-  // Company entries for comparison selector
+  // Company entries (moved up — needed for global company filter)
   const companyEntries = (() => {
     const uenGroups = {};
     const solos = [];
@@ -488,6 +468,36 @@ function AdminPage() {
     }));
     return [...grouped, ...solos];
   })();
+  const sessionCompanyKeyMap = {};
+  for (const entry of companyEntries) {
+    for (const s of entry.sessions) sessionCompanyKeyMap[s.id] = entry.key;
+  }
+
+  // Filter chain: time → company → sector → level
+  const analyticsFromMs = analyticsFromDate ? new Date(analyticsFromDate).getTime() : null;
+  const analyticsToMs   = analyticsToDate   ? new Date(analyticsToDate + 'T23:59:59').getTime() : null;
+  const timeFilteredResponses = responses.filter(r => {
+    const t = new Date(r.submitted_at).getTime();
+    if (analyticsFromMs && t < analyticsFromMs) return false;
+    if (analyticsToMs   && t > analyticsToMs)   return false;
+    return true;
+  });
+
+  const companyFilteredResponses = companyFilter.length === 0
+    ? timeFilteredResponses
+    : timeFilteredResponses.filter(r => companyFilter.includes(sessionCompanyKeyMap[r.session_id]));
+
+  // unique sectors within time + company filter
+  const sectorResponseCounts = {};
+  for (const r of companyFilteredResponses) {
+    const sec = sessionSectorMap[r.session_id] || '';
+    if (sec) sectorResponseCounts[sec] = (sectorResponseCounts[sec] || 0) + 1;
+  }
+  const availableSectors = Object.keys(sectorResponseCounts).sort();
+
+  const sectorFilteredResponses = sectorFilter === null
+    ? companyFilteredResponses
+    : companyFilteredResponses.filter(r => (sessionSectorMap[r.session_id] || '') === sectorFilter);
 
   const computeCompanyPillars = (entry) => {
     const sessionIds = new Set(entry.sessions.map(s => s.id));
@@ -597,306 +607,295 @@ function AdminPage() {
       </div>
 
       {/* ── Analytics Tab ── */}
-      {activeTab === 'analytics' && (
-        <div className="flex-1 flex flex-col min-h-0 p-3 gap-3 overflow-hidden">
-          {/* Combined Filters */}
-            {(() => {
-              const levelCounts = readinessLevels.map((_, i) =>
-                sectorFilteredResponses.filter(r => {
-                  const idx = r.score_pct >= 4 ? 0 : r.score_pct >= 3 ? 1 : r.score_pct >= 2 ? 2 : r.score_pct >= 1 ? 3 : 4;
-                  return idx === i;
-                }).length
-              );
-              const hasActiveFilter = !!(analyticsFromDate || analyticsToDate || sectorFilter !== null || levelFilter !== null);
-              return (
-                <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 mb-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Filters</p>
-                    <div className="flex items-center gap-3">
-                      {hasActiveFilter && (
-                        <button
-                          onClick={() => { setSectorFilter(null); setLevelFilter(null); setAnalyticsFromDate(''); setAnalyticsToDate(''); }}
-                          className="text-xs text-blue-500 hover:text-blue-700 font-semibold transition-colors"
-                        >
-                          Clear all
-                        </button>
-                      )}
-                      <button
-                        onClick={exportAdminPDF}
-                        disabled={exportingPDF}
-                        className="text-xs bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-semibold px-3 py-1.5 rounded-lg transition-colors"
-                      >
-                        {exportingPDF ? 'Exporting…' : 'Export PDF'}
-                      </button>
-                    </div>
-                  </div>
+      {activeTab === 'analytics' && (() => {
+        const levelCounts = readinessLevels.map((_, i) =>
+          sectorFilteredResponses.filter(r => {
+            const idx = r.score_pct >= 4 ? 0 : r.score_pct >= 3 ? 1 : r.score_pct >= 2 ? 2 : r.score_pct >= 1 ? 3 : 4;
+            return idx === i;
+          }).length
+        );
+        const hasActiveFilter = !!(analyticsFromDate || analyticsToDate || sectorFilter !== null || levelFilter !== null || companyFilter.length > 0);
+        const fAvg = filteredTotal > 0 ? filteredResponses.reduce((s, r) => s + (r.score_pct || 0), 0) / filteredTotal : 0;
+        const fMax = filteredTotal > 0 ? Math.max(...filteredResponses.map(r => r.score_pct || 0)) : 0;
+        const distCounts = [0,1,2,3,4].map(i =>
+          filteredResponses.filter(r => {
+            const idx = r.score_pct >= 4 ? 0 : r.score_pct >= 3 ? 1 : r.score_pct >= 2 ? 2 : r.score_pct >= 1 ? 3 : 4;
+            return idx === i;
+          }).length
+        );
+        const COMPARE_COLORS = ['#2563eb', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6', '#06b6d4'];
+        const selectedEntries = selectedCompanyKeys.map(k => companyEntries.find(e => e.key === k)).filter(Boolean);
+        const allPillarNames = [...new Set((questions || []).map(q => q.category))];
 
-                  <p className="text-xs font-medium text-gray-400 mb-2">Date Range</p>
-                  <div className="flex flex-wrap items-center gap-2 mb-4">
-                    <span className="text-xs text-gray-500">From</span>
-                    <input
-                      type="date"
-                      className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      value={analyticsFromDate}
-                      onChange={e => setAnalyticsFromDate(e.target.value)}
-                    />
-                    <span className="text-xs text-gray-500">to</span>
-                    <input
-                      type="date"
-                      className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      value={analyticsToDate}
-                      onChange={e => setAnalyticsToDate(e.target.value)}
-                    />
-                    {(analyticsFromDate || analyticsToDate) && (
-                      <span className="text-xs text-blue-600 font-semibold ml-1">{timeFilteredResponses.length} of {responses.length} responses</span>
-                    )}
-                  </div>
+        const buildCompareTraces = () => selectedEntries.map((entry, i) => {
+          const pillars = computeCompanyPillars(entry);
+          const avgs = allPillarNames.map(pn => pillars.find(p => p.name === pn)?.avg ?? 0);
+          return {
+            type: 'bar', name: entry.name,
+            x: allPillarNames, y: avgs,
+            marker: { color: COMPARE_COLORS[i % COMPARE_COLORS.length] },
+            text: avgs.map(a => a > 0 ? a.toFixed(2) : ''),
+            textposition: 'outside', textfont: { size: 10 },
+          };
+        });
 
-                  {availableSectors.length > 0 && (
-                    <>
-                      <div className="border-t border-gray-100 mb-4" />
-                      <p className="text-xs font-medium text-gray-400 mb-2">Sector</p>
-                      <div className="flex flex-wrap gap-2 mb-4">
-                        <button
-                          onClick={() => setSectorFilter(null)}
-                          className={`px-4 py-1.5 rounded-full text-sm font-semibold border transition-colors ${
-                            sectorFilter === null
-                              ? 'bg-blue-600 text-white border-blue-600'
-                              : 'bg-white text-gray-500 border-gray-200 hover:border-blue-400 hover:text-blue-500'
-                          }`}
-                        >
-                          All ({timeFilteredResponses.length})
-                        </button>
-                        {availableSectors.map(sector => (
-                          <button
-                            key={sector}
-                            onClick={() => setSectorFilter(sectorFilter === sector ? null : sector)}
-                            className={`px-4 py-1.5 rounded-full text-sm font-semibold border transition-colors ${
-                              sectorFilter === sector
-                                ? 'bg-blue-600 text-white border-blue-600'
-                                : 'bg-white text-gray-500 border-gray-200 hover:border-blue-400 hover:text-blue-500'
-                            }`}
-                          >
-                            {sector} ({sectorResponseCounts[sector]})
-                          </button>
-                        ))}
-                      </div>
-                    </>
+        const buildCompareAnnotations = () => {
+          if (selectedEntries.length !== 2) return [];
+          const p1 = computeCompanyPillars(selectedEntries[0]);
+          const p2 = computeCompanyPillars(selectedEntries[1]);
+          return allPillarNames.map(pn => {
+            const a = p1.find(p => p.name === pn)?.avg ?? 0;
+            const b = p2.find(p => p.name === pn)?.avg ?? 0;
+            const delta = b - a;
+            return {
+              x: pn, y: Math.max(a, b) + 0.7,
+              text: `Δ ${delta >= 0 ? '+' : ''}${delta.toFixed(2)}`,
+              showarrow: false,
+              font: { size: 10, color: delta > 0 ? '#22c55e' : delta < 0 ? '#f87171' : '#9ca3af' },
+              xanchor: 'center',
+            };
+          });
+        };
+
+        const renderTrend = () => {
+          if (cumulativeTrend.length === 0) return <p className="text-gray-400 text-sm">No submissions yet</p>;
+          const SVG_H = 140; const PAD = { top: 12, bottom: 24, left: 32, right: 8 };
+          const plotH = SVG_H - PAD.top - PAD.bottom;
+          const pointSpacing = Math.max(20, Math.min(40, 460 / cumulativeTrend.length));
+          const plotW = Math.max((cumulativeTrend.length - 1) * pointSpacing, 160);
+          const SVG_W = plotW + PAD.left + PAD.right;
+          const pts = cumulativeTrend.map((d, i) => ({
+            x: PAD.left + (cumulativeTrend.length === 1 ? plotW / 2 : (i / (cumulativeTrend.length - 1)) * plotW),
+            y: PAD.top + plotH - (d.cumulative / cumulativeMax) * plotH, ...d,
+          }));
+          const linePts = pts.map(p => `${p.x},${p.y}`).join(' ');
+          const fillPath = `M ${pts[0].x} ${PAD.top + plotH} L ${pts.map(p => `${p.x} ${p.y}`).join(' L ')} L ${pts[pts.length - 1].x} ${PAD.top + plotH} Z`;
+          const yLabels = [{ y: PAD.top + plotH, val: 0 }, { y: PAD.top + plotH / 2, val: Math.round(cumulativeMax / 2) }, { y: PAD.top, val: cumulativeMax }];
+          const labelStep = Math.max(1, Math.ceil(pts.length / 6));
+          const xLabels = pts.filter((_, i) => i % labelStep === 0 || i === pts.length - 1);
+          return (
+            <div className="overflow-x-auto w-full h-full">
+              <svg width={SVG_W} height={SVG_H} style={{ minWidth: SVG_W, display: 'block' }}>
+                {yLabels.map(({ y }) => <line key={y} x1={PAD.left} x2={PAD.left + plotW} y1={y} y2={y} stroke="#f0f0f0" strokeWidth="1" />)}
+                {yLabels.map(({ y, val }) => <text key={y} x={PAD.left - 4} y={y + 4} textAnchor="end" fontSize="10" fill="#9ca3af">{val}</text>)}
+                <path d={fillPath} fill="#3b82f6" fillOpacity="0.1" />
+                <polyline fill="none" stroke="#3b82f6" strokeWidth="2" strokeLinejoin="round" points={linePts} />
+                {pts.map((p, i) => (<g key={i}><circle cx={p.x} cy={p.y} r="3.5" fill="#3b82f6" stroke="white" strokeWidth="1.5" /><title>{p.date}: {p.cumulative} total ({p.count} new)</title></g>))}
+                {xLabels.map(p => <text key={p.date} x={p.x} y={SVG_H - 4} textAnchor="middle" fontSize="9" fill="#9ca3af">{p.date.slice(5)}</text>)}
+              </svg>
+            </div>
+          );
+        };
+
+        return (
+          <>
+            {/* ── Compact filter strip ── */}
+            <div className="flex-shrink-0 bg-white border-b border-gray-100 px-4 py-2 space-y-1.5">
+              {/* Row 1: date range + actions */}
+              <div className="flex items-center gap-3 flex-wrap">
+                <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider flex-shrink-0">Filters</span>
+                <div className="flex items-center gap-1.5 flex-shrink-0">
+                  <span className="text-xs text-gray-400">From</span>
+                  <input type="date" className="border border-gray-200 rounded px-2 py-1 text-xs bg-gray-50 focus:ring-1 focus:ring-blue-500" value={analyticsFromDate} onChange={e => setAnalyticsFromDate(e.target.value)} />
+                  <span className="text-xs text-gray-400">to</span>
+                  <input type="date" className="border border-gray-200 rounded px-2 py-1 text-xs bg-gray-50 focus:ring-1 focus:ring-blue-500" value={analyticsToDate} onChange={e => setAnalyticsToDate(e.target.value)} />
+                  {(analyticsFromDate || analyticsToDate) && (
+                    <span className="text-xs text-blue-600 font-semibold">{companyFilteredResponses.length}/{responses.length}</span>
                   )}
-
-                  <div className="border-t border-gray-100 mb-4" />
-                  <p className="text-xs font-medium text-gray-400 mb-2">Readiness Level</p>
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      onClick={() => setLevelFilter(null)}
-                      className={`px-4 py-1.5 rounded-full text-sm font-semibold border transition-colors ${
-                        levelFilter === null
-                          ? 'bg-blue-600 text-white border-blue-600'
-                          : 'bg-white text-gray-500 border-gray-200 hover:border-blue-400 hover:text-blue-500'
-                      }`}
-                    >
-                      All ({sectorFilteredResponses.length})
-                    </button>
-                    {readinessLevels.map((lvl, i) => (
-                      <button
-                        key={i}
-                        onClick={() => setLevelFilter(levelFilter === i ? null : i)}
-                        className={`px-4 py-1.5 rounded-full text-sm font-semibold border transition-colors ${
-                          levelFilter === i
-                            ? `${READINESS_LEVEL_STYLES[i].bg} ${READINESS_LEVEL_STYLES[i].text} border-current`
-                            : 'bg-white text-gray-500 border-gray-200 hover:border-blue-400 hover:text-blue-500'
-                        }`}
-                      >
-                        {lvl.name} ({levelCounts[i]})
-                      </button>
-                    ))}
-                  </div>
                 </div>
-              );
-            })()}
+                <div className="ml-auto flex items-center gap-2 flex-shrink-0">
+                  {hasActiveFilter && (
+                    <button
+                      onClick={() => { setSectorFilter(null); setLevelFilter(null); setAnalyticsFromDate(''); setAnalyticsToDate(''); setCompanyFilter([]); }}
+                      className="text-xs text-blue-500 hover:text-blue-700 font-semibold transition-colors"
+                    >Clear all</button>
+                  )}
+                  <button
+                    onClick={exportAdminPDF}
+                    disabled={exportingPDF}
+                    className="text-xs bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-semibold px-3 py-1 rounded-lg transition-colors"
+                  >{exportingPDF ? 'Exporting…' : 'Export PDF'}</button>
+                </div>
+              </div>
+              {/* Row 2: company + sector + level pills (scrollable) */}
+              <div className="flex items-center gap-1.5 overflow-x-auto" style={{ scrollbarWidth: 'thin' }}>
+                {companyEntries.length > 0 && (
+                  <>
+                    <span className="text-xs text-gray-400 font-medium flex-shrink-0">Co:</span>
+                    <button
+                      onClick={() => setCompanyFilter([])}
+                      className={`flex-shrink-0 px-2.5 py-0.5 rounded-full text-xs font-semibold border transition-colors ${companyFilter.length === 0 ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-500 border-gray-200 hover:border-blue-400'}`}
+                    >All</button>
+                    {companyEntries.map(e => {
+                      const sel = companyFilter.includes(e.key);
+                      return (
+                        <button key={e.key}
+                          onClick={() => setCompanyFilter(prev => sel ? prev.filter(k => k !== e.key) : [...prev, e.key])}
+                          className={`flex-shrink-0 px-2.5 py-0.5 rounded-full text-xs font-semibold border transition-colors ${sel ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-500 border-gray-200 hover:border-blue-400'}`}
+                        >{e.name}{e.sessions.length > 1 && <span className="ml-0.5 opacity-60 text-xs">{e.sessions.length}R</span>}</button>
+                      );
+                    })}
+                    <div className="w-px h-4 bg-gray-200 flex-shrink-0 mx-1" />
+                  </>
+                )}
+                {availableSectors.length > 0 && (
+                  <>
+                    <span className="text-xs text-gray-400 font-medium flex-shrink-0">Sector:</span>
+                    <button
+                      onClick={() => setSectorFilter(null)}
+                      className={`flex-shrink-0 px-2.5 py-0.5 rounded-full text-xs font-semibold border transition-colors ${sectorFilter === null ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-500 border-gray-200 hover:border-blue-400'}`}
+                    >All</button>
+                    {availableSectors.map(sector => (
+                      <button key={sector}
+                        onClick={() => setSectorFilter(sectorFilter === sector ? null : sector)}
+                        className={`flex-shrink-0 px-2.5 py-0.5 rounded-full text-xs font-semibold border transition-colors ${sectorFilter === sector ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-500 border-gray-200 hover:border-blue-400'}`}
+                      >{sector} ({sectorResponseCounts[sector]})</button>
+                    ))}
+                    <div className="w-px h-4 bg-gray-200 flex-shrink-0 mx-1" />
+                  </>
+                )}
+                <span className="text-xs text-gray-400 font-medium flex-shrink-0">Level:</span>
+                <button
+                  onClick={() => setLevelFilter(null)}
+                  className={`flex-shrink-0 px-2.5 py-0.5 rounded-full text-xs font-semibold border transition-colors ${levelFilter === null ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-500 border-gray-200 hover:border-blue-400'}`}
+                >All ({sectorFilteredResponses.length})</button>
+                {readinessLevels.map((lvl, i) => (
+                  <button key={i}
+                    onClick={() => setLevelFilter(levelFilter === i ? null : i)}
+                    className={`flex-shrink-0 px-2.5 py-0.5 rounded-full text-xs font-semibold border transition-colors ${
+                      levelFilter === i
+                        ? `${READINESS_LEVEL_STYLES[i].bg} ${READINESS_LEVEL_STYLES[i].text} border-current`
+                        : 'bg-white text-gray-500 border-gray-200 hover:border-blue-400'
+                    }`}
+                  >{lvl.name} ({levelCounts[i]})</button>
+                ))}
+              </div>
+            </div>
 
-            {/* ── Dashboard grid ── */}
-            {(() => {
-              const fAvg = filteredTotal > 0 ? filteredResponses.reduce((s, r) => s + (r.score_pct || 0), 0) / filteredTotal : 0;
-              const fMax = filteredTotal > 0 ? Math.max(...filteredResponses.map(r => r.score_pct || 0)) : 0;
-              const distCounts = [0,1,2,3,4].map(i =>
-                filteredResponses.filter(r => {
-                  const idx = r.score_pct >= 4 ? 0 : r.score_pct >= 3 ? 1 : r.score_pct >= 2 ? 2 : r.score_pct >= 1 ? 3 : 4;
-                  return idx === i;
-                }).length
-              );
-              const COMPARE_COLORS = ['#2563eb', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6', '#06b6d4'];
-              const selectedEntries = selectedCompanyKeys.map(k => companyEntries.find(e => e.key === k)).filter(Boolean);
-              const allPillarNames = [...new Set((questions || []).map(q => q.category))];
-              const buildCompareTraces = () => selectedEntries.map((entry, i) => {
-                const pillars = computeCompanyPillars(entry);
-                const avgs = allPillarNames.map(pn => pillars.find(p => p.name === pn)?.avg ?? 0);
-                return { type: 'bar', name: entry.name, x: allPillarNames, y: avgs, marker: { color: COMPARE_COLORS[i % COMPARE_COLORS.length] }, text: avgs.map(a => a > 0 ? a.toFixed(2) : ''), textposition: 'outside', textfont: { size: 10 } };
-              });
-              const buildCompareAnnotations = () => {
-                if (selectedEntries.length !== 2) return [];
-                const p1 = computeCompanyPillars(selectedEntries[0]);
-                const p2 = computeCompanyPillars(selectedEntries[1]);
-                return allPillarNames.map(pn => {
-                  const a = p1.find(p => p.name === pn)?.avg ?? 0;
-                  const b = p2.find(p => p.name === pn)?.avg ?? 0;
-                  const delta = b - a;
-                  return { x: pn, y: Math.max(a, b) + 0.55, text: `Δ ${delta >= 0 ? '+' : ''}${delta.toFixed(2)}`, showarrow: false, font: { size: 9, color: delta > 0 ? '#22c55e' : delta < 0 ? '#f87171' : '#9ca3af' }, xanchor: 'center' };
-                });
-              };
+            {/* ── Analytics grid (fills remaining viewport) ── */}
+            <div ref={analyticsRef} className="flex-1 min-h-0 grid gap-2 p-2 bg-gray-50" style={{ gridTemplateColumns: '1fr 1fr 1fr', gridTemplateRows: '1fr 1fr' }}>
 
-              // SVG line chart helpers
-              const renderTrend = () => {
-                if (cumulativeTrend.length === 0) return <p className="text-gray-400 text-sm">No submissions yet</p>;
-                const SVG_H = 160; const PAD = { top: 12, bottom: 28, left: 36, right: 12 };
-                const plotH = SVG_H - PAD.top - PAD.bottom;
-                const pointSpacing = Math.max(20, Math.min(40, 560 / cumulativeTrend.length));
-                const plotW = Math.max((cumulativeTrend.length - 1) * pointSpacing, 200);
-                const SVG_W = plotW + PAD.left + PAD.right;
-                const pts = cumulativeTrend.map((d, i) => ({ x: PAD.left + (cumulativeTrend.length === 1 ? plotW / 2 : (i / (cumulativeTrend.length - 1)) * plotW), y: PAD.top + plotH - (d.cumulative / cumulativeMax) * plotH, ...d }));
-                const linePts = pts.map(p => `${p.x},${p.y}`).join(' ');
-                const fillPath = `M ${pts[0].x} ${PAD.top + plotH} L ${pts.map(p => `${p.x} ${p.y}`).join(' L ')} L ${pts[pts.length - 1].x} ${PAD.top + plotH} Z`;
-                const yLabels = [{ y: PAD.top + plotH, val: 0 }, { y: PAD.top + plotH / 2, val: Math.round(cumulativeMax / 2) }, { y: PAD.top, val: cumulativeMax }];
-                const labelStep = Math.max(1, Math.ceil(pts.length / 6));
-                const xLabels = pts.filter((_, i) => i % labelStep === 0 || i === pts.length - 1);
-                return (
-                  <div className="overflow-x-auto">
-                    <svg width={SVG_W} height={SVG_H} style={{ minWidth: SVG_W, display: 'block' }}>
-                      {yLabels.map(({ y }) => <line key={y} x1={PAD.left} x2={PAD.left + plotW} y1={y} y2={y} stroke="#f0f0f0" strokeWidth="1" />)}
-                      {yLabels.map(({ y, val }) => <text key={y} x={PAD.left - 4} y={y + 4} textAnchor="end" fontSize="10" fill="#9ca3af">{val}</text>)}
-                      <path d={fillPath} fill="#3b82f6" fillOpacity="0.1" />
-                      <polyline fill="none" stroke="#3b82f6" strokeWidth="2" strokeLinejoin="round" points={linePts} />
-                      {pts.map((p, i) => (<g key={i}><circle cx={p.x} cy={p.y} r="4" fill="#3b82f6" stroke="white" strokeWidth="1.5" /><title>{p.date}: {p.cumulative} total ({p.count} new)</title></g>))}
-                      {xLabels.map(p => <text key={p.date} x={p.x} y={SVG_H - 4} textAnchor="middle" fontSize="10" fill="#9ca3af">{p.date.slice(5)}</text>)}
-                    </svg>
+              {/* Row 1, Col 1 — Readiness Distribution */}
+              <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-3 flex flex-col min-h-0 overflow-hidden">
+                <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 flex-shrink-0">Readiness Distribution</p>
+                <div className="flex-1 min-h-0 overflow-y-auto space-y-2">
+                  {readinessLevels.map((lvl, i) => {
+                    const c = distCounts[i]; const pct = filteredTotal ? (c / filteredTotal) * 100 : 0;
+                    const colors = READINESS_LEVEL_STYLES[i];
+                    return (
+                      <div key={i}>
+                        <div className="flex justify-between text-xs mb-0.5">
+                          <span className={`font-semibold ${colors.text}`}>{lvl.name}</span>
+                          <span className="text-gray-500">{c}</span>
+                        </div>
+                        <Bar pct={pct} colorClass={colors.bar} />
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Row 1, Col 2 — Cumulative Submissions (all-time) */}
+              <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-3 flex flex-col min-h-0 overflow-hidden">
+                <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-0.5 flex-shrink-0">Cumulative Submissions</p>
+                <p className="text-xs text-gray-400 mb-2 flex-shrink-0">All-time count</p>
+                <div className="flex-1 min-h-0">{renderTrend()}</div>
+              </div>
+
+              {/* Row 1, Col 3 — KPI cards */}
+              <div className="grid grid-rows-3 gap-2">
+                {[
+                  { label: 'Total Responses', value: filteredTotal, color: '#2563eb' },
+                  { label: 'Average Score', value: fAvg.toFixed(2), sub: 'out of 5.00', color: '#1d4ed8' },
+                  { label: 'Highest Score', value: fMax.toFixed(2), sub: 'out of 5.00', color: '#1e3a8a' },
+                ].map(({ label, value, sub, color }) => (
+                  <div key={label} className="bg-white rounded-xl border border-gray-200 shadow-sm p-3 flex flex-col justify-center">
+                    <div className="text-2xl font-bold tabular-nums" style={{ color }}>{value}</div>
+                    <div className="text-xs font-semibold text-gray-600 mt-0.5">{label}</div>
+                    {sub && <div className="text-xs text-gray-400">{sub}</div>}
                   </div>
-                );
-              };
+                ))}
+              </div>
 
-              return (
-                <div ref={analyticsRef} className="flex-1 min-h-0 grid gap-3" style={{ gridTemplateColumns: '1fr 1fr 1fr', gridTemplateRows: '1fr 1fr' }}>
-
-                  {/* Row 1, Col 1 — Readiness Distribution */}
-                  <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 flex flex-col min-h-0">
-                    <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3 flex-shrink-0">Readiness Distribution</p>
-                    <div className="flex-1 min-h-0 overflow-y-auto space-y-3">
-                      {readinessLevels.map((lvl, i) => {
-                        const c = distCounts[i]; const pct = filteredTotal ? (c / filteredTotal) * 100 : 0;
-                        const colors = READINESS_LEVEL_STYLES[i];
+              {/* Row 2, Col 1-2 — Performance by Pillar */}
+              <div className="col-span-2 bg-white rounded-xl border border-gray-200 shadow-sm p-3 flex flex-col min-h-0 overflow-hidden">
+                <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 flex-shrink-0">Performance by Pillar</p>
+                {filteredTotal === 0
+                  ? <p className="text-sm text-gray-400">No data yet</p>
+                  : <div className="flex-1 min-h-0 overflow-y-auto space-y-2">
+                      {pillarPerfList.map(({ name, avg }) => {
+                        const pct = (avg / 5) * 100;
+                        const barColor = pct >= 70 ? 'bg-blue-600' : pct >= 50 ? 'bg-blue-400' : 'bg-blue-200';
                         return (
-                          <div key={i}>
-                            <div className="flex justify-between text-xs mb-1">
-                              <span className={`font-semibold ${colors.text}`}>{lvl.name}</span>
-                              <span className="text-gray-500">{c}</span>
+                          <div key={name}>
+                            <div className="flex justify-between text-xs mb-0.5">
+                              <span className="font-semibold text-gray-700">{name}</span>
+                              <span className="text-gray-500">{avg.toFixed(2)} / 5</span>
                             </div>
-                            <Bar pct={pct} colorClass={colors.bar} />
+                            <Bar pct={pct} colorClass={barColor} />
                           </div>
                         );
                       })}
                     </div>
-                  </div>
+                }
+              </div>
 
-                  {/* Row 1, Col 2 — Cumulative Submissions */}
-                  <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 flex flex-col min-h-0">
-                    <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1 flex-shrink-0">Cumulative Submissions</p>
-                    <p className="text-xs text-gray-400 mb-3 flex-shrink-0">All-time total over time</p>
-                    <div className="flex-1 min-h-0 overflow-x-auto">{renderTrend()}</div>
-                  </div>
-
-                  {/* Row 1, Col 3 — KPI cards stacked */}
-                  <div className="grid grid-rows-3 gap-3">
-                    {[
-                      { label: 'Total Responses', value: filteredTotal, color: '#2563eb' },
-                      { label: 'Average Score', value: fAvg.toFixed(2), sub: 'out of 5.00', color: '#1d4ed8' },
-                      { label: 'Highest Score', value: fMax.toFixed(2), sub: 'out of 5.00', color: '#1e3a8a' },
-                    ].map(({ label, value, sub, color }) => (
-                      <div key={label} className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 flex flex-col justify-center">
-                        <div className="text-2xl font-bold tabular-nums" style={{ color }}>{value}</div>
-                        <div className="text-xs font-semibold text-gray-600 mt-0.5">{label}</div>
-                        {sub && <div className="text-xs text-gray-400 mt-0.5">{sub}</div>}
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Row 2, Col 1-2 — Performance by Pillar */}
-                  <div className="col-span-2 bg-white rounded-xl border border-gray-200 shadow-sm p-4 flex flex-col min-h-0">
-                    <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3 flex-shrink-0">Performance by Pillar</p>
-                    {total === 0
-                      ? <p className="text-sm text-gray-400">No data yet</p>
-                      : <div className="flex-1 min-h-0 overflow-y-auto space-y-2">
-                          {pillarPerfList.map(({ name, avg }) => {
-                            const pct = (avg / 5) * 100;
-                            const barColor = pct >= 70 ? 'bg-blue-600' : pct >= 50 ? 'bg-blue-400' : 'bg-blue-200';
-                            return (
-                              <div key={name}>
-                                <div className="flex justify-between text-xs mb-1">
-                                  <span className="font-semibold text-gray-700">{name}</span>
-                                  <span className="text-gray-500">{avg.toFixed(2)} / 5</span>
-                                </div>
-                                <Bar pct={pct} colorClass={barColor} />
-                              </div>
-                            );
-                          })}
-                        </div>
-                    }
-                  </div>
-
-                  {/* Row 2, Col 3 — Company Comparison */}
-                  <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 flex flex-col min-h-0">
-                    <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 flex-shrink-0">Company Comparison</p>
-                    <div className="flex flex-wrap gap-1.5 mb-2 flex-shrink-0">
-                      {companyEntries.map(entry => {
-                        const isSel = selectedCompanyKeys.includes(entry.key);
-                        return (
-                          <button key={entry.key}
-                            onClick={() => setSelectedCompanyKeys(prev => isSel ? prev.filter(k => k !== entry.key) : [...prev, entry.key])}
-                            className={`px-2.5 py-1 rounded-full text-xs font-semibold border transition-colors ${isSel ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-500 border-gray-200 hover:border-blue-400 hover:text-blue-500'}`}
-                          >
-                            {entry.name}{entry.sessions.length > 1 && <span className="ml-1 opacity-60">{entry.sessions.length}R</span>}
-                          </button>
-                        );
-                      })}
-                      {selectedCompanyKeys.length > 0 && (
-                        <button onClick={() => setSelectedCompanyKeys([])} className="text-xs text-gray-400 hover:text-gray-600 underline px-1">Clear</button>
-                      )}
-                    </div>
-                    <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
-                      {selectedCompanyKeys.length === 0 && (
-                        <p className="text-xs text-gray-400 text-center mt-4">Select one company for radar,<br/>two or more for bar chart.</p>
-                      )}
-                      {selectedCompanyKeys.length === 1 && (() => {
-                        const entry = selectedEntries[0];
-                        const pillars = computeCompanyPillars(entry);
-                        return pillars.length === 0
-                          ? <p className="text-xs text-gray-400 text-center mt-4">No responses for this company.</p>
-                          : <div className="flex-1 flex flex-col items-center justify-center min-h-0">
-                              <p className="text-xs font-bold text-gray-700 mb-2">{entry.name}</p>
-                              <RadarChart pillars={pillars.map(p => ({ name: p.name, pct: Math.round((p.avg / 5) * 100) }))} size={180} />
-                            </div>;
-                      })()}
-                      {selectedCompanyKeys.length >= 2 && (() => {
-                        const traces = buildCompareTraces();
-                        const annotations = buildCompareAnnotations();
-                        const layout = {
-                          barmode: 'group', annotations,
-                          xaxis: { gridcolor: '#f3f4f6', tickfont: { size: 9 }, automargin: true },
-                          yaxis: { range: [0, 6], gridcolor: '#f3f4f6', tickfont: { size: 9 } },
-                          showlegend: true,
-                          legend: { orientation: 'h', x: 0, y: 1.15, font: { size: 9 } },
-                          margin: { t: 36, b: 48, l: 36, r: 12 },
-                        };
-                        return plotlyLib
-                          ? <div className="flex-1 min-h-0"><CompanyPlotlyChart plotly={plotlyLib} data={traces} layout={layout} /></div>
-                          : <p className="text-xs text-gray-400 text-center mt-4">Loading chart…</p>;
-                      })()}
-                    </div>
-                  </div>
-
+              {/* Row 2, Col 3 — Company Comparison */}
+              <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-3 flex flex-col min-h-0 overflow-hidden">
+                <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1.5 flex-shrink-0">Company Comparison</p>
+                <div className="flex flex-wrap gap-1 mb-1.5 flex-shrink-0">
+                  {companyEntries.map(entry => {
+                    const isSel = selectedCompanyKeys.includes(entry.key);
+                    return (
+                      <button key={entry.key}
+                        onClick={() => setSelectedCompanyKeys(prev => isSel ? prev.filter(k => k !== entry.key) : [...prev, entry.key])}
+                        className={`px-2 py-0.5 rounded-full text-xs font-semibold border transition-colors ${isSel ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-500 border-gray-200 hover:border-blue-400 hover:text-blue-500'}`}
+                      >
+                        {entry.name}{entry.sessions.length > 1 && <span className="ml-1 opacity-60">{entry.sessions.length}R</span>}
+                      </button>
+                    );
+                  })}
+                  {selectedCompanyKeys.length > 0 && (
+                    <button onClick={() => setSelectedCompanyKeys([])} className="text-xs text-gray-400 hover:text-gray-600 underline px-1">Clear</button>
+                  )}
                 </div>
-              );
-            })()}
-        </div>
-      )}
+                <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+                  {selectedCompanyKeys.length === 0 && (
+                    <p className="text-xs text-gray-400 text-center mt-4">Select 1 company for radar,<br/>2+ for comparative bar chart.</p>
+                  )}
+                  {selectedCompanyKeys.length === 1 && (() => {
+                    const entry = selectedEntries[0];
+                    const pillars = computeCompanyPillars(entry);
+                    return pillars.length === 0
+                      ? <p className="text-xs text-gray-400 text-center mt-4">No responses for this company.</p>
+                      : <div className="flex-1 flex flex-col items-center justify-center min-h-0">
+                          <p className="text-xs font-bold text-gray-700 mb-1">{entry.name}</p>
+                          <RadarChart pillars={pillars.map(p => ({ name: p.name, pct: Math.round((p.avg / 5) * 100) }))} size={160} />
+                        </div>;
+                  })()}
+                  {selectedCompanyKeys.length >= 2 && (() => {
+                    const traces = buildCompareTraces();
+                    const annotations = buildCompareAnnotations();
+                    const layout = {
+                      barmode: 'group',
+                      annotations,
+                      xaxis: { gridcolor: '#f3f4f6', tickfont: { size: 9 }, automargin: true },
+                      yaxis: { range: [0, 6.5], gridcolor: '#f3f4f6', tickfont: { size: 9 } },
+                      showlegend: true,
+                      legend: { orientation: 'h', x: 0, y: 1.18, font: { size: 9 }, bgcolor: 'transparent' },
+                      margin: { t: 40, b: 40, l: 36, r: 12 },
+                    };
+                    return plotlyLib
+                      ? <div className="flex-1 min-h-0"><CompanyPlotlyChart plotly={plotlyLib} data={traces} layout={layout} /></div>
+                      : <p className="text-xs text-gray-400 text-center mt-4">Loading chart…</p>;
+                  })()}
+                </div>
+              </div>
+
+            </div>
+          </>
+        );
+      })()}
 
       {/* ── Settings Tab ── */}
       {activeTab === 'settings' && (
@@ -1866,3 +1865,5 @@ function AdminPage() {
     </div>
   );
 }
+
+export default AdminPage;
