@@ -128,11 +128,14 @@ const READINESS_LEVEL_STYLES = [
   { bg: 'bg-slate-50', text: 'text-slate-500', bar: 'bg-blue-200'},  // 4: Novice   (lightest)
 ];
 
-function Bar({ pct, colorClass }) {
+function Bar({ pct, colorClass, color }) {
   return (
     <div className="flex items-center gap-3">
       <div className="flex-1 bg-gray-100 rounded-full h-3 overflow-hidden">
-        <div className={`h-3 rounded-full transition-all duration-500 ${colorClass}`} style={{ width: `${Math.max(pct, 0)}%` }} />
+        <div
+          className={`h-3 rounded-full transition-all duration-500 ${colorClass || ''}`}
+          style={{ width: `${Math.max(pct, 0)}%`, ...(color ? { backgroundColor: color } : {}) }}
+        />
       </div>
       <span className="text-xs text-gray-500 w-10 text-right">{pct.toFixed(0)}%</span>
     </div>
@@ -614,9 +617,14 @@ function AdminPage() {
     pillarPerfMap[q.category].sum   += (questionAvgs[q.id]?.avg || 0);
     pillarPerfMap[q.category].count += 1;
   }
-  const pillarPerfList = Object.entries(pillarPerfMap)
-    .map(([name, { sum, count }]) => ({ name, avg: count > 0 ? sum / count : 0 }))
-    .sort((a, b) => a.avg - b.avg);
+  // Stable order matching question definition order (no re-sorting on filter change)
+  const pillarPerfList = [...new Set((questions || []).map(q => q.category))].map(name => {
+    const entry = pillarPerfMap[name] ?? { sum: 0, count: 0 };
+    return { name, avg: entry.count > 0 ? entry.sum / entry.count : 0 };
+  });
+  const topPillar = pillarPerfList.length > 0
+    ? [...pillarPerfList].sort((a, b) => b.avg - a.avg)[0]
+    : null;
 
   // Per-dimension performance (avg of question avgs within each dimension)
   const dimensionPerfMap = {};
@@ -703,24 +711,27 @@ function AdminPage() {
             return idx === i;
           }).length
         );
-        const COMPARE_COLORS = ['#2563eb', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6', '#06b6d4'];
+        // Harmonious palette — one stable color per company by its index in companyEntries
+        const COMPARE_COLORS = ['#3b82f6', '#f97316', '#22c55e', '#a855f7', '#ec4899', '#14b8a6'];
+        const companyColorMap = Object.fromEntries(
+          companyEntries.map((e, i) => [e.key, COMPARE_COLORS[i % COMPARE_COLORS.length]])
+        );
         const selectedEntries = selectedCompanyKeys.map(k => companyEntries.find(e => e.key === k)).filter(Boolean);
         const allPillarNames = [...new Set((questions || []).map(q => q.category))];
 
-        // Overlay chart: sort entries tallest-first so shorter bars paint on top
+        // Overlay chart: tallest bar drawn first (behind), stable color assignment by company key
         const buildCompareTraces = () => {
-          const withAvgs = selectedEntries.map((entry, i) => {
+          const withAvgs = selectedEntries.map(entry => {
             const pillars = computeCompanyPillars(entry);
             const avgs = allPillarNames.map(pn => pillars.find(p => p.name === pn)?.avg ?? 0);
             const overallAvg = avgs.reduce((s, v) => s + v, 0) / (avgs.length || 1);
-            return { entry, avgs, overallAvg, colorIdx: i };
+            return { entry, avgs, overallAvg };
           });
-          // tallest (highest avg) drawn first → ends up behind shorter bars
           withAvgs.sort((a, b) => b.overallAvg - a.overallAvg);
-          return withAvgs.map(({ entry, avgs, colorIdx }) => ({
+          return withAvgs.map(({ entry, avgs }) => ({
             type: 'bar', name: entry.name,
             x: allPillarNames, y: avgs,
-            marker: { color: COMPARE_COLORS[colorIdx % COMPARE_COLORS.length], opacity: 0.78 },
+            marker: { color: companyColorMap[entry.key], opacity: 0.78 },
             hovertemplate: `<b>${entry.name}</b><br>%{x}: %{y:.2f}<extra></extra>`,
           }));
         };
@@ -813,7 +824,7 @@ function AdminPage() {
             </div>
 
             {/* ── Analytics grid (fills remaining viewport) ── */}
-            <div ref={analyticsRef} className="flex-1 min-h-0 grid gap-2 p-2 bg-gray-50" style={{ gridTemplateColumns: '1fr 1fr 1fr', gridTemplateRows: '1fr 1fr' }}>
+            <div ref={analyticsRef} className="flex-1 min-h-0 grid gap-2 p-2 bg-gray-50" style={{ gridTemplateColumns: '1fr 1fr 1fr', gridTemplateRows: '1fr auto 1fr' }}>
 
               {/* Row 1, Col 1 — Readiness Distribution */}
               <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-3 flex flex-col min-h-0 overflow-hidden">
@@ -835,7 +846,7 @@ function AdminPage() {
                 </div>
               </div>
 
-              {/* Row 1, Col 2 — Cumulative Submissions (all-time) */}
+              {/* Row 1, Col 2 — Cumulative Submissions */}
               <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-3 flex flex-col min-h-0 overflow-hidden">
                 <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-0.5 flex-shrink-0">Cumulative Submissions</p>
                 <p className="text-xs text-gray-400 mb-1 flex-shrink-0">{hasActiveFilter ? 'Filtered view' : 'All-time count'}</p>
@@ -845,32 +856,47 @@ function AdminPage() {
               </div>
 
               {/* Row 1, Col 3 — KPI cards */}
-              {(() => {
-                const topPillar = pillarPerfList.length > 0 ? pillarPerfList[pillarPerfList.length - 1] : null;
-                return (
-                  <div className="grid grid-rows-3 gap-2">
-                    {[
-                      { label: 'Total Responses', value: filteredTotal, valueClass: 'text-2xl', color: '#2563eb' },
-                      { label: 'Average Score', value: fAvg.toFixed(2), sub: 'out of 5.00', valueClass: 'text-2xl', color: '#1d4ed8' },
-                      {
-                        label: 'Top Pillar',
-                        value: topPillar ? topPillar.name : '—',
-                        sub: topPillar ? `${topPillar.avg.toFixed(2)} / 5 avg` : null,
-                        valueClass: 'text-sm leading-tight',
-                        color: '#1e3a8a',
-                      },
-                    ].map(({ label, value, sub, valueClass, color }) => (
-                      <div key={label} className="bg-white rounded-xl border border-gray-200 shadow-sm p-3 flex flex-col justify-center">
-                        <div className={`font-bold tabular-nums ${valueClass}`} style={{ color }}>{value}</div>
-                        <div className="text-xs font-semibold text-gray-600 mt-0.5">{label}</div>
-                        {sub && <div className="text-xs text-gray-400">{sub}</div>}
-                      </div>
-                    ))}
+              <div className="grid grid-rows-3 gap-2">
+                {[
+                  { label: 'Total Responses', value: filteredTotal, valueClass: 'text-2xl', color: '#2563eb' },
+                  { label: 'Average Score', value: fAvg.toFixed(2), sub: 'out of 5.00', valueClass: 'text-2xl', color: '#1d4ed8' },
+                  {
+                    label: 'Top Pillar',
+                    value: topPillar ? topPillar.name : '—',
+                    sub: topPillar ? `${topPillar.avg.toFixed(2)} / 5 avg` : null,
+                    valueClass: 'text-sm leading-tight',
+                    color: '#1e3a8a',
+                  },
+                ].map(({ label, value, sub, valueClass, color }) => (
+                  <div key={label} className="bg-white rounded-xl border border-gray-200 shadow-sm p-3 flex flex-col justify-center">
+                    <div className={`font-bold tabular-nums ${valueClass}`} style={{ color }}>{value}</div>
+                    <div className="text-xs font-semibold text-gray-600 mt-0.5">{label}</div>
+                    {sub && <div className="text-xs text-gray-400">{sub}</div>}
                   </div>
-                );
-              })()}
+                ))}
+              </div>
 
-              {/* Row 2, Col 1-2 — Performance by Pillar */}
+              {/* Row 2 — Company selector spanning all columns */}
+              <div className="col-span-3 bg-white rounded-xl border border-gray-200 shadow-sm px-3 py-2 flex items-center gap-2 flex-wrap">
+                <span className="text-xs font-semibold text-gray-400 uppercase tracking-widest flex-shrink-0">Compare</span>
+                {companyEntries.map(entry => {
+                  const isSel = selectedCompanyKeys.includes(entry.key);
+                  return (
+                    <button key={entry.key}
+                      onClick={() => setSelectedCompanyKeys(prev => isSel ? prev.filter(k => k !== entry.key) : [...prev, entry.key])}
+                      className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border transition-colors ${isSel ? 'text-white border-transparent' : 'bg-white text-gray-500 border-gray-200 hover:border-blue-400 hover:text-blue-500'}`}
+                      style={isSel ? { backgroundColor: companyColorMap[entry.key], borderColor: companyColorMap[entry.key] } : {}}
+                    >
+                      {entry.name}{entry.sessions.length > 1 && <span className="ml-1 opacity-70">{entry.sessions.length}R</span>}
+                    </button>
+                  );
+                })}
+                {selectedCompanyKeys.length > 0 && (
+                  <button onClick={() => setSelectedCompanyKeys([])} className="text-xs text-gray-400 hover:text-gray-600 underline ml-1">Clear</button>
+                )}
+              </div>
+
+              {/* Row 3, Col 1-2 — Performance by Pillar */}
               <div className="col-span-2 bg-white rounded-xl border border-gray-200 shadow-sm p-3 flex flex-col min-h-0 overflow-hidden">
                 <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 flex-shrink-0">Performance by Pillar</p>
                 {filteredTotal === 0
@@ -878,14 +904,14 @@ function AdminPage() {
                   : <div className="flex-1 min-h-0 overflow-y-auto space-y-2">
                       {pillarPerfList.map(({ name, avg }) => {
                         const pct = (avg / 5) * 100;
-                        const barColor = pct >= 70 ? 'bg-blue-600' : pct >= 50 ? 'bg-blue-400' : 'bg-blue-200';
+                        const barColor = `hsl(215, 85%, ${Math.round(72 - pct * 0.42)}%)`;
                         return (
                           <div key={name}>
                             <div className="flex justify-between text-xs mb-0.5">
                               <span className="font-semibold text-gray-700">{name}</span>
                               <span className="text-gray-500">{avg.toFixed(2)} / 5</span>
                             </div>
-                            <Bar pct={pct} colorClass={barColor} />
+                            <Bar pct={pct} color={barColor} />
                           </div>
                         );
                       })}
@@ -893,25 +919,9 @@ function AdminPage() {
                 }
               </div>
 
-              {/* Row 2, Col 3 — Company Comparison */}
+              {/* Row 3, Col 3 — Company Comparison chart */}
               <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-3 flex flex-col min-h-0 overflow-hidden">
                 <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1.5 flex-shrink-0">Company Comparison</p>
-                <div className="flex flex-wrap gap-1 mb-1.5 flex-shrink-0">
-                  {companyEntries.map(entry => {
-                    const isSel = selectedCompanyKeys.includes(entry.key);
-                    return (
-                      <button key={entry.key}
-                        onClick={() => setSelectedCompanyKeys(prev => isSel ? prev.filter(k => k !== entry.key) : [...prev, entry.key])}
-                        className={`px-2 py-0.5 rounded-full text-xs font-semibold border transition-colors ${isSel ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-500 border-gray-200 hover:border-blue-400 hover:text-blue-500'}`}
-                      >
-                        {entry.name}{entry.sessions.length > 1 && <span className="ml-1 opacity-60">{entry.sessions.length}R</span>}
-                      </button>
-                    );
-                  })}
-                  {selectedCompanyKeys.length > 0 && (
-                    <button onClick={() => setSelectedCompanyKeys([])} className="text-xs text-gray-400 hover:text-gray-600 underline px-1">Clear</button>
-                  )}
-                </div>
                 <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
                   {selectedCompanyKeys.length === 0 && (
                     <p className="text-xs text-gray-400 text-center mt-4">Select 1 company for radar,<br/>2+ for comparative bar chart.</p>
