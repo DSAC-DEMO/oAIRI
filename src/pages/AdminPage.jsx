@@ -77,7 +77,7 @@ function CompanyPlotlyChart({ plotly, data, layout }) {
       paper_bgcolor: 'transparent',
       plot_bgcolor: 'transparent',
       font: { family: 'inherit' },
-    }, { responsive: true, displayModeBar: true, scrollZoom: true, modeBarButtonsToRemove: ['sendDataToCloud', 'lasso2d', 'select2d'] });
+    }, { responsive: true, displayModeBar: false, scrollZoom: false });
   }, [plotly, data, layout]);
   return <div ref={divRef} className="w-full" style={{ minHeight: 320 }} />;
 }
@@ -719,21 +719,35 @@ function AdminPage() {
         const selectedEntries = selectedCompanyKeys.map(k => companyEntries.find(e => e.key === k)).filter(Boolean);
         const allPillarNames = [...new Set((questions || []).map(q => q.category))];
 
-        // Overlay chart: tallest bar drawn first (behind), stable color assignment by company key
-        const buildCompareTraces = () => {
-          const withAvgs = selectedEntries.map(entry => {
-            const pillars = computeCompanyPillars(entry);
-            const avgs = allPillarNames.map(pn => pillars.find(p => p.name === pn)?.avg ?? 0);
-            const overallAvg = avgs.reduce((s, v) => s + v, 0) / (avgs.length || 1);
-            return { entry, avgs, overallAvg };
-          });
-          withAvgs.sort((a, b) => b.overallAvg - a.overallAvg);
-          return withAvgs.map(({ entry, avgs }) => ({
+        const buildCompareTraces = () => selectedEntries.map(entry => {
+          const pillars = computeCompanyPillars(entry);
+          const avgs = allPillarNames.map(pn => pillars.find(p => p.name === pn)?.avg ?? 0);
+          return {
             type: 'bar', name: entry.name,
             x: allPillarNames, y: avgs,
-            marker: { color: companyColorMap[entry.key], opacity: 0.78 },
+            marker: { color: companyColorMap[entry.key] },
+            text: avgs.map(a => a > 0 ? a.toFixed(2) : ''),
+            textposition: 'outside', textfont: { size: 9 },
             hovertemplate: `<b>${entry.name}</b><br>%{x}: %{y:.2f}<extra></extra>`,
-          }));
+          };
+        });
+
+        const buildCompareAnnotations = () => {
+          if (selectedEntries.length !== 2) return [];
+          const p1 = computeCompanyPillars(selectedEntries[0]);
+          const p2 = computeCompanyPillars(selectedEntries[1]);
+          return allPillarNames.map(pn => {
+            const a = p1.find(p => p.name === pn)?.avg ?? 0;
+            const b = p2.find(p => p.name === pn)?.avg ?? 0;
+            const delta = b - a;
+            return {
+              x: pn, y: Math.max(a, b) + 0.65,
+              text: `${delta >= 0 ? '+' : ''}${delta.toFixed(2)}`,
+              showarrow: false,
+              font: { size: 9, color: delta > 0 ? '#22c55e' : delta < 0 ? '#f87171' : '#9ca3af' },
+              xanchor: 'center',
+            };
+          });
         };
 
 
@@ -938,13 +952,16 @@ function AdminPage() {
                   })()}
                   {selectedCompanyKeys.length >= 2 && (() => {
                     const traces = buildCompareTraces();
+                    const annotations = buildCompareAnnotations();
                     const layout = {
-                      barmode: 'overlay',
-                      xaxis: { gridcolor: '#f3f4f6', tickfont: { size: 9 }, automargin: true },
-                      yaxis: { range: [0, 5.2], gridcolor: '#f3f4f6', tickfont: { size: 9 } },
+                      barmode: 'group', bargap: 0.25, bargroupgap: 0.08,
+                      annotations,
+                      uirevision: 'fixed',
+                      xaxis: { gridcolor: 'transparent', tickfont: { size: 9 }, automargin: true, fixedrange: true },
+                      yaxis: { range: [0, 6], autorange: false, gridcolor: '#f3f4f6', tickfont: { size: 9 }, fixedrange: true },
                       showlegend: true,
-                      legend: { orientation: 'h', x: 0, y: 1.18, font: { size: 9 }, bgcolor: 'transparent' },
-                      margin: { t: 40, b: 40, l: 36, r: 12 },
+                      legend: { orientation: 'h', x: 0, y: 1.15, font: { size: 9 }, bgcolor: 'transparent' },
+                      margin: { t: 36, b: 40, l: 32, r: 12 },
                     };
                     return plotlyLib
                       ? <div className="flex-1 min-h-0"><CompanyPlotlyChart plotly={plotlyLib} data={traces} layout={layout} /></div>
