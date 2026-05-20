@@ -556,6 +556,20 @@ function AdminPage() {
     ? timeFilteredResponses
     : timeFilteredResponses.filter(r => companyFilter.includes(sessionCompanyKeyMap[r.session_id]));
 
+  // Bottom row chain: driven by the Compare selector, not the top company filter
+  const bottomCompanyFiltered = selectedCompanyKeys.length === 0
+    ? timeFilteredResponses
+    : timeFilteredResponses.filter(r => selectedCompanyKeys.includes(sessionCompanyKeyMap[r.session_id]));
+  const bottomSectorFiltered = sectorFilter === null
+    ? bottomCompanyFiltered
+    : bottomCompanyFiltered.filter(r => (sessionSectorMap[r.session_id] || '') === sectorFilter);
+  const bottomFilteredResponses = levelFilter === null
+    ? bottomSectorFiltered
+    : bottomSectorFiltered.filter(r => {
+        const idx = r.score_pct >= 4 ? 0 : r.score_pct >= 3 ? 1 : r.score_pct >= 2 ? 2 : r.score_pct >= 1 ? 3 : 4;
+        return idx === levelFilter;
+      });
+
   // unique sectors within time + company filter
   const sectorResponseCounts = {};
   for (const r of companyFilteredResponses) {
@@ -568,9 +582,9 @@ function AdminPage() {
     ? companyFilteredResponses
     : companyFilteredResponses.filter(r => (sessionSectorMap[r.session_id] || '') === sectorFilter);
 
-  const computeCompanyPillars = (entry) => {
+  const computeCompanyPillars = (entry, baseResponses) => {
     const sessionIds = new Set(entry.sessions.map(s => s.id));
-    const entryResponses = timeFilteredResponses.filter(r => sessionIds.has(r.session_id));
+    const entryResponses = (baseResponses ?? timeFilteredResponses).filter(r => sessionIds.has(r.session_id));
     const acc = {};
     for (const r of entryResponses) {
       let ans = {};
@@ -625,6 +639,29 @@ function AdminPage() {
   const topPillar = pillarPerfList.length > 0
     ? [...pillarPerfList].sort((a, b) => b.avg - a.avg)[0]
     : null;
+
+  // Bottom-row pillar perf — driven by bottomFilteredResponses (bottom company selector + global filters)
+  const bottomQuestionAvgs = {};
+  if (questions) {
+    for (const q of questions) {
+      const scores = bottomFilteredResponses
+        .map(r => { try { return JSON.parse(r.answers_json)[q.id]; } catch { return undefined; } })
+        .filter(s => s !== undefined);
+      bottomQuestionAvgs[q.id] = scores.length
+        ? scores.reduce((a, b) => a + b, 0) / scores.length
+        : 0;
+    }
+  }
+  const bottomPillarPerfMap = {};
+  for (const q of (questions || [])) {
+    if (!bottomPillarPerfMap[q.category]) bottomPillarPerfMap[q.category] = { sum: 0, count: 0 };
+    bottomPillarPerfMap[q.category].sum   += (bottomQuestionAvgs[q.id] || 0);
+    bottomPillarPerfMap[q.category].count += 1;
+  }
+  const bottomPillarPerfList = [...new Set((questions || []).map(q => q.category))].map(name => {
+    const e = bottomPillarPerfMap[name] ?? { sum: 0, count: 0 };
+    return { name, avg: e.count > 0 ? e.sum / e.count : 0 };
+  });
 
   // Per-dimension performance (avg of question avgs within each dimension)
   const dimensionPerfMap = {};
@@ -720,7 +757,7 @@ function AdminPage() {
         const allPillarNames = [...new Set((questions || []).map(q => q.category))];
 
         const buildCompareTraces = () => selectedEntries.map(entry => {
-          const pillars = computeCompanyPillars(entry);
+          const pillars = computeCompanyPillars(entry, bottomFilteredResponses);
           const avgs = allPillarNames.map(pn => pillars.find(p => p.name === pn)?.avg ?? 0);
           return {
             type: 'bar', name: entry.name,
@@ -734,8 +771,8 @@ function AdminPage() {
 
         const buildCompareAnnotations = () => {
           if (selectedEntries.length !== 2) return [];
-          const p1 = computeCompanyPillars(selectedEntries[0]);
-          const p2 = computeCompanyPillars(selectedEntries[1]);
+          const p1 = computeCompanyPillars(selectedEntries[0], bottomFilteredResponses);
+          const p2 = computeCompanyPillars(selectedEntries[1], bottomFilteredResponses);
           return allPillarNames.map(pn => {
             const a = p1.find(p => p.name === pn)?.avg ?? 0;
             const b = p2.find(p => p.name === pn)?.avg ?? 0;
@@ -913,10 +950,10 @@ function AdminPage() {
               {/* Row 3, Col 1-2 — Performance by Pillar */}
               <div className="col-span-2 bg-white rounded-xl border border-gray-200 shadow-sm p-3 flex flex-col min-h-0 overflow-hidden">
                 <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 flex-shrink-0">Performance by Pillar</p>
-                {filteredTotal === 0
+                {bottomFilteredResponses.length === 0
                   ? <p className="text-sm text-gray-400">No data yet</p>
                   : <div className="flex-1 min-h-0 overflow-y-auto space-y-2">
-                      {pillarPerfList.map(({ name, avg }) => {
+                      {bottomPillarPerfList.map(({ name, avg }) => {
                         const pct = (avg / 5) * 100;
                         const barColor = `hsl(215, 85%, ${Math.round(72 - pct * 0.42)}%)`;
                         return (
@@ -942,7 +979,7 @@ function AdminPage() {
                   )}
                   {selectedCompanyKeys.length === 1 && (() => {
                     const entry = selectedEntries[0];
-                    const pillars = computeCompanyPillars(entry);
+                    const pillars = computeCompanyPillars(entry, bottomFilteredResponses);
                     return pillars.length === 0
                       ? <p className="text-xs text-gray-400 text-center mt-4">No responses for this company.</p>
                       : <div className="flex-1 flex flex-col items-center justify-center min-h-0">
