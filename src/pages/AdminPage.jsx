@@ -933,50 +933,7 @@ function AdminPage() {
             {/* ── Analytics grid (fills remaining viewport) ── */}
             <div ref={analyticsRef} className="flex-1 min-h-0 grid gap-2 p-2 bg-gray-50" style={{ gridTemplateColumns: '1fr 1fr 1fr 1fr', gridTemplateRows: '0.55fr 1fr' }}>
 
-              {/* Row 1, Col 1 — KPI summary */}
-              <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-3 flex flex-col gap-3 justify-center">
-                <div>
-                  <div className="text-2xl font-bold tabular-nums" style={{ color: '#2563eb' }}>{filteredTotal}</div>
-                  <div className="text-xs font-semibold text-gray-600 mt-0.5">Total Responses</div>
-                </div>
-                <div className="w-full h-px bg-gray-100" />
-                <div>
-                  <div className="text-2xl font-bold tabular-nums" style={{ color: '#1d4ed8' }}>{fAvg.toFixed(2)}</div>
-                  <div className="text-xs font-semibold text-gray-600 mt-0.5">Average Score</div>
-                  <div className="text-xs text-gray-400">out of 5.00</div>
-                </div>
-              </div>
-
-              {/* Row 1, Col 2 — Readiness Distribution */}
-              <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-3 flex flex-col min-h-0 overflow-hidden">
-                <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 flex-shrink-0">Readiness Distribution</p>
-                <div className="flex-1 min-h-0 overflow-y-auto space-y-2">
-                  {readinessLevels.map((lvl, i) => {
-                    const c = distCounts[i]; const pct = filteredTotal ? (c / filteredTotal) * 100 : 0;
-                    const colors = READINESS_LEVEL_STYLES[i];
-                    return (
-                      <div key={i}>
-                        <div className="flex justify-between text-xs mb-0.5">
-                          <span className={`font-semibold ${colors.text}`}>{lvl.name}</span>
-                          <span className="text-gray-500">{c}</span>
-                        </div>
-                        <Bar pct={pct} colorClass={colors.bar} />
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Row 1, Col 3 — Submissions Over Time */}
-              <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-3 flex flex-col min-h-0 overflow-hidden">
-                <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-0.5 flex-shrink-0">Submissions Over Time</p>
-                <p className="text-xs text-gray-400 mb-1 flex-shrink-0">{hasActiveFilter ? 'Filtered view' : 'Daily count'}</p>
-                <div className="flex-1 min-h-0">
-                  <TrendChart trend={cumulativeTrend} maxVal={cumulativeMax} />
-                </div>
-              </div>
-
-              {/* Col 4, row-span-2 — Highlights (crosses the row line) */}
+              {/* Col 1, row-span-2 — Highlights (crosses the row line) */}
               <div className="row-span-2 bg-white rounded-xl border border-gray-200 shadow-sm p-3 flex flex-col gap-4">
                 <p className="text-xs font-bold text-gray-400 uppercase tracking-widest flex-shrink-0">Highlights</p>
                 <div>
@@ -1001,7 +958,50 @@ function AdminPage() {
                 </div>
               </div>
 
-              {/* Row 2, Col 1 — Performance by Pillar */}
+              {/* Row 1, Col 2 — KPI summary */}
+              <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-3 flex flex-col gap-3 justify-center">
+                <div>
+                  <div className="text-2xl font-bold tabular-nums" style={{ color: '#2563eb' }}>{filteredTotal}</div>
+                  <div className="text-xs font-semibold text-gray-600 mt-0.5">Total Responses</div>
+                </div>
+                <div className="w-full h-px bg-gray-100" />
+                <div>
+                  <div className="text-2xl font-bold tabular-nums" style={{ color: '#1d4ed8' }}>{fAvg.toFixed(2)}</div>
+                  <div className="text-xs font-semibold text-gray-600 mt-0.5">Average Score</div>
+                  <div className="text-xs text-gray-400">out of 5.00</div>
+                </div>
+              </div>
+
+              {/* Row 1, Col 3 — Readiness Distribution */}
+              <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-3 flex flex-col min-h-0 overflow-hidden">
+                <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 flex-shrink-0">Readiness Distribution</p>
+                <div className="flex-1 min-h-0 overflow-y-auto space-y-2">
+                  {readinessLevels.map((lvl, i) => {
+                    const c = distCounts[i]; const pct = filteredTotal ? (c / filteredTotal) * 100 : 0;
+                    const colors = READINESS_LEVEL_STYLES[i];
+                    return (
+                      <div key={i}>
+                        <div className="flex justify-between text-xs mb-0.5">
+                          <span className={`font-semibold ${colors.text}`}>{lvl.name}</span>
+                          <span className="text-gray-500">{c}</span>
+                        </div>
+                        <Bar pct={pct} colorClass={colors.bar} />
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Row 1, Col 4 — Submissions Over Time */}
+              <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-3 flex flex-col min-h-0 overflow-hidden">
+                <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-0.5 flex-shrink-0">Submissions Over Time</p>
+                <p className="text-xs text-gray-400 mb-1 flex-shrink-0">{hasActiveFilter ? 'Filtered view' : 'Daily count'}</p>
+                <div className="flex-1 min-h-0">
+                  <TrendChart trend={cumulativeTrend} maxVal={cumulativeMax} />
+                </div>
+              </div>
+
+              {/* Row 2, Col 2 — Performance by Pillar */}
               <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-3 flex flex-col min-h-0">
                 <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 flex-shrink-0">Performance by Pillar</p>
                 {bottomFilteredResponses.length === 0
@@ -1010,8 +1010,41 @@ function AdminPage() {
                 }
               </div>
 
-              {/* Row 2, Col 2-3 — Company Comparison chart */}
-              <div className="col-span-2 bg-white rounded-xl border border-gray-200 shadow-sm p-3 flex flex-col min-h-0 overflow-hidden">
+              {/* Row 2, Col 3 — Top Sessions */}
+              {(() => {
+                const sessionCounts = {};
+                for (const r of bottomFilteredResponses) {
+                  if (r.session_id != null) sessionCounts[r.session_id] = (sessionCounts[r.session_id] || 0) + 1;
+                }
+                const ranked = sessionsData
+                  .map(s => ({ name: s.name, count: sessionCounts[s.id] || 0 }))
+                  .filter(s => s.count > 0)
+                  .sort((a, b) => b.count - a.count)
+                  .slice(0, 5);
+                const maxCount = ranked[0]?.count || 1;
+                return (
+                  <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-3 flex flex-col min-h-0 overflow-hidden">
+                    <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 flex-shrink-0">Top Sessions</p>
+                    {ranked.length === 0
+                      ? <p className="text-sm text-gray-400">No data yet</p>
+                      : <div className="flex-1 min-h-0 overflow-y-auto space-y-2">
+                          {ranked.map(({ name, count }) => (
+                            <div key={name}>
+                              <div className="flex justify-between text-xs mb-0.5">
+                                <span className="font-semibold text-gray-700 truncate max-w-[70%]">{name}</span>
+                                <span className="text-gray-500">{count}</span>
+                              </div>
+                              <Bar pct={(count / maxCount) * 100} color="#2563eb" />
+                            </div>
+                          ))}
+                        </div>
+                    }
+                  </div>
+                );
+              })()}
+
+              {/* Row 2, Col 4 — Company Comparison chart */}
+              <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-3 flex flex-col min-h-0 overflow-hidden">
                 <div className="flex items-center justify-between mb-1.5 flex-shrink-0">
                   <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Company Comparison</p>
                   <div className="flex items-center gap-1">
