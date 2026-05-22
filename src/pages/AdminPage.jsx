@@ -985,7 +985,7 @@ function AdminPage() {
                       <>
                         <div className="text-2xl font-bold tabular-nums" style={{ color: pct > 50 ? '#dc2626' : pct > 25 ? '#d97706' : '#16a34a' }}>{filteredTotal > 0 ? `${pct}%` : '—'}</div>
                         <div className="text-xs font-semibold text-gray-600 mt-0.5">Needs Attention</div>
-                        <div className="text-xs text-gray-400">{filteredTotal > 0 ? `${atRisk} of ${filteredTotal} · Novice or Developing` : 'No responses'}</div>
+                        <div className="text-xs text-gray-400">{filteredTotal > 0 ? `${atRisk} of ${filteredTotal} · ${readinessLevels[4]?.name ?? readinessLevels[4]} or ${readinessLevels[3]?.name ?? readinessLevels[3]}` : 'No responses'}</div>
                       </>
                     );
                   })()}
