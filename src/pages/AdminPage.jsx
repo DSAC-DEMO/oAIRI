@@ -1048,16 +1048,22 @@ function AdminPage() {
                     <p className="text-xs text-gray-400 text-center mt-4">Select companies in the Compare filter above.</p>
                   )}
                   {selectedCompanyKeys.length >= 1 && (compareChartType === 'radar' || selectedCompanyKeys.length < 2) && (
-                    <div className="flex-1 flex flex-row items-center justify-center min-h-0 gap-6 flex-wrap">
-                      {selectedEntries.map(entry => {
-                        const pillars = computeCompanyPillars(entry, bottomFilteredResponses);
-                        return pillars.length === 0 ? null : (
-                          <div key={entry.key} className="flex flex-col items-center">
-                            <p className="text-xs font-bold text-gray-700 mb-1">{entry.name}</p>
-                            <RadarChart pillars={pillars.map(p => ({ name: p.name, pct: Math.round((p.avg / 5) * 100) }))} size={160} />
-                          </div>
-                        );
-                      })}
+                    <div className="flex-1 min-h-0 w-full">
+                      {(() => {
+                        const radarSeries = selectedEntries
+                          .map(entry => {
+                            const pillars = computeCompanyPillars(entry, bottomFilteredResponses);
+                            if (pillars.length === 0) return null;
+                            return {
+                              name: entry.name,
+                              color: companyColorMap[entry.key],
+                              pillars: pillars.map(p => ({ name: p.name, pct: Math.round((p.avg / 5) * 100) })),
+                            };
+                          })
+                          .filter(Boolean);
+                        if (radarSeries.length === 0) return <p className="text-xs text-gray-400 text-center mt-4">No data for selected companies.</p>;
+                        return <RadarChart series={radarSeries} />;
+                      })()}
                     </div>
                   )}
                   {selectedCompanyKeys.length >= 2 && compareChartType === 'bar' && (() => {

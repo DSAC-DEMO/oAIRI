@@ -5,57 +5,60 @@ function splitLabel(name) {
   return [words.slice(0, mid).join(' '), words.slice(mid).join(' ')];
 }
 
-// pillars: [{ name: string, pct: number (0-100) }]
-function RadarChart({ pillars, size = 240, color = '#3b82f6', title }) {
-  const n = pillars.length;
+// Single-series: pillars=[{name,pct}], color
+// Multi-series:  series=[{name, color, pillars:[{name,pct}]}]  — renders overlaid, responsive
+function RadarChart({ pillars, series, size = 240, color = '#3b82f6', title }) {
+  const multi = series && series.length > 0;
+  const allSeries = multi ? series : [{ name: '', color, pillars }];
+  const axisPillars = allSeries[0].pillars;
+  const n = axisPillars.length;
   if (n < 3) return null;
 
-  const cx = size / 2;
-  const cy = size / 2;
-  const r = (size / 2) - 44;
+  const V = multi ? 300 : size;
+  const cx = V / 2;
+  const cy = V / 2;
+  const r = V / 2 - 44;
   const angle = (i) => (i * 2 * Math.PI / n) - Math.PI / 2;
-
   const pt = (i, frac) => ({
     x: cx + r * frac * Math.cos(angle(i)),
     y: cy + r * frac * Math.sin(angle(i)),
   });
-
   const gridLevels = [0.25, 0.5, 0.75, 1.0];
 
-  const dataPolyPoints = pillars
-    .map((p, i) => { const dp = pt(i, p.pct / 100); return `${dp.x},${dp.y}`; })
-    .join(' ');
-
-  return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+  const svgEl = (
+    <svg
+      width={multi ? '100%' : size}
+      height={multi ? '100%' : size}
+      viewBox={`0 0 ${V} ${V}`}
+      preserveAspectRatio="xMidYMid meet"
+      style={multi ? { flex: 1, minHeight: 0, display: 'block' } : {}}
+    >
       {/* Grid rings */}
       {gridLevels.map(level => {
-        const pts = pillars.map((_, i) => { const p = pt(i, level); return `${p.x},${p.y}`; }).join(' ');
-        return (
-          <polygon key={level} points={pts} fill="none"
-            stroke={level === 1.0 ? '#d1d5db' : '#e5e7eb'} strokeWidth={level === 1.0 ? 1.5 : 1} />
-        );
+        const pts = axisPillars.map((_, i) => { const p = pt(i, level); return `${p.x},${p.y}`; }).join(' ');
+        return <polygon key={level} points={pts} fill="none"
+          stroke={level === 1.0 ? '#d1d5db' : '#e5e7eb'} strokeWidth={level === 1.0 ? 1.5 : 1} />;
       })}
-
       {/* Axes */}
-      {pillars.map((_, i) => {
+      {axisPillars.map((_, i) => {
         const op = pt(i, 1.0);
         return <line key={i} x1={cx} y1={cy} x2={op.x} y2={op.y} stroke="#e5e7eb" strokeWidth="1" />;
       })}
-
-      {/* Data fill */}
-      <polygon points={dataPolyPoints}
-        fill={color} fillOpacity="0.18"
-        stroke={color} strokeWidth="2" strokeLinejoin="round" />
-
-      {/* Data dots */}
-      {pillars.map((p, i) => {
-        const dp = pt(i, p.pct / 100);
-        return <circle key={i} cx={dp.x} cy={dp.y} r="3.5" fill={color} stroke="white" strokeWidth="1.5" />;
+      {/* Series polygons */}
+      {allSeries.map((s, si) => {
+        const poly = s.pillars.map((p, i) => { const dp = pt(i, p.pct / 100); return `${dp.x},${dp.y}`; }).join(' ');
+        return (
+          <g key={si}>
+            <polygon points={poly} fill={s.color} fillOpacity="0.13" stroke={s.color} strokeWidth="2" strokeLinejoin="round" />
+            {s.pillars.map((p, i) => {
+              const dp = pt(i, p.pct / 100);
+              return <circle key={i} cx={dp.x} cy={dp.y} r="3.5" fill={s.color} stroke="white" strokeWidth="1.5" />;
+            })}
+          </g>
+        );
       })}
-
       {/* Labels */}
-      {pillars.map((p, i) => {
+      {axisPillars.map((p, i) => {
         const a = angle(i);
         const lx = cx + (r + 26) * Math.cos(a);
         const ly = cy + (r + 26) * Math.sin(a);
@@ -70,6 +73,24 @@ function RadarChart({ pillars, size = 240, color = '#3b82f6', title }) {
         );
       })}
     </svg>
+  );
+
+  if (!multi) return svgEl;
+
+  return (
+    <div className="w-full h-full flex flex-col min-h-0">
+      {svgEl}
+      {allSeries.length > 1 && (
+        <div className="flex flex-wrap justify-center gap-x-4 gap-y-1 px-2 pb-1 flex-shrink-0">
+          {allSeries.map((s, i) => (
+            <div key={i} className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: s.color }} />
+              <span className="text-xs text-gray-600 whitespace-nowrap">{s.name}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
