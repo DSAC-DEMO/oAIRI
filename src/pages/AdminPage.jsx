@@ -372,9 +372,7 @@ function AdminPage() {
   // Global analytics time range filter
   const [analyticsFromDate, setAnalyticsFromDate] = useState('');
   const [analyticsToDate, setAnalyticsToDate] = useState('');
-  // Global company filter for the analytics page
-  const [companyFilter, setCompanyFilter] = useState([]);
-  // Company comparison selector (array of company keys)
+  // Company selector — drives both analytics filter and comparison chart
   const [selectedCompanyKeys, setSelectedCompanyKeys] = useState([]);
   const [compareChartType, setCompareChartType] = useState('radar');
   // Plotly library (lazy-loaded)
@@ -553,9 +551,9 @@ function AdminPage() {
     return true;
   });
 
-  const companyFilteredResponses = companyFilter.length === 0
+  const companyFilteredResponses = selectedCompanyKeys.length === 0
     ? timeFilteredResponses
-    : timeFilteredResponses.filter(r => companyFilter.includes(sessionCompanyKeyMap[r.session_id]));
+    : timeFilteredResponses.filter(r => selectedCompanyKeys.includes(sessionCompanyKeyMap[r.session_id]));
 
   // Bottom row chain: driven by the Compare selector, not the top company filter
   const bottomCompanyFiltered = selectedCompanyKeys.length === 0
@@ -740,7 +738,7 @@ function AdminPage() {
             return idx === i;
           }).length
         );
-        const hasActiveFilter = !!(analyticsFromDate || analyticsToDate || sectorFilter !== null || levelFilter !== null || companyFilter.length > 0);
+        const hasActiveFilter = !!(analyticsFromDate || analyticsToDate || sectorFilter !== null || levelFilter !== null || selectedCompanyKeys.length > 0);
         const fAvg = filteredTotal > 0 ? filteredResponses.reduce((s, r) => s + (r.score_pct || 0), 0) / filteredTotal : 0;
         const fMax = filteredTotal > 0 ? Math.max(...filteredResponses.map(r => r.score_pct || 0)) : 0;
         const distCounts = [0,1,2,3,4].map(i =>
@@ -805,30 +803,11 @@ function AdminPage() {
                   {(analyticsFromDate || analyticsToDate) && (
                     <span className="text-xs text-blue-600 font-semibold flex-shrink-0">{companyFilteredResponses.length}/{responses.length}</span>
                   )}
-                  {companyEntries.length > 0 && (
-                    <>
-                      <div className="w-px h-4 bg-gray-200 flex-shrink-0 mx-0.5" />
-                      <span className="text-xs text-gray-400 font-medium flex-shrink-0">Co:</span>
-                      <button
-                        onClick={() => setCompanyFilter([])}
-                        className={`flex-shrink-0 px-2.5 py-0.5 rounded-full text-xs font-semibold border transition-colors ${companyFilter.length === 0 ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-500 border-gray-200 hover:border-blue-400'}`}
-                      >All</button>
-                      {companyEntries.map(e => {
-                        const sel = companyFilter.includes(e.key);
-                        return (
-                          <button key={e.key}
-                            onClick={() => setCompanyFilter(prev => sel ? prev.filter(k => k !== e.key) : [...prev, e.key])}
-                            className={`flex-shrink-0 px-2.5 py-0.5 rounded-full text-xs font-semibold border transition-colors ${sel ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-500 border-gray-200 hover:border-blue-400'}`}
-                          >{e.name}{e.sessions.length > 1 && <span className="ml-0.5 opacity-60 text-xs">{e.sessions.length}R</span>}</button>
-                        );
-                      })}
-                    </>
-                  )}
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
                   {hasActiveFilter && (
                     <button
-                      onClick={() => { setSectorFilter(null); setLevelFilter(null); setAnalyticsFromDate(''); setAnalyticsToDate(''); setCompanyFilter([]); }}
+                      onClick={() => { setSectorFilter(null); setLevelFilter(null); setAnalyticsFromDate(''); setAnalyticsToDate(''); setSelectedCompanyKeys([]); }}
                       className="text-xs text-blue-500 hover:text-blue-700 font-semibold transition-colors"
                     >Clear all</button>
                   )}
