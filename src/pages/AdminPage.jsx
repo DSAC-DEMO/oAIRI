@@ -376,6 +376,7 @@ function AdminPage() {
   const [companyFilter, setCompanyFilter] = useState([]);
   // Company comparison selector (array of company keys)
   const [selectedCompanyKeys, setSelectedCompanyKeys] = useState([]);
+  const [compareChartType, setCompareChartType] = useState('radar');
   // Plotly library (lazy-loaded)
   const [plotlyLib, setPlotlyLib] = useState(null);
   // Analytics PDF export
@@ -872,10 +873,31 @@ function AdminPage() {
                   >{lvl.name} ({levelCounts[i]})</button>
                 ))}
               </div>
+              {/* Row 3: company comparison selector */}
+              {companyEntries.length > 0 && (
+                <div className="flex items-center gap-1.5 overflow-x-auto" style={{ scrollbarWidth: 'thin' }}>
+                  <span className="text-xs text-gray-400 font-medium flex-shrink-0">Compare:</span>
+                  {companyEntries.map(entry => {
+                    const isSel = selectedCompanyKeys.includes(entry.key);
+                    return (
+                      <button key={entry.key}
+                        onClick={() => setSelectedCompanyKeys(prev => isSel ? prev.filter(k => k !== entry.key) : [...prev, entry.key])}
+                        className={`flex-shrink-0 px-2.5 py-0.5 rounded-full text-xs font-semibold border transition-colors ${isSel ? 'text-white border-transparent' : 'bg-white text-gray-500 border-gray-200 hover:border-blue-400 hover:text-blue-500'}`}
+                        style={isSel ? { backgroundColor: companyColorMap[entry.key], borderColor: companyColorMap[entry.key] } : {}}
+                      >
+                        {entry.name}{entry.sessions.length > 1 && <span className="ml-1 opacity-70">{entry.sessions.length}R</span>}
+                      </button>
+                    );
+                  })}
+                  {selectedCompanyKeys.length > 0 && (
+                    <button onClick={() => setSelectedCompanyKeys([])} className="text-xs text-gray-400 hover:text-gray-600 underline ml-1">Clear</button>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* ── Analytics grid (fills remaining viewport) ── */}
-            <div ref={analyticsRef} className="flex-1 min-h-0 grid gap-2 p-2 bg-gray-50" style={{ gridTemplateColumns: '1fr 1fr 1fr', gridTemplateRows: '0.55fr auto 1fr' }}>
+            <div ref={analyticsRef} className="flex-1 min-h-0 grid gap-2 p-2 bg-gray-50" style={{ gridTemplateColumns: '1fr 1fr 1fr', gridTemplateRows: '0.55fr 1fr' }}>
 
               {/* Row 1, Col 1 — Readiness Distribution */}
               <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-3 flex flex-col min-h-0 overflow-hidden">
@@ -920,27 +942,7 @@ function AdminPage() {
                 ))}
               </div>
 
-              {/* Row 2 — Company selector spanning all columns */}
-              <div className="col-span-3 bg-white rounded-xl border border-gray-200 shadow-sm px-3 py-2 flex items-center gap-2 flex-wrap">
-                <span className="text-xs font-semibold text-gray-400 uppercase tracking-widest flex-shrink-0">Compare</span>
-                {companyEntries.map(entry => {
-                  const isSel = selectedCompanyKeys.includes(entry.key);
-                  return (
-                    <button key={entry.key}
-                      onClick={() => setSelectedCompanyKeys(prev => isSel ? prev.filter(k => k !== entry.key) : [...prev, entry.key])}
-                      className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border transition-colors ${isSel ? 'text-white border-transparent' : 'bg-white text-gray-500 border-gray-200 hover:border-blue-400 hover:text-blue-500'}`}
-                      style={isSel ? { backgroundColor: companyColorMap[entry.key], borderColor: companyColorMap[entry.key] } : {}}
-                    >
-                      {entry.name}{entry.sessions.length > 1 && <span className="ml-1 opacity-70">{entry.sessions.length}R</span>}
-                    </button>
-                  );
-                })}
-                {selectedCompanyKeys.length > 0 && (
-                  <button onClick={() => setSelectedCompanyKeys([])} className="text-xs text-gray-400 hover:text-gray-600 underline ml-1">Clear</button>
-                )}
-              </div>
-
-              {/* Row 3, Col 1 — Performance by Pillar */}
+              {/* Row 2, Col 1 — Performance by Pillar */}
               <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-3 flex flex-col min-h-0 overflow-hidden">
                 <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 flex-shrink-0">Performance by Pillar</p>
                 {bottomFilteredResponses.length === 0
@@ -963,24 +965,45 @@ function AdminPage() {
                 }
               </div>
 
-              {/* Row 3, Col 2-3 — Company Comparison chart */}
+              {/* Row 2, Col 2-3 — Company Comparison chart */}
               <div className="col-span-2 bg-white rounded-xl border border-gray-200 shadow-sm p-3 flex flex-col min-h-0 overflow-hidden">
-                <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1.5 flex-shrink-0">Company Comparison</p>
+                <div className="flex items-center justify-between mb-1.5 flex-shrink-0">
+                  <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Company Comparison</p>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => setCompareChartType('radar')}
+                      className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border transition-colors ${compareChartType === 'radar' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-500 border-gray-200 hover:border-blue-400'}`}
+                    >Radar</button>
+                    <button
+                      onClick={() => selectedCompanyKeys.length >= 2 && setCompareChartType('bar')}
+                      className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border transition-colors ${
+                        selectedCompanyKeys.length < 2
+                          ? 'bg-white text-gray-300 border-gray-100 cursor-not-allowed'
+                          : compareChartType === 'bar'
+                            ? 'bg-blue-600 text-white border-blue-600'
+                            : 'bg-white text-gray-500 border-gray-200 hover:border-blue-400'
+                      }`}
+                    >Comparative Bar</button>
+                  </div>
+                </div>
                 <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
                   {selectedCompanyKeys.length === 0 && (
-                    <p className="text-xs text-gray-400 text-center mt-4">Select 1 company for radar,<br/>2+ for comparative bar chart.</p>
+                    <p className="text-xs text-gray-400 text-center mt-4">Select companies in the Compare filter above.</p>
                   )}
-                  {selectedCompanyKeys.length === 1 && (() => {
-                    const entry = selectedEntries[0];
-                    const pillars = computeCompanyPillars(entry, bottomFilteredResponses);
-                    return pillars.length === 0
-                      ? <p className="text-xs text-gray-400 text-center mt-4">No responses for this company.</p>
-                      : <div className="flex-1 flex flex-col items-center justify-center min-h-0">
-                          <p className="text-xs font-bold text-gray-700 mb-1">{entry.name}</p>
-                          <RadarChart pillars={pillars.map(p => ({ name: p.name, pct: Math.round((p.avg / 5) * 100) }))} size={160} />
-                        </div>;
-                  })()}
-                  {selectedCompanyKeys.length >= 2 && (() => {
+                  {selectedCompanyKeys.length >= 1 && (compareChartType === 'radar' || selectedCompanyKeys.length < 2) && (
+                    <div className="flex-1 flex flex-row items-center justify-center min-h-0 gap-6 flex-wrap">
+                      {selectedEntries.map(entry => {
+                        const pillars = computeCompanyPillars(entry, bottomFilteredResponses);
+                        return pillars.length === 0 ? null : (
+                          <div key={entry.key} className="flex flex-col items-center">
+                            <p className="text-xs font-bold text-gray-700 mb-1">{entry.name}</p>
+                            <RadarChart pillars={pillars.map(p => ({ name: p.name, pct: Math.round((p.avg / 5) * 100) }))} size={160} />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {selectedCompanyKeys.length >= 2 && compareChartType === 'bar' && (() => {
                     const traces = buildCompareTraces();
                     const annotations = buildCompareAnnotations();
                     const layout = {
