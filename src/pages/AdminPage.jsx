@@ -887,29 +887,20 @@ function AdminPage() {
             </div>
 
             {/* ── Analytics grid (fills remaining viewport) ── */}
-            <div ref={analyticsRef} className="flex-1 min-h-0 grid gap-2 p-2 bg-gray-50" style={{ gridTemplateColumns: 'repeat(4, 1fr)', gridTemplateRows: '0.55fr 1fr' }}>
+            <div ref={analyticsRef} className="flex-1 min-h-0 grid gap-2 p-2 bg-gray-50" style={{ gridTemplateColumns: '1fr 1fr 1fr', gridTemplateRows: '0.55fr 1fr' }}>
 
-              {/* Row 1, Col 1 — Performance by Pillar */}
-              <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-3 flex flex-col min-h-0 overflow-hidden">
-                <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 flex-shrink-0">Performance by Pillar</p>
-                {bottomFilteredResponses.length === 0
-                  ? <p className="text-sm text-gray-400">No data yet</p>
-                  : <div className="flex-1 min-h-0 overflow-y-auto space-y-2">
-                      {bottomPillarPerfList.map(({ name, avg }) => {
-                        const pct = (avg / 5) * 100;
-                        const barColor = `hsl(215, 85%, ${Math.round(72 - pct * 0.42)}%)`;
-                        return (
-                          <div key={name}>
-                            <div className="flex justify-between text-xs mb-0.5">
-                              <span className="font-semibold text-gray-700">{name}</span>
-                              <span className="text-gray-500">{avg.toFixed(2)} / 5</span>
-                            </div>
-                            <Bar pct={pct} color={barColor} />
-                          </div>
-                        );
-                      })}
-                    </div>
-                }
+              {/* Row 1, Col 1 — KPI summary */}
+              <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-3 flex flex-col justify-around">
+                <div>
+                  <div className="text-2xl font-bold tabular-nums" style={{ color: '#2563eb' }}>{filteredTotal}</div>
+                  <div className="text-xs font-semibold text-gray-600 mt-0.5">Total Responses</div>
+                </div>
+                <div className="w-full h-px bg-gray-100" />
+                <div>
+                  <div className="text-2xl font-bold tabular-nums" style={{ color: '#1d4ed8' }}>{fAvg.toFixed(2)}</div>
+                  <div className="text-xs font-semibold text-gray-600 mt-0.5">Average Score</div>
+                  <div className="text-xs text-gray-400">out of 5.00</div>
+                </div>
               </div>
 
               {/* Row 1, Col 2 — Readiness Distribution */}
@@ -941,22 +932,31 @@ function AdminPage() {
                 </div>
               </div>
 
-              {/* Row 1, Col 4 — KPI summary */}
-              <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-3 flex flex-col justify-around">
-                <div>
-                  <div className="text-2xl font-bold tabular-nums" style={{ color: '#2563eb' }}>{filteredTotal}</div>
-                  <div className="text-xs font-semibold text-gray-600 mt-0.5">Total Responses</div>
-                </div>
-                <div className="w-full h-px bg-gray-100" />
-                <div>
-                  <div className="text-2xl font-bold tabular-nums" style={{ color: '#1d4ed8' }}>{fAvg.toFixed(2)}</div>
-                  <div className="text-xs font-semibold text-gray-600 mt-0.5">Average Score</div>
-                  <div className="text-xs text-gray-400">out of 5.00</div>
-                </div>
+              {/* Row 2, Col 1 — Performance by Pillar */}
+              <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-3 flex flex-col min-h-0 overflow-hidden">
+                <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 flex-shrink-0">Performance by Pillar</p>
+                {bottomFilteredResponses.length === 0
+                  ? <p className="text-sm text-gray-400">No data yet</p>
+                  : <div className="flex-1 min-h-0 overflow-y-auto space-y-2">
+                      {bottomPillarPerfList.map(({ name, avg }) => {
+                        const pct = (avg / 5) * 100;
+                        const barColor = `hsl(215, 85%, ${Math.round(72 - pct * 0.42)}%)`;
+                        return (
+                          <div key={name}>
+                            <div className="flex justify-between text-xs mb-0.5">
+                              <span className="font-semibold text-gray-700">{name}</span>
+                              <span className="text-gray-500">{avg.toFixed(2)} / 5</span>
+                            </div>
+                            <Bar pct={pct} color={barColor} />
+                          </div>
+                        );
+                      })}
+                    </div>
+                }
               </div>
 
-              {/* Row 2, Col 1-4 — Company Comparison chart */}
-              <div className="col-span-4 bg-white rounded-xl border border-gray-200 shadow-sm p-3 flex flex-col min-h-0 overflow-hidden">
+              {/* Row 2, Col 2-3 — Company Comparison chart */}
+              <div className="col-span-2 bg-white rounded-xl border border-gray-200 shadow-sm p-3 flex flex-col min-h-0 overflow-hidden">
                 <div className="flex items-center justify-between mb-1.5 flex-shrink-0">
                   <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Company Comparison</p>
                   <div className="flex items-center gap-1">
