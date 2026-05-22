@@ -937,12 +937,12 @@ function AdminPage() {
                 <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 flex-shrink-0">Performance by Pillar</p>
                 {bottomFilteredResponses.length === 0
                   ? <p className="text-sm text-gray-400">No data yet</p>
-                  : <div className="flex-1 min-h-0 overflow-y-auto flex flex-col">
+                  : <div className="flex-1 min-h-0 overflow-y-auto flex flex-col justify-between">
                       {bottomPillarPerfList.map(({ name, avg }) => {
                         const pct = (avg / 5) * 100;
                         const barColor = `hsl(215, 85%, ${Math.round(72 - pct * 0.42)}%)`;
                         return (
-                          <div key={name} className="flex-1 flex flex-col justify-center min-h-0 py-1">
+                          <div key={name}>
                             <div className="flex justify-between text-xs mb-0.5">
                               <span className="font-semibold text-gray-700">{name}</span>
                               <span className="text-gray-500">{avg.toFixed(2)} / 5</span>
