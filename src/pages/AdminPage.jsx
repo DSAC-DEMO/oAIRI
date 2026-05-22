@@ -933,8 +933,8 @@ function AdminPage() {
             {/* ── Analytics grid (fills remaining viewport) ── */}
             <div ref={analyticsRef} className="flex-1 min-h-0 grid gap-2 p-2 bg-gray-50" style={{ gridTemplateColumns: '1fr 1fr 1fr', gridTemplateRows: '0.55fr 1fr' }}>
 
-              {/* Row 1, Col 1 — KPI summary */}
-              <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-3 flex flex-col gap-3 justify-center">
+              {/* Col 1, row-span-2 — KPI summary */}
+              <div className="row-span-2 bg-white rounded-xl border border-gray-200 shadow-sm p-3 flex flex-col gap-3 justify-center">
                 <div>
                   <div className="text-2xl font-bold tabular-nums" style={{ color: '#2563eb' }}>{filteredTotal}</div>
                   <div className="text-xs font-semibold text-gray-600 mt-0.5">Total Responses</div>
@@ -982,7 +982,7 @@ function AdminPage() {
                 </div>
               </div>
 
-              {/* Row 2, Col 1 — Performance by Pillar */}
+              {/* Row 2, Col 2 — Performance by Pillar */}
               <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-3 flex flex-col min-h-0">
                 <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 flex-shrink-0">Performance by Pillar</p>
                 {bottomFilteredResponses.length === 0
@@ -991,8 +991,8 @@ function AdminPage() {
                 }
               </div>
 
-              {/* Row 2, Col 2-3 — Company Comparison chart */}
-              <div className="col-span-2 bg-white rounded-xl border border-gray-200 shadow-sm p-3 flex flex-col min-h-0 overflow-hidden">
+              {/* Row 2, Col 3 — Company Comparison chart */}
+              <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-3 flex flex-col min-h-0 overflow-hidden">
                 <div className="flex items-center justify-between mb-1.5 flex-shrink-0">
                   <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Company Comparison</p>
                   <div className="flex items-center gap-1">
