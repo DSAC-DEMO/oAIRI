@@ -34,7 +34,7 @@ function TrendChart({ trend, maxVal }) {
 
   const pts = trend.map((d, i) => ({
     x: PAD.left + (trend.length === 1 ? plotW / 2 : (i / (trend.length - 1)) * plotW),
-    y: PAD.top + plotH - (d.cumulative / safeMax) * plotH,
+    y: PAD.top + plotH - (d.count / safeMax) * plotH,
     ...d,
   }));
   const linePts = pts.map(p => `${p.x},${p.y}`).join(' ');
@@ -57,7 +57,7 @@ function TrendChart({ trend, maxVal }) {
         {pts.map((p, i) => (
           <g key={i}>
             <circle cx={p.x} cy={p.y} r="2.5" fill="#3b82f6" stroke="white" strokeWidth="1.5" />
-            <title>{p.date}: {p.cumulative} total ({p.count} new)</title>
+            <title>{p.date}: {p.count} submissions</title>
           </g>
         ))}
         {xLabels.map(p => (
@@ -696,7 +696,7 @@ function AdminPage() {
     d.setDate(d.getDate() - 1);
     return [{ date: d.toISOString().slice(0, 10), count: 0, cumulative: 0 }, ...sorted];
   })();
-  const cumulativeMax = cumulativeTrend.length ? cumulativeTrend[cumulativeTrend.length - 1].cumulative : 1;
+  const cumulativeMax = cumulativeTrend.length ? Math.max(...cumulativeTrend.map(d => d.count)) : 1;
 
   return (
     <div className="h-screen bg-gray-50 flex flex-col overflow-hidden">
@@ -899,8 +899,8 @@ function AdminPage() {
 
               {/* Row 1, Col 2 — Cumulative Submissions */}
               <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-3 flex flex-col min-h-0 overflow-hidden">
-                <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-0.5 flex-shrink-0">Cumulative Submissions</p>
-                <p className="text-xs text-gray-400 mb-1 flex-shrink-0">{hasActiveFilter ? 'Filtered view' : 'All-time count'}</p>
+                <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-0.5 flex-shrink-0">Submissions Over Time</p>
+                <p className="text-xs text-gray-400 mb-1 flex-shrink-0">{hasActiveFilter ? 'Filtered view' : 'Daily count'}</p>
                 <div className="flex-1 min-h-0">
                   <TrendChart trend={cumulativeTrend} maxVal={cumulativeMax} />
                 </div>
