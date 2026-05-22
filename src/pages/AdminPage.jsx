@@ -875,7 +875,7 @@ function AdminPage() {
             </div>
 
             {/* ── Analytics grid (fills remaining viewport) ── */}
-            <div ref={analyticsRef} className="flex-1 min-h-0 grid gap-2 p-2 bg-gray-50" style={{ gridTemplateColumns: '1fr 1fr 1fr', gridTemplateRows: '1fr auto 1fr' }}>
+            <div ref={analyticsRef} className="flex-1 min-h-0 grid gap-2 p-2 bg-gray-50" style={{ gridTemplateColumns: '1fr 1fr 1fr', gridTemplateRows: '0.55fr auto 1fr' }}>
 
               {/* Row 1, Col 1 — Readiness Distribution */}
               <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-3 flex flex-col min-h-0 overflow-hidden">
@@ -907,19 +907,12 @@ function AdminPage() {
               </div>
 
               {/* Row 1, Col 3 — KPI cards */}
-              <div className="grid grid-rows-3 gap-2">
+              <div className="grid grid-rows-2 gap-2">
                 {[
-                  { label: 'Total Responses', value: filteredTotal, valueClass: 'text-2xl', color: '#2563eb' },
-                  { label: 'Average Score', value: fAvg.toFixed(2), sub: 'out of 5.00', valueClass: 'text-2xl', color: '#1d4ed8' },
-                  {
-                    label: 'Top Pillar',
-                    value: topPillar ? topPillar.name : '—',
-                    sub: topPillar ? `${topPillar.avg.toFixed(2)} / 5 avg` : null,
-                    valueClass: 'text-sm leading-tight',
-                    color: '#1e3a8a',
-                  },
+                  { label: 'Total Responses', value: filteredTotal, valueClass: 'text-xl', color: '#2563eb' },
+                  { label: 'Average Score', value: fAvg.toFixed(2), sub: 'out of 5.00', valueClass: 'text-xl', color: '#1d4ed8' },
                 ].map(({ label, value, sub, valueClass, color }) => (
-                  <div key={label} className="bg-white rounded-xl border border-gray-200 shadow-sm p-3 flex flex-col justify-center">
+                  <div key={label} className="bg-white rounded-xl border border-gray-200 shadow-sm p-2 flex flex-col justify-center">
                     <div className={`font-bold tabular-nums ${valueClass}`} style={{ color }}>{value}</div>
                     <div className="text-xs font-semibold text-gray-600 mt-0.5">{label}</div>
                     {sub && <div className="text-xs text-gray-400">{sub}</div>}
