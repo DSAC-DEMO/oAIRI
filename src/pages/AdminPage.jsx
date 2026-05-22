@@ -978,9 +978,17 @@ function AdminPage() {
                 </div>
                 <div className="w-full h-px bg-gray-100" />
                 <div>
-                  <div className="text-2xl font-bold tabular-nums" style={{ color: '#1e40af' }}>{fMax > 0 ? fMax.toFixed(2) : '—'}</div>
-                  <div className="text-xs font-semibold text-gray-600 mt-0.5">Highest Score</div>
-                  <div className="text-xs text-gray-400">out of 5.00</div>
+                  {(() => {
+                    const atRisk = distCounts[3] + distCounts[4];
+                    const pct = filteredTotal > 0 ? Math.round((atRisk / filteredTotal) * 100) : 0;
+                    return (
+                      <>
+                        <div className="text-2xl font-bold tabular-nums" style={{ color: pct > 50 ? '#dc2626' : pct > 25 ? '#d97706' : '#16a34a' }}>{filteredTotal > 0 ? `${pct}%` : '—'}</div>
+                        <div className="text-xs font-semibold text-gray-600 mt-0.5">Needs Attention</div>
+                        <div className="text-xs text-gray-400">{filteredTotal > 0 ? `${atRisk} of ${filteredTotal} · Novice or Developing` : 'No responses'}</div>
+                      </>
+                    );
+                  })()}
                 </div>
               </div>
 
