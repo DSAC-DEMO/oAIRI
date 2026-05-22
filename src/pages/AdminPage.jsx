@@ -931,30 +931,19 @@ function AdminPage() {
             </div>
 
             {/* ── Analytics grid (fills remaining viewport) ── */}
-            <div ref={analyticsRef} className="flex-1 min-h-0 grid gap-2 p-2 bg-gray-50" style={{ gridTemplateColumns: '1fr 1fr 1fr', gridTemplateRows: '0.55fr 1fr' }}>
+            <div ref={analyticsRef} className="flex-1 min-h-0 grid gap-2 p-2 bg-gray-50" style={{ gridTemplateColumns: '1fr 1fr 1fr 1fr', gridTemplateRows: '0.55fr 1fr' }}>
 
-              {/* Col 1, spans both rows — KPI + Pillar stacked */}
-              <div className="row-span-2 flex flex-col gap-2 min-h-0">
-                {/* KPI summary */}
-                <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-3 flex flex-col gap-3 flex-shrink-0">
-                  <div>
-                    <div className="text-2xl font-bold tabular-nums" style={{ color: '#2563eb' }}>{filteredTotal}</div>
-                    <div className="text-xs font-semibold text-gray-600 mt-0.5">Total Responses</div>
-                  </div>
-                  <div className="w-full h-px bg-gray-100" />
-                  <div>
-                    <div className="text-2xl font-bold tabular-nums" style={{ color: '#1d4ed8' }}>{fAvg.toFixed(2)}</div>
-                    <div className="text-xs font-semibold text-gray-600 mt-0.5">Average Score</div>
-                    <div className="text-xs text-gray-400">out of 5.00</div>
-                  </div>
+              {/* Row 1, Col 1 — KPI summary */}
+              <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-3 flex flex-col gap-3 justify-center">
+                <div>
+                  <div className="text-2xl font-bold tabular-nums" style={{ color: '#2563eb' }}>{filteredTotal}</div>
+                  <div className="text-xs font-semibold text-gray-600 mt-0.5">Total Responses</div>
                 </div>
-                {/* Performance by Pillar */}
-                <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-3 flex flex-col min-h-0 flex-1">
-                  <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 flex-shrink-0">Performance by Pillar</p>
-                  {bottomFilteredResponses.length === 0
-                    ? <p className="text-sm text-gray-400">No data yet</p>
-                    : <div className="flex-1 min-h-0"><PillarChart pillars={bottomPillarPerfList} /></div>
-                  }
+                <div className="w-full h-px bg-gray-100" />
+                <div>
+                  <div className="text-2xl font-bold tabular-nums" style={{ color: '#1d4ed8' }}>{fAvg.toFixed(2)}</div>
+                  <div className="text-xs font-semibold text-gray-600 mt-0.5">Average Score</div>
+                  <div className="text-xs text-gray-400">out of 5.00</div>
                 </div>
               </div>
 
@@ -985,6 +974,40 @@ function AdminPage() {
                 <div className="flex-1 min-h-0">
                   <TrendChart trend={cumulativeTrend} maxVal={cumulativeMax} />
                 </div>
+              </div>
+
+              {/* Col 4, row-span-2 — Highlights (crosses the row line) */}
+              <div className="row-span-2 bg-white rounded-xl border border-gray-200 shadow-sm p-3 flex flex-col gap-4">
+                <p className="text-xs font-bold text-gray-400 uppercase tracking-widest flex-shrink-0">Highlights</p>
+                <div>
+                  <p className="text-xs text-gray-400 mb-0.5">Companies</p>
+                  <p className="text-2xl font-bold tabular-nums text-blue-600">{companyEntries.length}</p>
+                </div>
+                <div className="w-full h-px bg-gray-100" />
+                <div>
+                  <p className="text-xs text-gray-400 mb-0.5">Sessions</p>
+                  <p className="text-2xl font-bold tabular-nums text-blue-700">{sessionsData.length}</p>
+                </div>
+                <div className="w-full h-px bg-gray-100" />
+                <div>
+                  <p className="text-xs text-gray-400 mb-0.5">Top Pillar</p>
+                  <p className="text-sm font-bold text-gray-800 leading-tight">{topPillar ? topPillar.name : '—'}</p>
+                  {topPillar && <p className="text-xs text-gray-500 mt-0.5">{topPillar.avg.toFixed(2)} / 5</p>}
+                </div>
+                <div className="w-full h-px bg-gray-100" />
+                <div>
+                  <p className="text-xs text-gray-400 mb-0.5">Highest Score</p>
+                  <p className="text-2xl font-bold tabular-nums text-blue-800">{fMax > 0 ? fMax.toFixed(2) : '—'}</p>
+                </div>
+              </div>
+
+              {/* Row 2, Col 1 — Performance by Pillar */}
+              <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-3 flex flex-col min-h-0">
+                <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 flex-shrink-0">Performance by Pillar</p>
+                {bottomFilteredResponses.length === 0
+                  ? <p className="text-sm text-gray-400">No data yet</p>
+                  : <div className="flex-1 min-h-0"><PillarChart pillars={bottomPillarPerfList} /></div>
+                }
               </div>
 
               {/* Row 2, Col 2-3 — Company Comparison chart */}
