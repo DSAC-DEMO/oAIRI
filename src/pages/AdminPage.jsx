@@ -430,15 +430,29 @@ function AdminPage() {
   // Company selector — drives both analytics filter and comparison chart
   const [selectedCompanyKeys, setSelectedCompanyKeys] = useState([]);
   const [compareChartType, setCompareChartType] = useState('radar');
+  const [companyDropdownOpen, setCompanyDropdownOpen] = useState(false);
+  const [companySearchQuery, setCompanySearchQuery] = useState('');
   // Plotly library (lazy-loaded)
   const [plotlyLib, setPlotlyLib] = useState(null);
   // Analytics PDF export
   const [exportingPDF, setExportingPDF] = useState(false);
   const analyticsRef = useRef(null);
+  const companyDropdownRef = useRef(null);
 
   useEffect(() => {
     import('plotly.js-dist-min').then(m => setPlotlyLib(m.default)).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (!companyDropdownOpen) return;
+    const handler = (e) => {
+      if (companyDropdownRef.current && !companyDropdownRef.current.contains(e.target)) {
+        setCompanyDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [companyDropdownOpen]);
 
   useEffect(() => {
     const token = localStorage.getItem('adminToken');
@@ -845,24 +859,84 @@ function AdminPage() {
 
         return (
           <>
-            {/* ── Compact filter strip ── */}
-            <div className="flex-shrink-0 bg-white border-b border-gray-100 px-4 py-2 space-y-1.5">
-              {/* Row 1: date range + company pills + actions */}
-              <div className="flex items-center gap-2">
-                <div className="flex items-center gap-1.5 overflow-x-auto flex-1 min-w-0" style={{ scrollbarWidth: 'none' }}>
-                  <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider flex-shrink-0">Filters</span>
-                  <span className="text-xs text-gray-400 flex-shrink-0">From</span>
-                  <input type="date" className="border border-gray-200 rounded px-2 py-1 text-xs bg-gray-50 flex-shrink-0" value={analyticsFromDate} onChange={e => setAnalyticsFromDate(e.target.value)} />
-                  <span className="text-xs text-gray-400 flex-shrink-0">to</span>
-                  <input type="date" className="border border-gray-200 rounded px-2 py-1 text-xs bg-gray-50 flex-shrink-0" value={analyticsToDate} onChange={e => setAnalyticsToDate(e.target.value)} />
+            {/* ── Filter strip ── */}
+            <div className="flex-shrink-0 bg-white border-b border-gray-100 px-4 py-2 space-y-2">
+              {/* Row 1: date range + company dropdown + actions */}
+              <div className="flex items-center gap-3">
+                <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider flex-shrink-0">Filters</span>
+                <div className="flex items-center gap-1.5 flex-shrink-0">
+                  <span className="text-xs text-gray-400">From</span>
+                  <input type="date" className="border border-gray-200 rounded px-2 py-1 text-xs bg-gray-50" value={analyticsFromDate} onChange={e => setAnalyticsFromDate(e.target.value)} />
+                  <span className="text-xs text-gray-400">to</span>
+                  <input type="date" className="border border-gray-200 rounded px-2 py-1 text-xs bg-gray-50" value={analyticsToDate} onChange={e => setAnalyticsToDate(e.target.value)} />
                   {(analyticsFromDate || analyticsToDate) && (
-                    <span className="text-xs text-blue-600 font-semibold flex-shrink-0">{companyFilteredResponses.length}/{responses.length}</span>
+                    <span className="text-xs text-blue-600 font-semibold">{companyFilteredResponses.length}/{responses.length}</span>
                   )}
                 </div>
+                {/* Company dropdown */}
+                {companyEntries.length > 0 && (
+                  <div ref={companyDropdownRef} className="relative flex-shrink-0">
+                    <button
+                      onClick={() => { setCompanyDropdownOpen(o => !o); setCompanySearchQuery(''); }}
+                      className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold border transition-colors ${selectedCompanyKeys.length > 0 ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-500 border-gray-200 hover:border-blue-400 hover:text-blue-600'}`}
+                    >
+                      <span>Compare{selectedCompanyKeys.length > 0 ? ` (${selectedCompanyKeys.length})` : ''}</span>
+                      <svg className={`w-3 h-3 transition-transform ${companyDropdownOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                    </button>
+                    {companyDropdownOpen && (
+                      <div className="absolute top-full left-0 mt-1 z-50 bg-white border border-gray-200 rounded-xl shadow-lg w-64">
+                        <div className="p-2 border-b border-gray-100">
+                          <input
+                            type="text"
+                            placeholder="Search companies…"
+                            value={companySearchQuery}
+                            onChange={e => setCompanySearchQuery(e.target.value)}
+                            autoFocus
+                            className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                          />
+                        </div>
+                        <div className="max-h-52 overflow-y-auto py-1">
+                          {companyEntries
+                            .filter(e => e.name.toLowerCase().includes(companySearchQuery.toLowerCase()))
+                            .map(entry => {
+                              const isSel = selectedCompanyKeys.includes(entry.key);
+                              return (
+                                <button
+                                  key={entry.key}
+                                  onClick={() => setSelectedCompanyKeys(prev => isSel ? prev.filter(k => k !== entry.key) : [...prev, entry.key])}
+                                  className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-left hover:bg-gray-50 transition-colors"
+                                >
+                                  <span
+                                    className="w-3.5 h-3.5 rounded flex-shrink-0 border flex items-center justify-center"
+                                    style={isSel ? { backgroundColor: companyColorMap[entry.key], borderColor: companyColorMap[entry.key] } : { borderColor: '#d1d5db' }}
+                                  >
+                                    {isSel && <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
+                                  </span>
+                                  <span className={`flex-1 truncate ${isSel ? 'font-semibold text-gray-800' : 'text-gray-600'}`}>
+                                    {entry.name}
+                                    {entry.sessions.length > 1 && <span className="ml-1 text-gray-400">{entry.sessions.length}R</span>}
+                                  </span>
+                                </button>
+                              );
+                            })}
+                          {companyEntries.filter(e => e.name.toLowerCase().includes(companySearchQuery.toLowerCase())).length === 0 && (
+                            <p className="text-xs text-gray-400 text-center py-3">No companies found</p>
+                          )}
+                        </div>
+                        {selectedCompanyKeys.length > 0 && (
+                          <div className="border-t border-gray-100 p-2">
+                            <button onClick={() => setSelectedCompanyKeys([])} className="text-xs text-blue-500 hover:text-blue-700 font-semibold w-full text-center">Clear selection</button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+                <div className="flex-1" />
                 <div className="flex items-center gap-2 flex-shrink-0">
                   {hasActiveFilter && (
                     <button
-                      onClick={() => { setSectorFilter(null); setLevelFilter(null); setAnalyticsFromDate(''); setAnalyticsToDate(''); setSelectedCompanyKeys([]); }}
+                      onClick={() => { setSectorFilter(null); setLevelFilter(null); setAnalyticsFromDate(''); setAnalyticsToDate(''); setSelectedCompanyKeys([]); setCompanyDropdownOpen(false); }}
                       className="text-xs text-blue-500 hover:text-blue-700 font-semibold transition-colors"
                     >Clear all</button>
                   )}
@@ -873,61 +947,41 @@ function AdminPage() {
                   >{exportingPDF ? 'Exporting…' : 'Export PDF'}</button>
                 </div>
               </div>
-              {/* Row 2: sector + level pills */}
-              <div className="flex items-center gap-1.5 overflow-x-auto" style={{ scrollbarWidth: 'thin' }}>
+              {/* Row 2: sector + level pills — full-width, adaptive */}
+              <div className="flex gap-4">
                 {availableSectors.length > 0 && (
-                  <>
+                  <div className="flex items-center gap-1.5 flex-wrap flex-1 min-w-0">
                     <span className="text-xs text-gray-400 font-medium flex-shrink-0">Sector:</span>
                     <button
                       onClick={() => setSectorFilter(null)}
-                      className={`flex-shrink-0 px-2.5 py-0.5 rounded-full text-xs font-semibold border transition-colors ${sectorFilter === null ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-500 border-gray-200 hover:border-blue-400'}`}
+                      className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border transition-colors ${sectorFilter === null ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-500 border-gray-200 hover:border-blue-400'}`}
                     >All</button>
                     {availableSectors.map(sector => (
                       <button key={sector}
                         onClick={() => setSectorFilter(sectorFilter === sector ? null : sector)}
-                        className={`flex-shrink-0 px-2.5 py-0.5 rounded-full text-xs font-semibold border transition-colors ${sectorFilter === sector ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-500 border-gray-200 hover:border-blue-400'}`}
+                        className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border transition-colors ${sectorFilter === sector ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-500 border-gray-200 hover:border-blue-400'}`}
                       >{sector} ({sectorResponseCounts[sector]})</button>
                     ))}
-                    <div className="w-px h-4 bg-gray-200 flex-shrink-0 mx-1" />
-                  </>
+                  </div>
                 )}
-                <span className="text-xs text-gray-400 font-medium flex-shrink-0">Level:</span>
-                <button
-                  onClick={() => setLevelFilter(null)}
-                  className={`flex-shrink-0 px-2.5 py-0.5 rounded-full text-xs font-semibold border transition-colors ${levelFilter === null ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-500 border-gray-200 hover:border-blue-400'}`}
-                >All ({sectorFilteredResponses.length})</button>
-                {readinessLevels.map((lvl, i) => (
-                  <button key={i}
-                    onClick={() => setLevelFilter(levelFilter === i ? null : i)}
-                    className={`flex-shrink-0 px-2.5 py-0.5 rounded-full text-xs font-semibold border transition-colors ${
-                      levelFilter === i
-                        ? `${READINESS_LEVEL_STYLES[i].bg} ${READINESS_LEVEL_STYLES[i].text} border-current`
-                        : 'bg-white text-gray-500 border-gray-200 hover:border-blue-400'
-                    }`}
-                  >{lvl.name} ({levelCounts[i]})</button>
-                ))}
-              </div>
-              {/* Row 3: company comparison selector */}
-              {companyEntries.length > 0 && (
-                <div className="flex items-center gap-1.5 overflow-x-auto" style={{ scrollbarWidth: 'thin' }}>
-                  <span className="text-xs text-gray-400 font-medium flex-shrink-0">Compare:</span>
-                  {companyEntries.map(entry => {
-                    const isSel = selectedCompanyKeys.includes(entry.key);
-                    return (
-                      <button key={entry.key}
-                        onClick={() => setSelectedCompanyKeys(prev => isSel ? prev.filter(k => k !== entry.key) : [...prev, entry.key])}
-                        className={`flex-shrink-0 px-2.5 py-0.5 rounded-full text-xs font-semibold border transition-colors ${isSel ? 'text-white border-transparent' : 'bg-white text-gray-500 border-gray-200 hover:border-blue-400 hover:text-blue-500'}`}
-                        style={isSel ? { backgroundColor: companyColorMap[entry.key], borderColor: companyColorMap[entry.key] } : {}}
-                      >
-                        {entry.name}{entry.sessions.length > 1 && <span className="ml-1 opacity-70">{entry.sessions.length}R</span>}
-                      </button>
-                    );
-                  })}
-                  {selectedCompanyKeys.length > 0 && (
-                    <button onClick={() => setSelectedCompanyKeys([])} className="text-xs text-gray-400 hover:text-gray-600 underline ml-1">Clear</button>
-                  )}
+                <div className="flex items-center gap-1.5 flex-wrap flex-shrink-0">
+                  <span className="text-xs text-gray-400 font-medium flex-shrink-0">Level:</span>
+                  <button
+                    onClick={() => setLevelFilter(null)}
+                    className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border transition-colors ${levelFilter === null ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-500 border-gray-200 hover:border-blue-400'}`}
+                  >All ({sectorFilteredResponses.length})</button>
+                  {readinessLevels.map((lvl, i) => (
+                    <button key={i}
+                      onClick={() => setLevelFilter(levelFilter === i ? null : i)}
+                      className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border transition-colors ${
+                        levelFilter === i
+                          ? `${READINESS_LEVEL_STYLES[i].bg} ${READINESS_LEVEL_STYLES[i].text} border-current`
+                          : 'bg-white text-gray-500 border-gray-200 hover:border-blue-400'
+                      }`}
+                    >{lvl.name} ({levelCounts[i]})</button>
+                  ))}
                 </div>
-              )}
+              </div>
             </div>
 
             {/* ── Analytics grid (fills remaining viewport) ── */}
