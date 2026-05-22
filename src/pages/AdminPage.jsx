@@ -5,6 +5,7 @@ import RadarChart from '../components/RadarChart';
 function TrendChart({ trend, maxVal }) {
   const containerRef = useRef(null);
   const [dims, setDims] = useState(null);
+  const [hovered, setHovered] = useState(null);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -43,9 +44,11 @@ function TrendChart({ trend, maxVal }) {
   const labelStep = Math.max(1, Math.ceil(pts.length / 7));
   const xLabels = pts.filter((_, i) => i % labelStep === 0 || i === pts.length - 1);
 
+  const TIP_W = 80, TIP_H = 28;
+
   return (
     <div ref={containerRef} className="w-full h-full">
-      <svg width={w} height={h} style={{ display: 'block' }}>
+      <svg width={w} height={h} style={{ display: 'block' }} onMouseLeave={() => setHovered(null)}>
         {yLabels.map(({ y }) => (
           <line key={y} x1={PAD.left} x2={w - PAD.right} y1={y} y2={y} stroke="#f0f0f0" strokeWidth="1" />
         ))}
@@ -55,14 +58,25 @@ function TrendChart({ trend, maxVal }) {
         <path d={fillPath} fill="#3b82f6" fillOpacity="0.1" />
         <polyline fill="none" stroke="#3b82f6" strokeWidth="1.5" strokeLinejoin="round" points={linePts} />
         {pts.map((p, i) => (
-          <g key={i}>
-            <circle cx={p.x} cy={p.y} r="2.5" fill="#3b82f6" stroke="white" strokeWidth="1.5" />
-            <title>{p.date}: {p.count} submissions</title>
+          <g key={i} onMouseEnter={() => setHovered(p)} style={{ cursor: 'default' }}>
+            <circle cx={p.x} cy={p.y} r="6" fill="transparent" />
+            <circle cx={p.x} cy={p.y} r={hovered === p ? 4 : 2.5} fill="#3b82f6" stroke="white" strokeWidth="1.5" />
           </g>
         ))}
         {xLabels.map(p => (
           <text key={p.date} x={p.x} y={h - 3} textAnchor="middle" fontSize="9" fill="#9ca3af">{p.date.slice(5)}</text>
         ))}
+        {hovered && (() => {
+          const tx = Math.min(Math.max(hovered.x - TIP_W / 2, PAD.left), w - PAD.right - TIP_W);
+          const ty = hovered.y - TIP_H - 8;
+          return (
+            <g>
+              <rect x={tx} y={ty} width={TIP_W} height={TIP_H} rx="4" fill="#1e293b" opacity="0.9" />
+              <text x={tx + TIP_W / 2} y={ty + 10} textAnchor="middle" fontSize="9" fill="#94a3b8">{hovered.date}</text>
+              <text x={tx + TIP_W / 2} y={ty + 21} textAnchor="middle" fontSize="10" fontWeight="600" fill="white">{hovered.count} submission{hovered.count !== 1 ? 's' : ''}</text>
+            </g>
+          );
+        })()}
       </svg>
     </div>
   );
@@ -130,14 +144,11 @@ const READINESS_LEVEL_STYLES = [
 
 function Bar({ pct, colorClass, color }) {
   return (
-    <div className="flex items-center gap-3">
-      <div className="flex-1 bg-gray-100 rounded-full h-3 overflow-hidden">
-        <div
-          className={`h-3 rounded-full transition-all duration-500 ${colorClass || ''}`}
-          style={{ width: `${Math.max(pct, 0)}%`, ...(color ? { backgroundColor: color } : {}) }}
-        />
-      </div>
-      <span className="text-xs text-gray-500 w-10 text-right">{pct.toFixed(0)}%</span>
+    <div className="flex-1 bg-gray-100 rounded-full h-3 overflow-hidden">
+      <div
+        className={`h-3 rounded-full transition-all duration-500 ${colorClass || ''}`}
+        style={{ width: `${Math.max(pct, 0)}%`, ...(color ? { backgroundColor: color } : {}) }}
+      />
     </div>
   );
 }
