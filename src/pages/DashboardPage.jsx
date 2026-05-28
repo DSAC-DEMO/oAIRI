@@ -292,7 +292,7 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
     },
     showlegend: activeRound === 'overall',
     legend: { orientation: 'h', x: 0.5, xanchor: 'center', y: -0.18, font: { size: 9 } },
-    margin: { t: 20, b: activeRound === 'overall' ? 60 : 20, l: 40, r: 40 },
+    margin: { t: 20, b: activeRound === 'overall' ? 60 : 20, l: 56, r: 56 },
   }), [activeRound]);
 
   const distTraces = useMemo(() => {
@@ -339,7 +339,7 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
     yaxis: { gridcolor: '#f3f4f6', linecolor: '#e5e7eb', tickfont: { size: 10 }, dtick: 1 },
     showlegend: activeRound === 'overall',
     legend: { orientation: 'h', x: 0, y: 1.18, font: { size: 9 } },
-    margin: { t: activeRound === 'overall' ? 48 : 24, b: 70, l: 36, r: 10 },
+    margin: { t: activeRound === 'overall' ? 56 : 36, b: 70, l: 36, r: 16 },
   }), [activeRound, readinessLevels]);
 
   const sorted = useMemo(() => [...pillarList].sort((a, b) => a.avg - b.avg), [pillarList]);
@@ -402,7 +402,7 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
       yaxis: { gridcolor: 'transparent', linecolor: '#e5e7eb', tickfont: { size: 10 }, automargin: true },
       showlegend: activeRound === 'overall',
       legend: { orientation: 'h', x: 0, y: 1.12, font: { size: 9 } },
-      margin: { t: activeRound === 'overall' ? 48 : 10, b: 36, l: 10, r: activeRound === 'overall' ? 72 : 48 },
+      margin: { t: activeRound === 'overall' ? 56 : 16, b: 36, l: 10, r: activeRound === 'overall' ? 88 : 64 },
     };
   }, [activeRound, perRoundStats, pillarOrder]);
 

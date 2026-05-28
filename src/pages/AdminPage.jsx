@@ -49,7 +49,7 @@ function TrendChart({ trend, maxVal }) {
   if (!dims) return <div ref={containerRef} className="w-full h-full" />;
 
   const { w, h } = dims;
-  const PAD = { top: 8, bottom: 20, left: 28, right: 6 };
+  const PAD = { top: 20, bottom: 20, left: 32, right: 16 };
   const plotW = w - PAD.left - PAD.right;
   const plotH = h - PAD.top - PAD.bottom;
   const safeMax = maxVal || 1;

@@ -17,7 +17,7 @@ function RadarChart({ pillars, series, size = 240, color = '#3b82f6', title }) {
   const V = multi ? 300 : size;
   const cx = V / 2;
   const cy = V / 2;
-  const r = V / 2 - 44;
+  const r = V / 2 - 54;
   const angle = (i) => (i * 2 * Math.PI / n) - Math.PI / 2;
   const pt = (i, frac) => ({
     x: cx + r * frac * Math.cos(angle(i)),
