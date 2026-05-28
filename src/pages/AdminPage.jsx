@@ -906,7 +906,10 @@ function AdminPage() {
             </div>
 
             {/* ── Analytics grid (fills remaining viewport) ── */}
-            <div ref={analyticsRef} className="flex-1 min-h-0 grid gap-2 p-2 bg-gray-50" style={{ gridTemplateColumns: '1fr 1fr 1fr', gridTemplateRows: '0.4fr 0.6fr' }}>
+            <div ref={analyticsRef} className="flex-1 min-h-0 flex flex-col gap-2 p-2 bg-gray-50">
+
+              {/* ── Row 1 (40%) ── */}
+              <div className="min-h-0 grid gap-2" style={{ flex: '2 1 0', gridTemplateColumns: '1fr 1fr 1fr' }}>
 
               {/* Row 1, Col 1 — KPI summary */}
               <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-3 flex flex-col gap-3 justify-center">
@@ -965,6 +968,11 @@ function AdminPage() {
                 }
               </div>
 
+              </div>{/* end Row 1 */}
+
+              {/* ── Row 2 (60%) ── */}
+              <div className="min-h-0 grid gap-2" style={{ flex: '3 1 0', gridTemplateColumns: '1fr 2fr' }}>
+
               {/* Row 2, Col 1 — Submissions Over Time */}
               <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-3 flex flex-col min-h-0 overflow-hidden">
                 <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-0.5 flex-shrink-0">Submissions Over Time</p>
@@ -974,8 +982,8 @@ function AdminPage() {
                 </div>
               </div>
 
-              {/* Row 2, Col 2-3 — Company Comparison chart */}
-              <div className="col-span-2 bg-white rounded-xl border border-gray-200 shadow-sm p-3 flex flex-col min-h-0 overflow-hidden">
+              {/* Row 2, Col 2 — Company Comparison chart */}
+              <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-3 flex flex-col min-h-0 overflow-hidden">
                 <div className="flex items-center gap-2 mb-1.5 flex-shrink-0">
                   <p className="text-xs font-bold text-gray-400 uppercase tracking-widest flex-shrink-0">Company Comparison</p>
                   {companyEntries.length > 0 && (
@@ -1096,6 +1104,8 @@ function AdminPage() {
                   })()}
                 </div>
               </div>
+
+              </div>{/* end Row 2 */}
 
             </div>
           </div>
