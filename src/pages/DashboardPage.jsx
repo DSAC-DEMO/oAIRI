@@ -114,7 +114,7 @@ function LoginScreen({ onLogin }) {
             type="text"
             value={code}
             onChange={e => setCode(e.target.value)}
-            placeholder="Company code"
+            placeholder="Company code + DSAC"
             className="w-full border border-gray-300 text-gray-900 rounded-lg px-4 py-3 text-sm font-mono focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none mb-3"
             autoFocus
           />

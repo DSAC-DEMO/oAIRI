@@ -24,7 +24,11 @@ export async function onRequestPost(context) {
   }
 
   try {
-    const codeHash = await hashCode(code.trim());
+    const raw = code.trim();
+    if (!raw.toUpperCase().endsWith('DSAC')) {
+      return new Response(JSON.stringify({ success: false, error: 'Invalid session code' }), { status: 401, headers: cors });
+    }
+    const codeHash = await hashCode(raw.slice(0, -4));
     const session = await env.DB.prepare(
       'SELECT id, name, created_at, company_uen, round_label FROM sessions WHERE code_hash = ?'
     ).bind(codeHash).first();
