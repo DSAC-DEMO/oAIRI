@@ -841,7 +841,7 @@ function AdminPage() {
           <div className="flex-1 flex flex-col min-h-0">
             {/* ── Filter strip ── */}
             <div className="flex-shrink-0 bg-white border-b border-gray-100 px-4 py-2 space-y-2">
-              {/* Row 1: date range + actions */}
+              {/* Row 1: date range + compare + actions */}
               <div className="flex items-center gap-3">
                 <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider flex-shrink-0">Filters</span>
                 <div className="flex items-center gap-1.5 flex-shrink-0">
@@ -853,6 +853,65 @@ function AdminPage() {
                     <span className="text-xs text-blue-600 font-semibold">{companyFilteredResponses.length}/{responses.length}</span>
                   )}
                 </div>
+                {/* Company compare dropdown */}
+                {companyEntries.length > 0 && (
+                  <div ref={companyDropdownRef} className="relative flex-shrink-0">
+                    <button
+                      onClick={() => { setCompanyDropdownOpen(o => !o); setCompanySearchQuery(''); }}
+                      className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold border transition-colors ${selectedCompanyKeys.length > 0 ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-500 border-gray-200 hover:border-blue-400 hover:text-blue-600'}`}
+                    >
+                      <span>Compare{selectedCompanyKeys.length > 0 ? ` (${selectedCompanyKeys.length})` : ''}</span>
+                      <svg className={`w-3 h-3 transition-transform ${companyDropdownOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                    </button>
+                    {companyDropdownOpen && (
+                      <div className="absolute top-full left-0 mt-1 z-50 bg-white border border-gray-200 rounded-xl shadow-lg w-64">
+                        <div className="p-2 border-b border-gray-100">
+                          <input
+                            type="text"
+                            placeholder="Search companies…"
+                            value={companySearchQuery}
+                            onChange={e => setCompanySearchQuery(e.target.value)}
+                            autoFocus
+                            className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                          />
+                        </div>
+                        <div className="max-h-52 overflow-y-auto py-1">
+                          {companyEntries
+                            .filter(e => e.name.toLowerCase().includes(companySearchQuery.toLowerCase()))
+                            .map(entry => {
+                              const isSel = selectedCompanyKeys.includes(entry.key);
+                              return (
+                                <button
+                                  key={entry.key}
+                                  onClick={() => setSelectedCompanyKeys(prev => isSel ? prev.filter(k => k !== entry.key) : [...prev, entry.key])}
+                                  className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-left hover:bg-gray-50 transition-colors"
+                                >
+                                  <span
+                                    className="w-3.5 h-3.5 rounded flex-shrink-0 border flex items-center justify-center"
+                                    style={isSel ? { backgroundColor: companyColorMap[entry.key], borderColor: companyColorMap[entry.key] } : { borderColor: '#d1d5db' }}
+                                  >
+                                    {isSel && <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
+                                  </span>
+                                  <span className={`flex-1 truncate ${isSel ? 'font-semibold text-gray-800' : 'text-gray-600'}`}>
+                                    {entry.name}
+                                    {entry.sessions.length > 1 && <span className="ml-1 text-gray-400">{entry.sessions.length}R</span>}
+                                  </span>
+                                </button>
+                              );
+                            })}
+                          {companyEntries.filter(e => e.name.toLowerCase().includes(companySearchQuery.toLowerCase())).length === 0 && (
+                            <p className="text-xs text-gray-400 text-center py-3">No companies found</p>
+                          )}
+                        </div>
+                        {selectedCompanyKeys.length > 0 && (
+                          <div className="border-t border-gray-100 p-2">
+                            <button onClick={() => setSelectedCompanyKeys([])} className="text-xs text-blue-500 hover:text-blue-700 font-semibold w-full text-center">Clear selection</button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
                 <div className="flex-1" />
                 <div className="flex items-center gap-2 flex-shrink-0">
                   {hasActiveFilter && (
@@ -984,67 +1043,8 @@ function AdminPage() {
 
               {/* Row 2, Col 2 — Company Comparison chart */}
               <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-3 flex flex-col min-h-0 overflow-hidden">
-                <div className="flex items-center gap-2 mb-1.5 flex-shrink-0">
-                  <p className="text-xs font-bold text-gray-400 uppercase tracking-widest flex-shrink-0">Company Comparison</p>
-                  {companyEntries.length > 0 && (
-                    <div ref={companyDropdownRef} className="relative flex-shrink-0">
-                      <button
-                        onClick={() => { setCompanyDropdownOpen(o => !o); setCompanySearchQuery(''); }}
-                        className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold border transition-colors ${selectedCompanyKeys.length > 0 ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-500 border-gray-200 hover:border-blue-400 hover:text-blue-600'}`}
-                      >
-                        <span>Compare{selectedCompanyKeys.length > 0 ? ` (${selectedCompanyKeys.length})` : ''}</span>
-                        <svg className={`w-3 h-3 transition-transform ${companyDropdownOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-                      </button>
-                      {companyDropdownOpen && (
-                        <div className="absolute top-full left-0 mt-1 z-50 bg-white border border-gray-200 rounded-xl shadow-lg w-64">
-                          <div className="p-2 border-b border-gray-100">
-                            <input
-                              type="text"
-                              placeholder="Search companies…"
-                              value={companySearchQuery}
-                              onChange={e => setCompanySearchQuery(e.target.value)}
-                              autoFocus
-                              className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                            />
-                          </div>
-                          <div className="max-h-52 overflow-y-auto py-1">
-                            {companyEntries
-                              .filter(e => e.name.toLowerCase().includes(companySearchQuery.toLowerCase()))
-                              .map(entry => {
-                                const isSel = selectedCompanyKeys.includes(entry.key);
-                                return (
-                                  <button
-                                    key={entry.key}
-                                    onClick={() => setSelectedCompanyKeys(prev => isSel ? prev.filter(k => k !== entry.key) : [...prev, entry.key])}
-                                    className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-left hover:bg-gray-50 transition-colors"
-                                  >
-                                    <span
-                                      className="w-3.5 h-3.5 rounded flex-shrink-0 border flex items-center justify-center"
-                                      style={isSel ? { backgroundColor: companyColorMap[entry.key], borderColor: companyColorMap[entry.key] } : { borderColor: '#d1d5db' }}
-                                    >
-                                      {isSel && <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
-                                    </span>
-                                    <span className={`flex-1 truncate ${isSel ? 'font-semibold text-gray-800' : 'text-gray-600'}`}>
-                                      {entry.name}
-                                      {entry.sessions.length > 1 && <span className="ml-1 text-gray-400">{entry.sessions.length}R</span>}
-                                    </span>
-                                  </button>
-                                );
-                              })}
-                            {companyEntries.filter(e => e.name.toLowerCase().includes(companySearchQuery.toLowerCase())).length === 0 && (
-                              <p className="text-xs text-gray-400 text-center py-3">No companies found</p>
-                            )}
-                          </div>
-                          {selectedCompanyKeys.length > 0 && (
-                            <div className="border-t border-gray-100 p-2">
-                              <button onClick={() => setSelectedCompanyKeys([])} className="text-xs text-blue-500 hover:text-blue-700 font-semibold w-full text-center">Clear selection</button>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                  <div className="flex-1" />
+                <div className="flex items-center justify-between mb-1.5 flex-shrink-0">
+                  <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Company Comparison</p>
                   <div className="flex items-center gap-1">
                     <button
                       onClick={() => setCompareChartType('radar')}
@@ -1064,7 +1064,7 @@ function AdminPage() {
                 </div>
                 <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
                   {selectedCompanyKeys.length === 0 && (
-                    <p className="text-xs text-gray-400 text-center mt-4">Use the Compare selector to select companies.</p>
+                    <p className="text-xs text-gray-400 text-center mt-4">Select companies using the Compare filter above.</p>
                   )}
                   {selectedCompanyKeys.length >= 1 && (compareChartType === 'radar' || selectedCompanyKeys.length < 2) && (
                     <div className="flex-1 min-h-0 w-full">

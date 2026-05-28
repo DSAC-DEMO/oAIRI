@@ -136,7 +136,14 @@ function LoginScreen({ onLogin }) {
 
 // ── Main dashboard ────────────────────────────────────────────────────────────
 function Dashboard({ data, onRefresh, onLogout, refreshing }) {
-  const { session, responses: rawResponses, questions, readinessLevels, rounds = [] } = data;
+  const { session, responses: rawResponses, questions, readinessLevels, rounds: rawRounds = [] } = data;
+  // Always sort rounds by session creation time so Round 1 = earliest, regardless of which code was entered
+  const rounds = useMemo(
+    () => [...rawRounds]
+      .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
+      .map((r, i) => ({ ...r, roundNum: i + 1 })),
+    [rawRounds]
+  );
   const dashboardRef = useRef(null);
   const [selectedLevel, setSelectedLevel] = useState(null);
   const [exporting, setExporting] = useState(false);
