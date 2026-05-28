@@ -838,7 +838,7 @@ function AdminPage() {
 
 
         return (
-          <>
+          <div className="flex-1 flex flex-col min-h-0">
             {/* ── Filter strip ── */}
             <div className="flex-shrink-0 bg-white border-b border-gray-100 px-4 py-2 space-y-2">
               {/* Row 1: date range + actions */}
@@ -1098,7 +1098,7 @@ function AdminPage() {
               </div>
 
             </div>
-          </>
+          </div>
         );
       })()}
 
