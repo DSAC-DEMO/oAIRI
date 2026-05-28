@@ -72,7 +72,7 @@ export async function onRequestGet(context) {
     ).all();
 
     const { results: questions } = await env.DB.prepare(
-      'SELECT id, category, question, dimension, q_id, order_num FROM questions ORDER BY order_num ASC, id ASC'
+      'SELECT id, category, question, order_num FROM questions ORDER BY order_num ASC, id ASC'
     ).all();
 
     const { results: questionOptions } = await env.DB.prepare(

@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "db:init": "wrangler d1 execute survey-db --local --file=schema.sql",
+    "db:init": "wrangler d1 execute p-airi --local --file=schema.sql",
     "wrangler:dev": "wrangler pages dev dist --port 8788",
     "start": "npm run build && npm run db:init && npm run wrangler:dev"
   },
