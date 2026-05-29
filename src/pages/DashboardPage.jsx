@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
 
 // ── Plotly light chart config ─────────────────────────────────────────────────
 const LIGHT = {
@@ -422,10 +424,6 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
     if (!el) return;
     setExporting(true);
     try {
-      const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([
-        import('html2canvas'),
-        import('jspdf'),
-      ]);
       const canvas = await html2canvas(el, { scale: 2, useCORS: true, backgroundColor: '#f9fafb' });
       const imgData = canvas.toDataURL('image/png');
       const w = canvas.width / 2;

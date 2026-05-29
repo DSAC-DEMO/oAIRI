@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import RadarChart from '../components/RadarChart';
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
 
 function PillarChart({ pillars }) {
   if (!pillars.length) return null;
@@ -466,10 +468,6 @@ function AdminPage() {
     if (!el) return;
     setExportingPDF(true);
     try {
-      const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([
-        import('html2canvas'),
-        import('jspdf'),
-      ]);
       const canvas = await html2canvas(el, { scale: 2, useCORS: true, backgroundColor: '#f9fafb' });
       const imgData = canvas.toDataURL('image/png');
       const w = canvas.width / 2;
