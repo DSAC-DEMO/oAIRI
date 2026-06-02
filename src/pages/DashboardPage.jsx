@@ -183,6 +183,13 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
   const [selectedLevel, setSelectedLevel] = useState(null);
   const [exporting, setExporting] = useState(false);
   const [expandedChart, setExpandedChart] = useState(null);
+  const [deptDropdownOpen, setDeptDropdownOpen] = useState(null); // roundNum | null
+  const deptDropdownRef = useRef(null);
+  useEffect(() => {
+    const handler = (e) => { if (deptDropdownRef.current && !deptDropdownRef.current.contains(e.target)) setDeptDropdownOpen(null); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
 
   const hasMultipleRounds = rounds.length > 1;
   const initialRound = useMemo(() => {
@@ -519,59 +526,92 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
         </div>
       </div>
 
-      {/* ── Round tabs ── */}
+      {/* ── Round tabs (with per-round dept dropdown when applicable) ── */}
       {hasMultipleRounds && (
-        <div className="flex-shrink-0 bg-white border-b border-gray-100 px-6 py-2 flex items-center gap-2 overflow-x-auto">
+        <div ref={deptDropdownRef} className="flex-shrink-0 bg-white border-b border-gray-100 px-6 py-2 flex items-center gap-2 overflow-x-auto">
           <span className="text-xs text-gray-400 font-semibold mr-1 flex-shrink-0">Round:</span>
           <button
-            onClick={() => switchRound('overall')}
+            onClick={() => { switchRound('overall'); setDeptDropdownOpen(null); }}
             className={`px-3 py-1 rounded-full text-xs font-semibold border transition-colors flex-shrink-0 ${
               activeRound === 'overall' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-500 border-gray-200 hover:border-blue-400 hover:text-blue-600'
             }`}
           >Overall</button>
+
           {rounds.map((r) => {
-            const isActive  = activeRound === r.roundNum;
-            const isCurrent = r.sessionId === session.id;
-            const dateStr   = new Date(r.createdAt).toLocaleDateString('en-SG', { month: 'short', year: 'numeric' });
+            const isActive   = activeRound === r.roundNum;
+            const isCurrent  = r.sessionId === session.id;
+            const dateStr    = new Date(r.createdAt).toLocaleDateString('en-SG', { month: 'short', year: 'numeric' });
+            const hasDepts   = r.departments && r.departments.length > 0;
+            const ddOpen     = deptDropdownOpen === r.roundNum;
+            const activeDeptForRound = isActive ? (activeDept || 'overview') : null;
+
             return (
-              <button
-                key={r.roundNum}
-                onClick={() => switchRound(r.roundNum)}
-                className={`px-3 py-1 rounded-full text-xs font-semibold border transition-colors flex-shrink-0 ${
-                  isActive ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-500 border-gray-200 hover:border-blue-400 hover:text-blue-600'
-                }`}
-              >
-                Round {r.roundNum}{r.label ? ` · ${r.label}` : ''}
-                <span className={`ml-1 ${isActive ? 'opacity-70' : 'text-gray-400'}`}>· {dateStr}</span>
-                {isCurrent && <span className={`ml-1 ${isActive ? 'opacity-80' : 'text-blue-500'}`}>★</span>}
-              </button>
+              <div key={r.roundNum} className="relative flex-shrink-0">
+                <div className={`flex items-center rounded-full border text-xs font-semibold transition-colors ${
+                  isActive ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-500 border-gray-200'
+                }`}>
+                  {/* Round label — click to select round */}
+                  <button
+                    onClick={() => { switchRound(r.roundNum); setDeptDropdownOpen(null); }}
+                    className="pl-3 pr-2 py-1"
+                  >
+                    Round {r.roundNum}{r.label ? ` · ${r.label}` : ''}
+                    <span className={`ml-1 ${isActive ? 'opacity-70' : 'text-gray-400'}`}>· {dateStr}</span>
+                    {isCurrent && <span className={`ml-1 ${isActive ? 'opacity-80' : 'text-blue-400'}`}>★</span>}
+                    {hasDepts && isActive && activeDeptForRound !== 'overview' && (
+                      <span className={`ml-1.5 text-purple-300 font-normal`}>· {activeDeptForRound}</span>
+                    )}
+                  </button>
+
+                  {/* Dept chevron — only on rounds that have departments */}
+                  {hasDepts && (
+                    <button
+                      onClick={() => { switchRound(r.roundNum); setDeptDropdownOpen(ddOpen ? null : r.roundNum); }}
+                      className={`pr-2 pl-1 py-1 border-l transition-colors ${
+                        isActive ? 'border-blue-500 hover:bg-blue-700' : 'border-gray-200 hover:bg-gray-50'
+                      } rounded-r-full`}
+                      title="Select department"
+                    >
+                      <svg className={`w-3 h-3 transition-transform ${ddOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+
+                {/* Dept dropdown */}
+                {hasDepts && ddOpen && (
+                  <div className="absolute top-full left-0 mt-1.5 z-30 bg-white rounded-xl shadow-lg border border-gray-200 py-1 min-w-[160px]">
+                    <button
+                      onClick={() => { switchRound(r.roundNum); switchDept('overview'); setDeptDropdownOpen(null); }}
+                      className={`w-full text-left px-3 py-1.5 text-xs font-semibold transition-colors flex items-center gap-2 ${
+                        isActive && (!activeDept || activeDept === 'overview') ? 'text-purple-700 bg-purple-50' : 'text-gray-600 hover:bg-gray-50'
+                      }`}
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full bg-purple-400 flex-shrink-0" />
+                      All Departments
+                    </button>
+                    <div className="my-1 border-t border-gray-100" />
+                    {r.departments.map((d, di) => (
+                      <button
+                        key={d.label}
+                        onClick={() => { switchRound(r.roundNum); switchDept(d.label); setDeptDropdownOpen(null); }}
+                        className={`w-full text-left px-3 py-1.5 text-xs transition-colors flex items-center justify-between gap-3 ${
+                          isActive && activeDept === d.label ? 'text-purple-700 bg-purple-50 font-semibold' : 'text-gray-600 hover:bg-gray-50'
+                        }`}
+                      >
+                        <span className="flex items-center gap-2">
+                          <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: ROUND_COLORS[di % ROUND_COLORS.length] }} />
+                          {d.label}
+                        </span>
+                        <span className="text-gray-400 flex-shrink-0">{d.responses.length}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             );
           })}
-        </div>
-      )}
-
-      {/* ── Department tabs (per-round, shown when selected round has depts) ── */}
-      {hasRoundDepts && (
-        <div className="flex-shrink-0 bg-white border-b border-purple-100 px-6 py-2 flex items-center gap-2 overflow-x-auto">
-          <span className="text-xs text-purple-400 font-semibold mr-1 flex-shrink-0">Department:</span>
-          <button
-            onClick={() => switchDept('overview')}
-            className={`px-3 py-1 rounded-full text-xs font-semibold border transition-colors flex-shrink-0 ${
-              !activeDept || activeDept === 'overview' ? 'bg-purple-600 text-white border-purple-600' : 'bg-white text-gray-500 border-gray-200 hover:border-purple-400 hover:text-purple-600'
-            }`}
-          >Overview</button>
-          {roundDepts.map((d) => (
-            <button
-              key={d.label}
-              onClick={() => switchDept(d.label)}
-              className={`px-3 py-1 rounded-full text-xs font-semibold border transition-colors flex-shrink-0 ${
-                activeDept === d.label ? 'bg-purple-600 text-white border-purple-600' : 'bg-white text-gray-500 border-gray-200 hover:border-purple-400 hover:text-purple-600'
-              }`}
-            >
-              {d.label}
-              <span className={`ml-1 ${activeDept === d.label ? 'opacity-70' : 'text-gray-400'}`}>· {d.responses.length}</span>
-            </button>
-          ))}
         </div>
       )}
 
