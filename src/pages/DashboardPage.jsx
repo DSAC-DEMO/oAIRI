@@ -57,6 +57,50 @@ function PlotlyChart({ traces, layout, onReady, onClickPoint }) {
   );
 }
 
+// ── Expand icon ───────────────────────────────────────────────────────────────
+function ExpandIcon() {
+  return (
+    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+        d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+    </svg>
+  );
+}
+
+// ── Chart expand modal ────────────────────────────────────────────────────────
+function ChartModal({ chart, onClose }) {
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px]" onClick={onClose} />
+      <div className="relative bg-white rounded-2xl shadow-2xl flex flex-col" style={{ width: '80vw', height: '80vh', maxWidth: '1200px' }}>
+        <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100 flex-shrink-0">
+          <div>
+            <p className="text-sm font-bold text-gray-800">{chart.title}</p>
+            {chart.subtitle && <p className="text-xs text-gray-400 mt-0.5">{chart.subtitle}</p>}
+          </div>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-700 transition-colors w-7 h-7 flex items-center justify-center rounded-lg hover:bg-gray-100"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        <div className="flex-1 min-h-0 p-4">
+          <PlotlyChart traces={chart.traces} layout={chart.layout} onClickPoint={chart.onClickPoint} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Login screen ──────────────────────────────────────────────────────────────
 function LoginScreen({ onLogin }) {
   const [code, setCode] = useState('');
@@ -138,6 +182,7 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
   const dashboardRef = useRef(null);
   const [selectedLevel, setSelectedLevel] = useState(null);
   const [exporting, setExporting] = useState(false);
+  const [expandedChart, setExpandedChart] = useState(null);
 
   const hasMultipleRounds = rounds.length > 1;
   const initialRound = useMemo(() => {
@@ -566,11 +611,29 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
             {/* Survey description */}
             <div className="flex-shrink-0">
               <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">About This Survey</p>
-              <p className="text-xs text-gray-500 leading-relaxed">
-                This AI Readiness Survey assesses your organisation's capability across key AI-related competencies.
-                Participants completed scenario-based questions across multiple pillars, producing a readiness score
-                on a 0–5 scale that maps to one of five readiness levels below.
+              <p className="text-xs text-gray-500 leading-relaxed mb-2">
+                The <span className="font-semibold text-gray-700">pAIRI</span> (Personal AI Readiness Index) is a comprehensive instrument designed to measure an individual's maturity and capability in the rapidly evolving AI landscape.
               </p>
+              <p className="text-xs text-gray-500 leading-relaxed mb-1.5">
+                This instrument breaks down "AI Readiness" into a holistic framework consisting of 15 questions across <span className="font-semibold text-gray-700">5 Core Pillars</span>:
+              </p>
+              <ol className="text-xs text-gray-500 space-y-1 mb-2 pl-3 list-decimal">
+                <li><span className="font-semibold text-gray-700">Mindset:</span> Adaptability, continuous learning, and how you position your role for the AI era.</li>
+                <li><span className="font-semibold text-gray-700">Ethics &amp; Responsibility:</span> Awareness of bias, risks, and critical evaluation of AI outputs.</li>
+                <li><span className="font-semibold text-gray-700">Value Creation:</span> Identifying use cases and driving actual productivity gains.</li>
+                <li><span className="font-semibold text-gray-700">Data Literacy:</span> Understanding data quality and proficiency in preparing data for AI.</li>
+                <li><span className="font-semibold text-gray-700">Tools &amp; Technical Skills:</span> Prompt engineering, agent orchestration, and building AI workflows.</li>
+              </ol>
+              <p className="text-xs text-gray-500 leading-relaxed mb-1.5">
+                Based on the final assessment score, the individual is placed into one of <span className="font-semibold text-gray-700">five maturity levels</span>:
+              </p>
+              <ul className="text-xs text-gray-500 space-y-0.5 pl-1">
+                <li>· Level 0: <span className="font-semibold text-gray-700">AI Unaware</span> (Bystander) — Score &lt; 1.00</li>
+                <li>· Level 1: <span className="font-semibold text-gray-700">AI Aware</span> (Explorer) — Score 1.00 to 1.99</li>
+                <li>· Level 2: <span className="font-semibold text-gray-700">AI Ready</span> (Practitioner) — Score 2.00 to 2.99</li>
+                <li>· Level 3: <span className="font-semibold text-gray-700">AI Competent</span> (Builder) — Score 3.00 to 3.99</li>
+                <li>· Level 4: <span className="font-semibold text-gray-700">AI Catalyst</span> (Pioneer) — Score 4.00 to 5.00</li>
+              </ul>
             </div>
 
             <div className="w-full h-px bg-gray-100 my-4 flex-shrink-0" />
@@ -594,7 +657,16 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
 
           {/* ── TOP MID: Radar ── */}
           <div className="bg-white border border-gray-200 rounded-xl p-4 flex flex-col min-h-0 shadow-sm">
-            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 flex-shrink-0">Competency Profile</p>
+            <div className="flex items-center justify-between flex-shrink-0 mb-2">
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Competency Profile</p>
+              <button
+                onClick={() => setExpandedChart({ title: 'Competency Profile', subtitle: activeRound === 'overall' ? 'All rounds overlaid' : selectedLevelName ? `${selectedLevelName} · ${filteredTotal} respondent${filteredTotal !== 1 ? 's' : ''}` : null, traces: radarTraces, layout: radarLayout })}
+                className="text-gray-300 hover:text-gray-500 transition-colors p-1 rounded hover:bg-gray-50"
+                title="Expand"
+              >
+                <ExpandIcon />
+              </button>
+            </div>
             {activeRound !== 'overall' && selectedLevel !== null && (
               <p className="text-xs mb-1 flex-shrink-0" style={{ color: accentColor }}>
                 {selectedLevelName} · {filteredTotal} respondent{filteredTotal !== 1 ? 's' : ''}
@@ -613,12 +685,21 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
 
           {/* ── TOP RIGHT: Readiness Distribution ── */}
           <div className="bg-white border border-gray-200 rounded-xl p-4 flex flex-col min-h-0 shadow-sm">
-            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 flex-shrink-0">
-              Readiness Distribution
-              {activeRound !== 'overall' && selectedLevel === null && (
-                <span className="text-gray-300 font-normal ml-1">(click a bar to filter)</span>
-              )}
-            </p>
+            <div className="flex items-center justify-between flex-shrink-0 mb-2">
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">
+                Readiness Distribution
+                {activeRound !== 'overall' && selectedLevel === null && (
+                  <span className="text-gray-300 font-normal ml-1">(click a bar to filter)</span>
+                )}
+              </p>
+              <button
+                onClick={() => setExpandedChart({ title: 'Readiness Distribution', traces: distTraces, layout: distLayout, onClickPoint: activeRound !== 'overall' ? handleDistClick : undefined })}
+                className="text-gray-300 hover:text-gray-500 transition-colors p-1 rounded hover:bg-gray-50"
+                title="Expand"
+              >
+                <ExpandIcon />
+              </button>
+            </div>
             <div className="flex-1 min-h-0">
               <PlotlyChart
                 traces={distTraces}
@@ -630,7 +711,18 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
 
           {/* ── BOTTOM (col-span-2): Most Recommended Programs ── */}
           <div className="bg-white border border-gray-200 rounded-xl p-4 col-span-2 flex flex-col min-h-0 shadow-sm">
-            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 flex-shrink-0">Most Recommended Programs</p>
+            <div className="flex items-center justify-between flex-shrink-0 mb-2">
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Most Recommended Programs</p>
+              {programCounts.length > 0 && (
+                <button
+                  onClick={() => setExpandedChart({ title: 'Most Recommended Programs', traces: programTraces, layout: programLayout })}
+                  className="text-gray-300 hover:text-gray-500 transition-colors p-1 rounded hover:bg-gray-50"
+                  title="Expand"
+                >
+                  <ExpandIcon />
+                </button>
+              )}
+            </div>
             <div className="flex-1 min-h-0">
               {programCounts.length > 0
                 ? <PlotlyChart traces={programTraces} layout={programLayout} />
@@ -646,6 +738,10 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
           </div>
 
         </div>
+      )}
+
+      {expandedChart && (
+        <ChartModal chart={expandedChart} onClose={() => setExpandedChart(null)} />
       )}
     </div>
   );
