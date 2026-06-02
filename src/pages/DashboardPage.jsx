@@ -591,7 +591,7 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
               )}
             </div>
 
-            <div className="w-full h-px bg-gray-100 my-4 flex-shrink-0" />
+            <div className="w-full my-4 flex-shrink-0 border-t-2 border-dashed border-gray-200" />
 
             {/* Survey description */}
             <div className="flex-shrink-0">
