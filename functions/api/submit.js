@@ -11,11 +11,11 @@ function getCompetencyIndex(score) {
 }
 
 const DEFAULT_READINESS_LEVELS = [
-  { name: 'Expert Ready',     persona: 'Disciplined', description: 'Demonstrates exceptional decision-making and readiness across all scenarios' },
-  { name: 'Advanced Ready',   persona: 'Crafter',     description: 'Shows strong readiness with consistent good judgment'                        },
-  { name: 'Moderately Ready', persona: 'Explorer',    description: 'Displays adequate readiness with room for development'                        },
-  { name: 'Developing',       persona: 'Learner',     description: 'Shows basic readiness but needs significant improvement'                      },
-  { name: 'Novice',           persona: 'Observer',    description: 'Limited readiness; requires substantial training and support'                  },
+  { name: 'Expert Ready',     persona: 'Disciplined', description: 'Demonstrates exceptional AI readiness and leads others confidently.' },
+  { name: 'Advanced Ready',   persona: 'Crafter',     description: 'Shows strong AI readiness with consistent good judgement.'           },
+  { name: 'Moderately Ready', persona: 'Explorer',    description: 'Displays adequate AI readiness with room for development.'           },
+  { name: 'Developing',       persona: 'Learner',     description: 'Shows foundational awareness but needs structured development.'      },
+  { name: 'Novice',           persona: 'Observer',    description: 'Limited AI readiness; requires substantial training and support.'    },
 ];
 const READINESS_COLORS = ['emerald', 'green', 'yellow', 'orange', 'red'];
 
@@ -62,16 +62,19 @@ export async function onRequestPost(context) {
       );
     }
 
-    // Load level names from settings (fall back to defaults if table missing)
+    // Load level names and courses from settings
     let readinessLevelNames = DEFAULT_READINESS_LEVELS;
     let optionLevelNames = DEFAULT_OPTION_LEVELS;
+    let courses = [];
     try {
-      const [rlRow, olRow] = await Promise.all([
+      const [rlRow, olRow, cRow] = await Promise.all([
         env.DB.prepare("SELECT value FROM settings WHERE key = 'readiness_levels'").first(),
         env.DB.prepare("SELECT value FROM settings WHERE key = 'option_levels'").first(),
+        env.DB.prepare("SELECT value FROM settings WHERE key = 'courses'").first(),
       ]);
       if (rlRow?.value) readinessLevelNames = JSON.parse(rlRow.value);
       if (olRow?.value) optionLevelNames = JSON.parse(olRow.value);
+      if (cRow?.value) courses = JSON.parse(cRow.value);
     } catch {}
 
     // Fetch questions + options
@@ -91,8 +94,8 @@ export async function onRequestPost(context) {
     }
 
     // Build lookups
-    const optionMap  = {};   // optionId -> { weight, questionId }
-    const categoryByQ = {};  // questionId -> category
+    const optionMap  = {};
+    const categoryByQ = {};
 
     for (const opt of options) {
       optionMap[opt.id] = { weight: parseFloat(opt.weight), questionId: opt.question_id };
@@ -115,7 +118,7 @@ export async function onRequestPost(context) {
     // Score calculation
     let totalScore = 0;
     const answersJson = {};
-    const pillars = {}; // category -> { sum, count }
+    const pillars = {};
 
     for (const qId of questionIds) {
       const optionId = parseInt(answers[qId]);
@@ -139,7 +142,6 @@ export async function onRequestPost(context) {
       pillars[cat].count += 1;
     }
 
-    // Overall mean (mean of all individual question scores, 0-5)
     const overallMean = Math.round((totalScore / questionIds.length) * 100) / 100;
 
     // Per-pillar scores
@@ -161,12 +163,24 @@ export async function onRequestPost(context) {
       competency: { label: optionLevelNames[overallCI] ?? DEFAULT_OPTION_LEVELS[overallCI], color: OPTION_LEVEL_COLORS[overallCI] },
     };
 
+    // Determine which courses are recommended for this participant
+    const levelIdx = overallMean >= 4 ? 0 : overallMean >= 3 ? 1 : overallMean >= 2 ? 2 : overallMean >= 1 ? 3 : 4;
+    const recommendedCourses = [];
+    for (const course of courses) {
+      let matches = course.levels?.includes(levelIdx) ?? false;
+      if (!matches && course.pillarConditions?.length) {
+        matches = course.pillarConditions.some(pc => {
+          const pScore = pillarScores[pc.pillar]?.avg;
+          return pScore !== undefined && (pc.levels?.includes(getCompetencyIndex(pScore)) ?? false);
+        });
+      }
+      if (matches) recommendedCourses.push(course.name);
+    }
+
     const isSPStaff  = staffInfo?.isSPStaff ? 1 : 0;
     const department = staffInfo?.department?.trim() || '';
 
     // Resolve optional session → session_id
-    // Accept either a direct sessionId (integer, from dropdown selection)
-    // or a sessionCode string (from manual entry / dashboard login)
     let sessionId = null;
     if (body.sessionId && Number.isInteger(body.sessionId) && body.sessionId > 0) {
       try {
@@ -186,12 +200,13 @@ export async function onRequestPost(context) {
     }
 
     await env.DB.prepare(
-      'INSERT INTO responses (answers_json, total_score, score_pct, readiness_level, is_sp_staff, department, session_id) VALUES (?, ?, ?, ?, ?, ?, ?)'
+      'INSERT INTO responses (answers_json, total_score, score_pct, readiness_level, recommended_courses, is_sp_staff, department, session_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
     ).bind(
       JSON.stringify(answersJson),
       Math.round(totalScore * 100) / 100 || 0,
       overallMean || 0,
       readinessData.label ?? 'Novice',
+      JSON.stringify(recommendedCourses),
       isSPStaff,
       department,
       sessionId

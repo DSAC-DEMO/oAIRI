@@ -39,13 +39,14 @@ CREATE TABLE sessions (
 );
 
 CREATE TABLE responses (
-  id              INTEGER PRIMARY KEY AUTOINCREMENT,
-  answers_json    TEXT NOT NULL,
-  total_score     INTEGER NOT NULL,
-  score_pct       REAL NOT NULL,
-  readiness_level TEXT NOT NULL,
-  is_sp_staff     INTEGER NOT NULL DEFAULT 0,
-  department      TEXT NOT NULL DEFAULT '',
-  session_id      INTEGER REFERENCES sessions(id),
-  submitted_at    DATETIME DEFAULT CURRENT_TIMESTAMP
+  id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+  answers_json        TEXT NOT NULL,
+  total_score         INTEGER NOT NULL,
+  score_pct           REAL NOT NULL,
+  readiness_level     TEXT NOT NULL,
+  recommended_courses TEXT NOT NULL DEFAULT '[]',
+  is_sp_staff         INTEGER NOT NULL DEFAULT 0,
+  department          TEXT NOT NULL DEFAULT '',
+  session_id          INTEGER REFERENCES sessions(id),
+  submitted_at        DATETIME DEFAULT CURRENT_TIMESTAMP
 );

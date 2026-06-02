@@ -26,17 +26,6 @@ const READINESS_LEVEL_STYLES = [
 // Distinct colours per round for progression view
 const ROUND_COLORS = ['#2563eb', '#7c3aed', '#059669', '#d97706', '#0891b2', '#dc2626'];
 
-// ── KPI card ──────────────────────────────────────────────────────────────────
-function KpiCard({ label, value, sub, accent = '#3b82f6' }) {
-  return (
-    <div className="bg-white rounded-xl p-4 flex flex-col justify-center border border-gray-200 shadow-sm">
-      <div className="text-2xl font-bold tabular-nums" style={{ color: accent }}>{value}</div>
-      <div className="text-xs font-semibold text-gray-600 mt-0.5">{label}</div>
-      {sub && <div className="text-xs text-gray-400 mt-0.5">{sub}</div>}
-    </div>
-  );
-}
-
 // ── Chart wrapper ─────────────────────────────────────────────────────────────
 function PlotlyChart({ traces, layout, onReady, onClickPoint }) {
   const ref      = useRef(null);
@@ -139,7 +128,7 @@ function LoginScreen({ onLogin }) {
 // ── Main dashboard ────────────────────────────────────────────────────────────
 function Dashboard({ data, onRefresh, onLogout, refreshing }) {
   const { session, responses: rawResponses, questions, readinessLevels, rounds: rawRounds = [] } = data;
-  // Always sort rounds by session creation time so Round 1 = earliest, regardless of which code was entered
+
   const rounds = useMemo(
     () => [...rawRounds]
       .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
@@ -150,7 +139,6 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
   const [selectedLevel, setSelectedLevel] = useState(null);
   const [exporting, setExporting] = useState(false);
 
-  // Round tab state — only active when multiple rounds exist
   const hasMultipleRounds = rounds.length > 1;
   const initialRound = useMemo(() => {
     if (!hasMultipleRounds) return null;
@@ -163,7 +151,6 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
     setSelectedLevel(null);
   }, []);
 
-  // Active responses: switch based on selected round tab
   const responses = useMemo(() => {
     if (!hasMultipleRounds) return rawResponses;
     if (activeRound === 'overall') return rounds.flatMap(r => r.responses);
@@ -171,7 +158,6 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
     return round ? round.responses : rawResponses;
   }, [hasMultipleRounds, activeRound, rounds, rawResponses]);
 
-  // Per-round breakdown for overlay charts in overall mode
   const perRoundStats = useMemo(() => {
     if (activeRound !== 'overall' || !questions.length) return null;
     return rounds.map((round) => {
@@ -195,23 +181,9 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
       }));
       const scores = round.responses.map(r => r.score_pct || 0);
       const avg = scores.length ? scores.reduce((a, b) => a + b, 0) / scores.length : 0;
-      return {
-        roundNum: round.roundNum,
-        label: round.label,
-        createdAt: round.createdAt,
-        totalResponses: round.responses.length,
-        readinessCounts: counts,
-        pillarList,
-        avg,
-      };
+      return { roundNum: round.roundNum, label: round.label, createdAt: round.createdAt, totalResponses: round.responses.length, readinessCounts: counts, pillarList, avg };
     });
   }, [activeRound, rounds, questions]);
-
-  // Consistent pillar ordering (from question list order) for overall grouped bars
-  const pillarOrder = useMemo(
-    () => [...new Map(questions.map(q => [q.category, null])).keys()],
-    [questions]
-  );
 
   const readinessCounts = useMemo(() => {
     const counts = [0, 0, 0, 0, 0];
@@ -232,7 +204,7 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
     [responses, selectedLevel, activeRound]
   );
 
-  const { pillarList, overallAvg, maxScore, minScore } = useMemo(() => {
+  const { pillarList, overallAvg } = useMemo(() => {
     const pillarMap = {};
     for (const r of filteredResponses) {
       let ans = {};
@@ -251,8 +223,23 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
     }));
     const scores = filteredResponses.map(r => r.score_pct || 0);
     const overallAvg = scores.length ? scores.reduce((a, b) => a + b, 0) / scores.length : 0;
-    return { pillarList, overallAvg, maxScore: scores.length ? Math.max(...scores) : 0, minScore: scores.length ? Math.min(...scores) : 0 };
+    return { pillarList, overallAvg };
   }, [filteredResponses, questions]);
+
+  // Aggregate recommended program counts from current filtered responses
+  const programCounts = useMemo(() => {
+    const counts = {};
+    for (const r of filteredResponses) {
+      let recs = [];
+      try { recs = JSON.parse(r.recommended_courses || '[]'); } catch {}
+      for (const name of recs) {
+        counts[name] = (counts[name] || 0) + 1;
+      }
+    }
+    return Object.entries(counts)
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count);
+  }, [filteredResponses]);
 
   const total         = responses.length;
   const filteredTotal = filteredResponses.length;
@@ -267,7 +254,6 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
   // ── Chart traces / layouts ────────────────────────────────────────────────
 
   const radarTraces = useMemo(() => {
-    // Overall: one overlaid trace per round
     if (activeRound === 'overall' && perRoundStats) {
       return perRoundStats.map((rs, i) => {
         if (rs.pillarList.length < 3) return null;
@@ -281,7 +267,6 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
         };
       }).filter(Boolean);
     }
-    // Single round
     if (pillarList.length < 3) return [];
     const cats  = [...pillarList.map(p => p.name), pillarList[0].name];
     const vals  = [...pillarList.map(p => p.avg), pillarList[0].avg];
@@ -305,7 +290,6 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
   }), [activeRound]);
 
   const distTraces = useMemo(() => {
-    // Overall: grouped bars, one per round
     if (activeRound === 'overall' && perRoundStats) {
       return perRoundStats.map((rs, i) => {
         const color = ROUND_COLORS[i % ROUND_COLORS.length];
@@ -322,7 +306,6 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
         };
       });
     }
-    // Single round
     return [{
       type: 'bar',
       x: readinessLevels.map(l => l.name ?? l),
@@ -351,72 +334,49 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
     margin: { t: activeRound === 'overall' ? 56 : 36, b: 70, l: 36, r: 16 },
   }), [activeRound, readinessLevels]);
 
-  const sorted = useMemo(() => [...pillarList].sort((a, b) => a.avg - b.avg), [pillarList]);
-
-  const pillarTraces = useMemo(() => {
-    // Overall: grouped horizontal bars, one per round, consistent pillar order
-    if (activeRound === 'overall' && perRoundStats) {
-      return perRoundStats.map((rs, i) => {
-        const color = ROUND_COLORS[i % ROUND_COLORS.length];
-        const avgs = pillarOrder.map(name => {
-          const p = rs.pillarList.find(pl => pl.name === name);
-          return p ? p.avg : 0;
-        });
-        return {
-          type: 'bar', orientation: 'h',
-          x: avgs,
-          y: pillarOrder,
-          name: `Round ${rs.roundNum}${rs.label ? ` · ${rs.label}` : ''}`,
-          marker: { color, opacity: 0.85 },
-          text: avgs.map(v => v.toFixed(2)),
-          textposition: 'outside',
-          cliponaxis: false,
-        };
-      });
-    }
-    // Single round
+  const programTraces = useMemo(() => {
+    if (!programCounts.length) return [];
     return [{
-      type: 'bar', orientation: 'h',
-      x: sorted.map(p => p.avg),
-      y: sorted.map(p => p.name),
-      text: sorted.map(p => p.avg.toFixed(2)),
-      textposition: 'outside', cliponaxis: false,
-      marker: { color: sorted.map(p => { const a = p.avg; return a > 3.75 ? LEVEL_COLORS[0] : a > 2.5 ? LEVEL_COLORS[1] : a > 1.25 ? LEVEL_COLORS[2] : a > 0 ? LEVEL_COLORS[3] : LEVEL_COLORS[4]; }) },
+      type: 'bar',
+      orientation: 'h',
+      x: programCounts.map(p => p.count),
+      y: programCounts.map(p => p.name),
+      text: programCounts.map(p => String(p.count)),
+      textposition: 'outside',
+      cliponaxis: false,
+      marker: { color: '#2563eb', opacity: 0.85 },
+      hovertemplate: '%{y}: %{x} participants<extra></extra>',
     }];
-  }, [activeRound, perRoundStats, pillarOrder, sorted]);
+  }, [programCounts]);
 
-  const pillarLayout = useMemo(() => {
-    const annotations = [];
-    if (activeRound === 'overall' && perRoundStats && perRoundStats.length > 1) {
-      const first = perRoundStats[0];
-      const last  = perRoundStats[perRoundStats.length - 1];
-      for (const name of pillarOrder) {
-        const a = first.pillarList.find(p => p.name === name)?.avg ?? 0;
-        const b = last.pillarList.find(p => p.name === name)?.avg ?? 0;
-        const delta = b - a;
-        annotations.push({
-          x: 1.02, xref: 'paper',
-          y: name,  yref: 'y',
-          text: `<b>${delta >= 0 ? '+' : ''}${delta.toFixed(2)}</b>`,
-          showarrow: false,
-          font: { size: 10, color: delta > 0 ? '#22c55e' : delta < 0 ? '#f87171' : '#9ca3af' },
-          xanchor: 'left',
-        });
-      }
-    }
-    return {
-      barmode: activeRound === 'overall' ? 'group' : undefined,
-      annotations,
-      xaxis: { range: [0, activeRound === 'overall' ? 6.8 : 5.8], gridcolor: '#f3f4f6', linecolor: '#e5e7eb', tickfont: { size: 10 } },
-      yaxis: { gridcolor: 'transparent', linecolor: '#e5e7eb', tickfont: { size: 10 }, automargin: true },
-      showlegend: activeRound === 'overall',
-      legend: { orientation: 'h', x: 0, y: 1.12, font: { size: 9 } },
-      margin: { t: activeRound === 'overall' ? 56 : 16, b: 36, l: 10, r: activeRound === 'overall' ? 88 : 64 },
-    };
-  }, [activeRound, perRoundStats, pillarOrder]);
+  const programLayout = useMemo(() => ({
+    xaxis: { gridcolor: '#f3f4f6', linecolor: '#e5e7eb', tickfont: { size: 10 }, dtick: 1, zeroline: false },
+    yaxis: { gridcolor: 'transparent', linecolor: '#e5e7eb', tickfont: { size: 10 }, automargin: true },
+    margin: { t: 16, b: 36, l: 10, r: 60 },
+  }), []);
 
   const accentColor       = selectedLevel !== null ? LEVEL_COLORS[selectedLevel] : '#3b82f6';
   const selectedLevelName = selectedLevel !== null ? (readinessLevels[selectedLevel]?.name ?? readinessLevels[selectedLevel]) : null;
+
+  // ── KPI section ──────────────────────────────────────────────────────────
+  const kpiSection = useMemo(() => {
+    if (activeRound === 'overall' && perRoundStats) {
+      const totalAll = perRoundStats.reduce((s, rs) => s + rs.totalResponses, 0);
+      const first = perRoundStats[0];
+      const last  = perRoundStats[perRoundStats.length - 1];
+      let mostImproved = null;
+      if (first && last && first !== last) {
+        const deltas = first.pillarList.map(p => {
+          const latest = last.pillarList.find(lp => lp.name === p.name);
+          return { name: p.name, delta: latest ? latest.avg - p.avg : 0 };
+        });
+        const best = deltas.reduce((a, b) => b.delta > a.delta ? b : a, deltas[0] ?? null);
+        if (best) mostImproved = best;
+      }
+      return { mode: 'overall', totalAll, perRoundStats, mostImproved };
+    }
+    return { mode: 'single' };
+  }, [activeRound, perRoundStats]);
 
   // ── PDF export ────────────────────────────────────────────────────────────
   const exportPDF = async () => {
@@ -437,27 +397,6 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
       setExporting(false);
     }
   };
-
-  // ── KPI section — differs between overall and single-round ────────────────
-  const kpiSection = useMemo(() => {
-    if (activeRound === 'overall' && perRoundStats) {
-      const totalAll = perRoundStats.reduce((s, rs) => s + rs.totalResponses, 0);
-      // Most improved pillar: compare first round vs last round pillar avgs
-      const first = perRoundStats[0];
-      const last  = perRoundStats[perRoundStats.length - 1];
-      let mostImproved = null;
-      if (first && last && first !== last) {
-        const deltas = first.pillarList.map(p => {
-          const latest = last.pillarList.find(lp => lp.name === p.name);
-          return { name: p.name, delta: latest ? latest.avg - p.avg : 0 };
-        });
-        const best = deltas.reduce((a, b) => b.delta > a.delta ? b : a, deltas[0] ?? null);
-        if (best) mostImproved = best;
-      }
-      return { mode: 'overall', totalAll, perRoundStats, mostImproved };
-    }
-    return { mode: 'single' };
-  }, [activeRound, perRoundStats, rounds]);
 
   return (
     <div className="h-screen bg-gray-50 text-gray-900 flex flex-col overflow-hidden">
@@ -487,59 +426,41 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
           )}
         </div>
         <div className="flex items-center gap-2">
-          <button
-            onClick={exportPDF}
-            disabled={exporting}
-            className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg transition-colors font-semibold disabled:opacity-50"
-          >
+          <button onClick={exportPDF} disabled={exporting} className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg transition-colors font-semibold disabled:opacity-50">
             {exporting ? 'Exporting…' : 'Export PDF'}
           </button>
-          <button
-            onClick={onRefresh}
-            disabled={refreshing}
-            className="text-xs bg-white hover:bg-gray-50 border border-gray-200 text-gray-600 px-3 py-1.5 rounded-lg transition-colors"
-          >
+          <button onClick={onRefresh} disabled={refreshing} className="text-xs bg-white hover:bg-gray-50 border border-gray-200 text-gray-600 px-3 py-1.5 rounded-lg transition-colors">
             {refreshing ? 'Refreshing…' : '↻ Refresh'}
           </button>
-          <button
-            onClick={onLogout}
-            className="text-xs bg-white hover:bg-gray-50 border border-gray-200 text-gray-400 px-3 py-1.5 rounded-lg transition-colors"
-          >
+          <button onClick={onLogout} className="text-xs bg-white hover:bg-gray-50 border border-gray-200 text-gray-400 px-3 py-1.5 rounded-lg transition-colors">
             Exit
           </button>
         </div>
       </div>
 
-      {/* ── Round tabs (only when multiple rounds exist) ── */}
+      {/* ── Round tabs ── */}
       {hasMultipleRounds && (
         <div className="flex-shrink-0 bg-white border-b border-gray-100 px-6 py-2 flex items-center gap-2 overflow-x-auto">
           <span className="text-xs text-gray-400 font-semibold mr-1 flex-shrink-0">Round:</span>
           <button
             onClick={() => switchRound('overall')}
             className={`px-3 py-1 rounded-full text-xs font-semibold border transition-colors flex-shrink-0 ${
-              activeRound === 'overall'
-                ? 'bg-blue-600 text-white border-blue-600'
-                : 'bg-white text-gray-500 border-gray-200 hover:border-blue-400 hover:text-blue-600'
+              activeRound === 'overall' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-500 border-gray-200 hover:border-blue-400 hover:text-blue-600'
             }`}
-          >
-            Overall
-          </button>
+          >Overall</button>
           {rounds.map((r) => {
-            const isActive = activeRound === r.roundNum;
+            const isActive  = activeRound === r.roundNum;
             const isCurrent = r.sessionId === session.id;
-            const dateStr = new Date(r.createdAt).toLocaleDateString('en-SG', { month: 'short', year: 'numeric' });
+            const dateStr   = new Date(r.createdAt).toLocaleDateString('en-SG', { month: 'short', year: 'numeric' });
             return (
               <button
                 key={r.roundNum}
                 onClick={() => switchRound(r.roundNum)}
                 className={`px-3 py-1 rounded-full text-xs font-semibold border transition-colors flex-shrink-0 ${
-                  isActive
-                    ? 'bg-blue-600 text-white border-blue-600'
-                    : 'bg-white text-gray-500 border-gray-200 hover:border-blue-400 hover:text-blue-600'
+                  isActive ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-500 border-gray-200 hover:border-blue-400 hover:text-blue-600'
                 }`}
               >
-                Round {r.roundNum}
-                {r.label ? ` · ${r.label}` : ''}
+                Round {r.roundNum}{r.label ? ` · ${r.label}` : ''}
                 <span className={`ml-1 ${isActive ? 'opacity-70' : 'text-gray-400'}`}>· {dateStr}</span>
                 {isCurrent && <span className={`ml-1 ${isActive ? 'opacity-80' : 'text-blue-500'}`}>★</span>}
               </button>
@@ -548,7 +469,7 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
         </div>
       )}
 
-      {/* ── Main grid ── */}
+      {/* ── Main content ── */}
       {total === 0 ? (
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
@@ -560,8 +481,121 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
       ) : (
         <div ref={dashboardRef} className="flex-1 grid grid-cols-3 grid-rows-2 gap-3 p-3 min-h-0">
 
-          {/* Radar */}
-          <div className="bg-white border border-gray-200 rounded-xl p-4 row-span-2 flex flex-col min-h-0 shadow-sm">
+          {/* ── LEFT COL: KPIs + description + legend (row-span-2) ── */}
+          <div className="bg-white border border-gray-200 rounded-xl p-4 row-span-2 flex flex-col min-h-0 shadow-sm overflow-y-auto">
+
+            {/* KPIs */}
+            <div className="flex flex-col gap-3 flex-shrink-0">
+              {kpiSection.mode === 'overall' ? (
+                <>
+                  <div>
+                    <div className="text-2xl font-bold tabular-nums text-blue-600">{kpiSection.totalAll}</div>
+                    <div className="text-xs font-semibold text-gray-600 mt-0.5">Total Responses (All Rounds)</div>
+                  </div>
+                  <div className="w-full h-px bg-gray-100" />
+                  <div>
+                    <div className="text-xs font-semibold text-gray-600 mb-2">Avg Score by Round</div>
+                    <div className="flex items-end gap-3 flex-wrap">
+                      {kpiSection.perRoundStats.map((rs, i) => (
+                        <div key={i} className="flex items-center gap-1">
+                          {i > 0 && (
+                            <span className={`text-base font-bold ${rs.avg >= kpiSection.perRoundStats[i - 1].avg ? 'text-green-500' : 'text-red-400'}`}>
+                              {rs.avg >= kpiSection.perRoundStats[i - 1].avg ? '↑' : '↓'}
+                            </span>
+                          )}
+                          <div className="text-center">
+                            <div className="text-xl font-bold tabular-nums" style={{ color: ROUND_COLORS[i % ROUND_COLORS.length] }}>{rs.avg.toFixed(2)}</div>
+                            <div className="text-xs text-gray-400">R{rs.roundNum}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="w-full h-px bg-gray-100" />
+                  <div>
+                    <div className="text-xs font-semibold text-gray-600 mb-1">Most Improved Pillar</div>
+                    {kpiSection.mostImproved ? (
+                      <>
+                        <div className="text-sm font-bold text-gray-800 leading-tight">{kpiSection.mostImproved.name}</div>
+                        <div className={`text-xl font-bold tabular-nums mt-0.5 ${kpiSection.mostImproved.delta >= 0 ? 'text-green-500' : 'text-red-400'}`}>
+                          {kpiSection.mostImproved.delta >= 0 ? '+' : ''}{kpiSection.mostImproved.delta.toFixed(2)}
+                          <span className="text-xs font-normal text-gray-400 ml-1">R1 → R{perRoundStats.length}</span>
+                        </div>
+                      </>
+                    ) : <div className="text-sm text-gray-400">—</div>}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div>
+                    <div className="text-2xl font-bold tabular-nums" style={{ color: accentColor }}>{filteredTotal}</div>
+                    <div className="text-xs font-semibold text-gray-600 mt-0.5">
+                      {selectedLevel !== null ? `${selectedLevelName} Responses` : 'Total Responses'}
+                    </div>
+                    {selectedLevel !== null && <div className="text-xs text-gray-400 mt-0.5">of {total} total</div>}
+                  </div>
+                  <div className="w-full h-px bg-gray-100" />
+                  <div>
+                    <div className="flex items-baseline gap-1.5 flex-wrap" style={{ color: READINESS_LEVEL_STYLES[levelIdx].accent }}>
+                      <span className="text-2xl font-bold tabular-nums">{overallAvg.toFixed(2)}</span>
+                      <span className="text-sm font-bold">({levelName})</span>
+                    </div>
+                    <div className="text-xs font-semibold text-gray-600 mt-0.5">Average Score</div>
+                    <div className="text-xs text-gray-400 mt-0.5">out of 5.00</div>
+                  </div>
+                  <div className="w-full h-px bg-gray-100" />
+                  <div>
+                    <div className="text-xs font-semibold text-gray-600 mb-1">Top Pillar</div>
+                    {pillarList.length > 0 ? (() => {
+                      const top = [...pillarList].sort((a, b) => b.avg - a.avg)[0];
+                      return (
+                        <>
+                          <div className="text-sm font-bold text-gray-800 leading-tight">{top.name}</div>
+                          <div className="text-xl font-bold tabular-nums mt-0.5" style={{ color: accentColor }}>
+                            {top.avg.toFixed(2)} <span className="text-xs font-normal text-gray-400">/ 5</span>
+                          </div>
+                        </>
+                      );
+                    })() : <div className="text-sm text-gray-400">—</div>}
+                  </div>
+                </>
+              )}
+            </div>
+
+            <div className="w-full h-px bg-gray-100 my-4 flex-shrink-0" />
+
+            {/* Survey description */}
+            <div className="flex-shrink-0">
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">About This Survey</p>
+              <p className="text-xs text-gray-500 leading-relaxed">
+                This AI Readiness Survey assesses your organisation's capability across key AI-related competencies.
+                Participants completed scenario-based questions across multiple pillars, producing a readiness score
+                on a 0–5 scale that maps to one of five readiness levels below.
+              </p>
+            </div>
+
+            <div className="w-full h-px bg-gray-100 my-4 flex-shrink-0" />
+
+            {/* Readiness level legend */}
+            <div className="flex-shrink-0">
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Readiness Levels</p>
+              <div className="space-y-3">
+                {readinessLevels.map((lvl, i) => (
+                  <div key={i} className="flex gap-2.5">
+                    <div className="w-2.5 h-2.5 rounded-full flex-shrink-0 mt-0.5" style={{ backgroundColor: LEVEL_COLORS[i] }} />
+                    <div>
+                      <div className="text-xs font-bold text-gray-800">{lvl.name ?? lvl}</div>
+                      {lvl.persona && <div className="text-xs text-gray-400 italic">{lvl.persona}</div>}
+                      {lvl.description && <div className="text-xs text-gray-500 mt-0.5 leading-relaxed">{lvl.description}</div>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* ── TOP MID: Radar ── */}
+          <div className="bg-white border border-gray-200 rounded-xl p-4 flex flex-col min-h-0 shadow-sm">
             <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 flex-shrink-0">Competency Profile</p>
             {activeRound !== 'overall' && selectedLevel !== null && (
               <p className="text-xs mb-1 flex-shrink-0" style={{ color: accentColor }}>
@@ -579,7 +613,7 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
             </div>
           </div>
 
-          {/* Distribution */}
+          {/* ── TOP RIGHT: Readiness Distribution ── */}
           <div className="bg-white border border-gray-200 rounded-xl p-4 flex flex-col min-h-0 shadow-sm">
             <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 flex-shrink-0">
               Readiness Distribution
@@ -596,105 +630,20 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
             </div>
           </div>
 
-          {/* KPIs */}
-          {kpiSection.mode === 'overall' ? (
-            <div className="grid grid-rows-3 gap-2 min-h-0">
-              <KpiCard
-                label="Total Responses (All Rounds)"
-                value={kpiSection.totalAll}
-                accent="#2563eb"
-              />
-              {/* Avg score trend card */}
-              <div className="bg-white rounded-xl p-4 flex flex-col justify-center border border-gray-200 shadow-sm">
-                <div className="text-xs font-semibold text-gray-600 mb-2">Avg Score by Round</div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  {kpiSection.perRoundStats.map((rs, i) => (
-                    <div key={i} className="flex items-center gap-1.5">
-                      {i > 0 && (
-                        <span className={`text-sm font-bold ${rs.avg >= kpiSection.perRoundStats[i - 1].avg ? 'text-green-500' : 'text-red-400'}`}>
-                          {rs.avg >= kpiSection.perRoundStats[i - 1].avg ? '↑' : '↓'}
-                        </span>
-                      )}
-                      <div className="text-center">
-                        <div className="text-lg font-bold tabular-nums" style={{ color: ROUND_COLORS[i % ROUND_COLORS.length] }}>
-                          {rs.avg.toFixed(2)}
-                        </div>
-                        <div className="text-xs text-gray-400">R{rs.roundNum}</div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              {/* Most improved pillar card */}
-              <div className="bg-white rounded-xl p-4 flex flex-col justify-center border border-gray-200 shadow-sm">
-                <div className="text-xs font-semibold text-gray-600 mb-1">Most Improved Pillar</div>
-                {kpiSection.mostImproved ? (
-                  <>
-                    <div className="text-sm font-bold text-gray-800 leading-tight">{kpiSection.mostImproved.name}</div>
-                    <div className={`text-lg font-bold tabular-nums mt-0.5 ${kpiSection.mostImproved.delta >= 0 ? 'text-green-500' : 'text-red-400'}`}>
-                      {kpiSection.mostImproved.delta >= 0 ? '+' : ''}{kpiSection.mostImproved.delta.toFixed(2)}
-                      <span className="text-xs font-normal text-gray-400 ml-1">R1 → R{perRoundStats.length}</span>
-                    </div>
-                  </>
-                ) : (
-                  <div className="text-sm text-gray-400">—</div>
-                )}
-              </div>
-            </div>
-          ) : (
-            <div className="grid grid-rows-3 gap-2 min-h-0">
-              <KpiCard
-                label={selectedLevel !== null ? `${selectedLevelName} Responses` : 'Total Responses'}
-                value={filteredTotal}
-                sub={selectedLevel !== null ? `of ${total} total` : undefined}
-                accent={accentColor}
-              />
-              <div className="bg-white rounded-xl p-4 flex flex-col justify-center border border-gray-200 shadow-sm">
-                <div className="flex items-baseline gap-2 flex-wrap" style={{ color: READINESS_LEVEL_STYLES[levelIdx].accent }}>
-                  <span className="text-2xl font-bold tabular-nums">{overallAvg.toFixed(2)}</span>
-                  <span className="text-2xl font-bold">({levelName})</span>
-                </div>
-                <div className="text-xs font-semibold text-gray-600 mt-0.5">Average Score</div>
-                <div className="text-xs text-gray-400 mt-0.5">out of 5.00</div>
-              </div>
-              <div className="bg-white rounded-xl p-4 flex flex-col justify-center border border-gray-200 shadow-sm">
-                <div className="text-xs font-semibold text-gray-600 mb-1">Top Pillar</div>
-                {pillarList.length > 0 ? (() => {
-                  const top = [...pillarList].sort((a, b) => b.avg - a.avg)[0];
-                  return (
-                    <>
-                      <div className="text-sm font-bold text-gray-800 leading-tight truncate">{top.name}</div>
-                      <div className="text-lg font-bold tabular-nums mt-0.5" style={{ color: accentColor }}>
-                        {top.avg.toFixed(2)} <span className="text-xs font-normal text-gray-400">/ 5</span>
-                      </div>
-                    </>
-                  );
-                })() : <div className="text-sm text-gray-400">—</div>}
-              </div>
-            </div>
-          )}
-
-          {/* Pillar breakdown */}
+          {/* ── BOTTOM (col-span-2): Most Recommended Programs ── */}
           <div className="bg-white border border-gray-200 rounded-xl p-4 col-span-2 flex flex-col min-h-0 shadow-sm">
-            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 flex-shrink-0">Score by Pillar</p>
-            <div className="flex-1 min-h-0" style={{ display: 'grid', gridTemplateColumns: '1fr', gridTemplateRows: '1fr' }}>
-              <div style={{ gridArea: '1/1' }}>
-                {filteredTotal > 0 || activeRound === 'overall'
-                  ? <PlotlyChart traces={pillarTraces} layout={pillarLayout} />
-                  : <p className="text-xs text-gray-400 text-center mt-4">No responses for this level</p>
-                }
-              </div>
-              {/* Level legend — only shown in single-round mode */}
-              {activeRound !== 'overall' && (
-                <div style={{ gridArea: '1/1', alignSelf: 'start', justifySelf: 'end', zIndex: 10, margin: '8px' }} className="bg-white border border-gray-200 rounded-lg shadow-sm px-2.5 py-2 flex flex-col gap-1 pointer-events-none">
-                  {LEVEL_COLORS.map((color, i) => (
-                    <span key={i} className="flex items-center gap-1.5 text-xs text-gray-600">
-                      <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
-                      <span className="whitespace-nowrap">{readinessLevels[i]?.name ?? readinessLevels[i]}</span>
-                    </span>
-                  ))}
-                </div>
-              )}
+            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 flex-shrink-0">Most Recommended Programs</p>
+            <div className="flex-1 min-h-0">
+              {programCounts.length > 0
+                ? <PlotlyChart traces={programTraces} layout={programLayout} />
+                : (
+                  <div className="flex items-center justify-center h-full">
+                    <p className="text-xs text-gray-400 text-center">
+                      {total > 0 ? 'No programmes have been configured in Settings yet.' : 'No responses yet.'}
+                    </p>
+                  </div>
+                )
+              }
             </div>
           </div>
 
@@ -706,7 +655,7 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
 
 // ── Page root ─────────────────────────────────────────────────────────────────
 export default function DashboardPage() {
-  const [dashData, setDashData]   = useState(null);
+  const [dashData, setDashData]     = useState(null);
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {

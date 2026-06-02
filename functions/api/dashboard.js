@@ -42,7 +42,7 @@ export async function onRequestPost(context) {
 
     const [{ results: responses }, { results: questions }] = await Promise.all([
       env.DB.prepare(
-        'SELECT id, answers_json, score_pct, readiness_level, is_sp_staff, department, submitted_at FROM responses WHERE session_id = ? ORDER BY submitted_at DESC'
+        'SELECT id, answers_json, score_pct, readiness_level, recommended_courses, is_sp_staff, department, submitted_at FROM responses WHERE session_id = ? ORDER BY submitted_at DESC'
       ).bind(session.id).all(),
       env.DB.prepare(
         'SELECT id, category, dimension, q_id FROM questions ORDER BY order_num ASC, id ASC'
@@ -50,11 +50,11 @@ export async function onRequestPost(context) {
     ]);
 
     let readinessLevels = [
-      { name: 'Expert Ready',     persona: 'Disciplined' },
-      { name: 'Advanced Ready',   persona: 'Crafter'     },
-      { name: 'Moderately Ready', persona: 'Explorer'    },
-      { name: 'Developing',       persona: 'Learner'     },
-      { name: 'Novice',           persona: 'Observer'    },
+      { name: 'Expert Ready',     persona: 'Disciplined', description: 'Demonstrates exceptional AI readiness and leads others confidently.' },
+      { name: 'Advanced Ready',   persona: 'Crafter',     description: 'Shows strong AI readiness with consistent good judgement.'           },
+      { name: 'Moderately Ready', persona: 'Explorer',    description: 'Displays adequate AI readiness with room for development.'           },
+      { name: 'Developing',       persona: 'Learner',     description: 'Shows foundational awareness but needs structured development.'      },
+      { name: 'Novice',           persona: 'Observer',    description: 'Limited AI readiness; requires substantial training and support.'    },
     ];
     let optionLevels = ['Unaware', 'Aware', 'Ready', 'Competent', 'Catalyst'];
     try {
@@ -77,7 +77,7 @@ export async function onRequestPost(context) {
         rounds = await Promise.all(
           siblings.map(async (s, idx) => {
             const { results: sibResponses } = await env.DB.prepare(
-              'SELECT id, answers_json, score_pct, readiness_level, submitted_at FROM responses WHERE session_id = ? ORDER BY submitted_at DESC'
+              'SELECT id, answers_json, score_pct, readiness_level, recommended_courses, submitted_at FROM responses WHERE session_id = ? ORDER BY submitted_at DESC'
             ).bind(s.id).all();
             return {
               roundNum: idx + 1,
