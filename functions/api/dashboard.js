@@ -66,14 +66,34 @@ export async function onRequestPost(context) {
       if (olRow?.value) optionLevels = JSON.parse(olRow.value);
     } catch {}
 
-    // Fetch sibling sessions (same company_uen) for multi-round view
+    // Fetch sibling sessions (same company_uen) for multi-round or department view
     let rounds = [];
+    let departments = [];
     if (session.company_uen) {
       const { results: siblings } = await env.DB.prepare(
-        'SELECT id, name, created_at, round_label FROM sessions WHERE company_uen = ? ORDER BY created_at ASC'
+        'SELECT id, name, created_at, round_label, dept_label FROM sessions WHERE company_uen = ? ORDER BY created_at ASC'
       ).bind(session.company_uen).all();
 
-      if (siblings.length > 1) {
+      const hasDepts = siblings.some(s => s.dept_label);
+
+      if (hasDepts && siblings.length > 1) {
+        // Department mode — group by dept_label
+        departments = await Promise.all(
+          siblings.filter(s => s.dept_label).map(async (s) => {
+            const { results: deptResponses } = await env.DB.prepare(
+              'SELECT id, answers_json, score_pct, readiness_level, recommended_courses, submitted_at FROM responses WHERE session_id = ? ORDER BY submitted_at DESC'
+            ).bind(s.id).all();
+            return {
+              label: s.dept_label,
+              sessionId: s.id,
+              name: s.name,
+              createdAt: s.created_at,
+              responses: deptResponses,
+            };
+          })
+        );
+      } else if (siblings.length > 1) {
+        // Multi-round mode (existing behaviour)
         rounds = await Promise.all(
           siblings.map(async (s, idx) => {
             const { results: sibResponses } = await env.DB.prepare(
@@ -101,6 +121,7 @@ export async function onRequestPost(context) {
         readinessLevels,
         optionLevels,
         rounds,
+        departments,
       }),
       { status: 200, headers: cors }
     );

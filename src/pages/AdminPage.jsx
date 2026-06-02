@@ -399,6 +399,10 @@ function AdminPage() {
   // New session: pending link to an existing company + round label
   const [pendingLink, setPendingLink] = useState(null); // { id, name, company_uen }
   const [newSessionRoundLabel, setNewSessionRoundLabel] = useState('');
+  // Department creation state
+  const [addingDeptForUen, setAddingDeptForUen] = useState(null); // company_uen being expanded
+  const [newDeptName, setNewDeptName] = useState('');
+  const [deptSaving, setDeptSaving] = useState(false);
   // Company codes search filter
   const [codeSearch, setCodeSearch] = useState('');
   // Company codes date range filter
@@ -1379,7 +1383,7 @@ function AdminPage() {
                   finally { setSessionSaving(false); }
                 };
 
-                const SessionRow = ({ s, roundLabel }) => (
+                const SessionRow = ({ s, roundLabel, deptLabel }) => (
                   <div key={s.id} className="bg-gray-50 rounded-lg px-4 py-3 border border-gray-100">
                     <div className="flex items-center justify-between gap-3">
                       <div>
@@ -1387,6 +1391,9 @@ function AdminPage() {
                           <p className="text-sm font-semibold text-gray-800">{s.name}</p>
                           {roundLabel && (
                             <span className="text-xs font-semibold bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">{roundLabel}</span>
+                          )}
+                          {deptLabel && (
+                            <span className="text-xs font-semibold bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full">{deptLabel}</span>
                           )}
                           {s.round_label && (
                             <span className="text-xs text-gray-400 italic">{s.round_label}</span>
@@ -1544,27 +1551,100 @@ function AdminPage() {
                       <p className="text-sm text-gray-400 mb-4">No sessions match the current filters.</p>
                     ) : (
                       <div className="space-y-5 mb-5">
-                        {/* ── Multi-round companies ── */}
+                        {/* ── Multi-round / Department companies ── */}
                         {Object.keys(uenMap).length > 0 && (
                           <div>
                             <div className="flex items-center gap-2 mb-2">
                               <p className="text-xs font-bold text-blue-700 uppercase tracking-widest">Multi-Round Companies</p>
                               <span className="text-xs text-blue-400">{Object.keys(uenMap).length} group{Object.keys(uenMap).length !== 1 ? 's' : ''}</span>
                             </div>
-                            <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
-                              {Object.entries(uenMap).map(([uen, sessions]) => (
-                                <div key={uen} className="border border-blue-100 rounded-xl overflow-hidden">
-                                  <div className="bg-blue-50 px-4 py-2 flex items-center gap-2">
-                                    <span className="text-xs font-bold text-blue-700">{sessions[0].name}</span>
-                                    <span className="ml-auto text-xs text-blue-500">{sessions.length} round{sessions.length !== 1 ? 's' : ''}</span>
+                            <div className="space-y-3 max-h-[32rem] overflow-y-auto pr-1">
+                              {Object.entries(uenMap).map(([uen, sessions]) => {
+                                const deptSessions  = sessions.filter(s => s.dept_label);
+                                const roundSessions = sessions.filter(s => !s.dept_label);
+                                const companyName   = sessions[0].name;
+                                const isAddingDept  = addingDeptForUen === uen;
+
+                                const addDepartment = async () => {
+                                  if (!newDeptName.trim()) return;
+                                  setDeptSaving(true);
+                                  try {
+                                    const res = await fetch('/api/sessions', {
+                                      method: 'POST',
+                                      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('adminToken')}` },
+                                      body: JSON.stringify({ action: 'create', name: companyName, sector: sessions[0].sector || '', company_uen: uen, dept_label: newDeptName.trim() }),
+                                    });
+                                    const result = await res.json();
+                                    if (!result.success) throw new Error(result.error);
+                                    setGeneratedCode(result.code);
+                                    setNewDeptName('');
+                                    setAddingDeptForUen(null);
+                                    await fetchData(localStorage.getItem('adminToken'));
+                                  } catch (err) { alert(`Failed: ${err.message}`); }
+                                  finally { setDeptSaving(false); }
+                                };
+
+                                return (
+                                  <div key={uen} className="border border-blue-100 rounded-xl overflow-hidden">
+                                    {/* Company header */}
+                                    <div className="bg-blue-50 px-4 py-2 flex items-center gap-2">
+                                      <span className="text-xs font-bold text-blue-700">{companyName}</span>
+                                      {roundSessions.length > 0 && (
+                                        <span className="text-xs text-blue-400">{roundSessions.length} round{roundSessions.length !== 1 ? 's' : ''}</span>
+                                      )}
+                                      {deptSessions.length > 0 && (
+                                        <span className="text-xs bg-purple-100 text-purple-600 font-semibold px-2 py-0.5 rounded-full">{deptSessions.length} dept{deptSessions.length !== 1 ? 's' : ''}</span>
+                                      )}
+                                      <button
+                                        type="button"
+                                        onClick={() => { setAddingDeptForUen(isAddingDept ? null : uen); setNewDeptName(''); }}
+                                        className="ml-auto text-xs bg-purple-600 hover:bg-purple-700 text-white px-2.5 py-0.5 rounded font-semibold transition-colors flex-shrink-0"
+                                      >
+                                        {isAddingDept ? 'Cancel' : '＋ Department'}
+                                      </button>
+                                    </div>
+
+                                    {/* Inline add-department form */}
+                                    {isAddingDept && (
+                                      <div className="px-4 py-3 bg-purple-50 border-b border-purple-100 flex items-center gap-2">
+                                        <input
+                                          autoFocus
+                                          className="flex-1 border border-purple-200 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-purple-400 focus:border-transparent"
+                                          placeholder="Department name, e.g. HR, Finance, IT…"
+                                          value={newDeptName}
+                                          onChange={e => setNewDeptName(e.target.value)}
+                                          onKeyDown={e => { if (e.key === 'Enter') addDepartment(); if (e.key === 'Escape') setAddingDeptForUen(null); }}
+                                        />
+                                        <button
+                                          type="button"
+                                          disabled={!newDeptName.trim() || deptSaving}
+                                          onClick={addDepartment}
+                                          className="text-xs bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white px-3 py-1.5 rounded-lg font-semibold transition-colors flex-shrink-0"
+                                        >
+                                          {deptSaving ? 'Adding…' : 'Add & Generate Code'}
+                                        </button>
+                                      </div>
+                                    )}
+
+                                    <div className="divide-y divide-gray-100">
+                                      {/* Round sessions */}
+                                      {roundSessions.map((s, idx) => (
+                                        <SessionRow key={s.id} s={s} roundLabel={`Round ${idx + 1}`} />
+                                      ))}
+                                      {/* Department sessions */}
+                                      {deptSessions.length > 0 && (
+                                        <>
+                                          {deptSessions.map(s => (
+                                            <div key={s.id} className="bg-purple-50/40">
+                                              <SessionRow s={s} roundLabel={null} deptLabel={s.dept_label} />
+                                            </div>
+                                          ))}
+                                        </>
+                                      )}
+                                    </div>
                                   </div>
-                                  <div className="divide-y divide-gray-100">
-                                    {sessions.map((s, idx) => (
-                                      <SessionRow key={s.id} s={s} roundLabel={`Round ${idx + 1}`} />
-                                    ))}
-                                  </div>
-                                </div>
-                              ))}
+                                );
+                              })}
                             </div>
                           </div>
                         )}

@@ -35,6 +35,7 @@ CREATE TABLE sessions (
   code        TEXT,
   company_uen TEXT,
   round_label TEXT,
+  dept_label  TEXT,
   created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 

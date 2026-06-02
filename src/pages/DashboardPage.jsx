@@ -171,7 +171,7 @@ function LoginScreen({ onLogin }) {
 
 // ── Main dashboard ────────────────────────────────────────────────────────────
 function Dashboard({ data, onRefresh, onLogout, refreshing }) {
-  const { session, responses: rawResponses, questions, readinessLevels, rounds: rawRounds = [] } = data;
+  const { session, responses: rawResponses, questions, readinessLevels, rounds: rawRounds = [], departments: rawDepartments = [] } = data;
 
   const rounds = useMemo(
     () => [...rawRounds]
@@ -184,7 +184,16 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
   const [exporting, setExporting] = useState(false);
   const [expandedChart, setExpandedChart] = useState(null);
 
-  const hasMultipleRounds = rounds.length > 1;
+  // Department mode
+  const hasDepartments = rawDepartments.length > 1;
+  const [activeDept, setActiveDept] = useState(hasDepartments ? 'overview' : null);
+
+  const switchDept = useCallback((label) => {
+    setActiveDept(label);
+    setSelectedLevel(null);
+  }, []);
+
+  const hasMultipleRounds = !hasDepartments && rounds.length > 1;
   const initialRound = useMemo(() => {
     if (!hasMultipleRounds) return null;
     return rounds.find(r => r.sessionId === session.id)?.roundNum ?? rounds[0].roundNum;
@@ -197,11 +206,16 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
   }, []);
 
   const responses = useMemo(() => {
+    if (hasDepartments) {
+      if (activeDept === 'overview') return rawDepartments.flatMap(d => d.responses);
+      const dept = rawDepartments.find(d => d.label === activeDept);
+      return dept ? dept.responses : [];
+    }
     if (!hasMultipleRounds) return rawResponses;
     if (activeRound === 'overall') return rounds.flatMap(r => r.responses);
     const round = rounds.find(r => r.roundNum === activeRound);
     return round ? round.responses : rawResponses;
-  }, [hasMultipleRounds, activeRound, rounds, rawResponses]);
+  }, [hasDepartments, activeDept, rawDepartments, hasMultipleRounds, activeRound, rounds, rawResponses]);
 
   const perRoundStats = useMemo(() => {
     if (activeRound !== 'overall' || !questions.length) return null;
@@ -405,6 +419,14 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
 
   // ── KPI section ──────────────────────────────────────────────────────────
   const kpiSection = useMemo(() => {
+    if (hasDepartments && activeDept === 'overview') {
+      const deptStats = rawDepartments.map(d => {
+        const scores = d.responses.map(r => r.score_pct || 0);
+        const avg = scores.length ? scores.reduce((a, b) => a + b, 0) / scores.length : 0;
+        return { label: d.label, total: d.responses.length, avg };
+      });
+      return { mode: 'depts', totalAll: rawDepartments.reduce((s, d) => s + d.responses.length, 0), deptStats };
+    }
     if (activeRound === 'overall' && perRoundStats) {
       const totalAll = perRoundStats.reduce((s, rs) => s + rs.totalResponses, 0);
       const first = perRoundStats[0];
@@ -421,7 +443,7 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
       return { mode: 'overall', totalAll, perRoundStats, mostImproved };
     }
     return { mode: 'single' };
-  }, [activeRound, perRoundStats]);
+  }, [hasDepartments, activeDept, rawDepartments, activeRound, perRoundStats]);
 
   // ── PDF export ────────────────────────────────────────────────────────────
   const exportPDF = async () => {
@@ -483,6 +505,31 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
         </div>
       </div>
 
+      {/* ── Department tabs ── */}
+      {hasDepartments && (
+        <div className="flex-shrink-0 bg-white border-b border-gray-100 px-6 py-2 flex items-center gap-2 overflow-x-auto">
+          <span className="text-xs text-gray-400 font-semibold mr-1 flex-shrink-0">Department:</span>
+          <button
+            onClick={() => switchDept('overview')}
+            className={`px-3 py-1 rounded-full text-xs font-semibold border transition-colors flex-shrink-0 ${
+              activeDept === 'overview' ? 'bg-purple-600 text-white border-purple-600' : 'bg-white text-gray-500 border-gray-200 hover:border-purple-400 hover:text-purple-600'
+            }`}
+          >Overview</button>
+          {rawDepartments.map((d) => (
+            <button
+              key={d.label}
+              onClick={() => switchDept(d.label)}
+              className={`px-3 py-1 rounded-full text-xs font-semibold border transition-colors flex-shrink-0 ${
+                activeDept === d.label ? 'bg-purple-600 text-white border-purple-600' : 'bg-white text-gray-500 border-gray-200 hover:border-purple-400 hover:text-purple-600'
+              }`}
+            >
+              {d.label}
+              <span className={`ml-1 ${activeDept === d.label ? 'opacity-70' : 'text-gray-400'}`}>· {d.responses.length}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* ── Round tabs ── */}
       {hasMultipleRounds && (
         <div className="flex-shrink-0 bg-white border-b border-gray-100 px-6 py-2 flex items-center gap-2 overflow-x-auto">
@@ -531,7 +578,29 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
 
             {/* KPIs */}
             <div className="flex flex-col gap-3 flex-shrink-0">
-              {kpiSection.mode === 'overall' ? (
+              {kpiSection.mode === 'depts' ? (
+                <>
+                  <div>
+                    <div className="text-2xl font-bold tabular-nums text-purple-600">{kpiSection.totalAll}</div>
+                    <div className="text-xs font-semibold text-gray-600 mt-0.5">Total Responses (All Departments)</div>
+                  </div>
+                  <div className="w-full h-px bg-gray-100" />
+                  <div>
+                    <div className="text-xs font-semibold text-gray-600 mb-2">Avg Score by Department</div>
+                    <div className="flex flex-col gap-1.5">
+                      {kpiSection.deptStats.map((ds, i) => (
+                        <div key={ds.label} className="flex items-center justify-between gap-2">
+                          <span className="text-xs text-gray-600 truncate">{ds.label}</span>
+                          <div className="flex items-center gap-1.5 flex-shrink-0">
+                            <span className="text-sm font-bold tabular-nums" style={{ color: ROUND_COLORS[i % ROUND_COLORS.length] }}>{ds.avg.toFixed(2)}</span>
+                            <span className="text-xs text-gray-400">({ds.total})</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              ) : kpiSection.mode === 'overall' ? (
                 <>
                   <div>
                     <div className="text-2xl font-bold tabular-nums text-blue-600">{kpiSection.totalAll}</div>
@@ -656,12 +725,12 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
             <div className="flex items-center justify-between flex-shrink-0 mb-2">
               <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">
                 Readiness Distribution
-                {activeRound !== 'overall' && selectedLevel === null && (
+                {activeRound !== 'overall' && (!hasDepartments || activeDept !== 'overview') && selectedLevel === null && (
                   <span className="text-gray-300 font-normal ml-1">(click a bar to filter)</span>
                 )}
               </p>
               <button
-                onClick={() => setExpandedChart({ title: 'Readiness Distribution', traces: distTraces, layout: distLayout, onClickPoint: activeRound !== 'overall' ? handleDistClick : undefined })}
+                onClick={() => setExpandedChart({ title: 'Readiness Distribution', traces: distTraces, layout: distLayout, onClickPoint: (!hasDepartments || activeDept !== 'overview') && activeRound !== 'overall' ? handleDistClick : undefined })}
                 className="text-gray-300 hover:text-gray-500 transition-colors p-1 rounded hover:bg-gray-50"
                 title="Expand"
               >
@@ -672,7 +741,7 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
               <PlotlyChart
                 traces={distTraces}
                 layout={distLayout}
-                onClickPoint={activeRound !== 'overall' ? handleDistClick : undefined}
+                onClickPoint={(!hasDepartments || activeDept !== 'overview') && activeRound !== 'overall' ? handleDistClick : undefined}
               />
             </div>
           </div>

@@ -34,7 +34,7 @@ export async function onRequestGet(context) {
 
   try {
     const { results: sessions } = await env.DB.prepare(`
-      SELECT s.id, s.name, s.sector, s.code, s.company_uen, s.round_label, s.created_at,
+      SELECT s.id, s.name, s.sector, s.code, s.company_uen, s.round_label, s.dept_label, s.created_at,
              COUNT(r.id) AS response_count
       FROM sessions s
       LEFT JOIN responses r ON r.session_id = s.id
@@ -66,14 +66,14 @@ export async function onRequestPost(context) {
 
   try {
     if (action === 'create') {
-      const { name, sector, company_uen, round_label } = body;
+      const { name, sector, company_uen, round_label, dept_label } = body;
       if (!name?.trim()) {
         return new Response(JSON.stringify({ error: 'name is required' }), { status: 400, headers: cors });
       }
       const code = await generateCode();
       const codeHash = await hashCode(code);
       await env.DB.prepare(
-        'INSERT INTO sessions (name, sector, code_hash, code, company_uen, round_label) VALUES (?, ?, ?, ?, ?, ?)'
+        'INSERT INTO sessions (name, sector, code_hash, code, company_uen, round_label, dept_label) VALUES (?, ?, ?, ?, ?, ?, ?)'
       ).bind(
         name.trim(),
         (sector || '').trim(),
@@ -81,6 +81,7 @@ export async function onRequestPost(context) {
         code,
         (company_uen || '').trim() || null,
         (round_label || '').trim() || null,
+        (dept_label || '').trim() || null,
       ).run();
       logSecurityEvent('SESSION_CREATED', { ip, name: name.trim() });
       return new Response(JSON.stringify({ success: true, code }), { status: 200, headers: cors });
