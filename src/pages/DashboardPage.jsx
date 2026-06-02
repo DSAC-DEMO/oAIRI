@@ -639,7 +639,7 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
                 : (
                   <div className="flex items-center justify-center h-full">
                     <p className="text-xs text-gray-400 text-center">
-                      {total > 0 ? 'No programmes have been configured in Settings yet.' : 'No responses yet.'}
+                      {total > 0 ? 'No programme recommendations recorded for these responses yet.' : 'No responses yet.'}
                     </p>
                   </div>
                 )

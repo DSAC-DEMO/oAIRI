@@ -212,19 +212,29 @@ Sector is set per session at creation time. The survey itself does not ask for s
 
 ---
 
-## Known DB State (as of 2026-05-28)
-- New database `p-airi` (ID: `0e1d2eb8-380f-41b9-8db5-7827f111eb08`) — fresh, no data yet
-- `schema.sql` does NOT include `code`, `company_uen`, `round_label` columns on sessions — run manual ALTER TABLE after `db:init`
+## Known DB State (as of 2026-06-02)
+- Database `p-airi` (ID: `0e1d2eb8-380f-41b9-8db5-7827f111eb08`) — live with real data
+- Sessions:
+  - id 1 & 2: NCS, `company_uen = "grp_1"` — 2-round group; responses 7, 8, 9 on session 1; session 2 has no responses
+  - id 3 & 4: SP, `company_uen = "grp_3"` — 2-round group; responses 10, 11 on session 3; session 4 has no responses
+- Readiness levels (custom): AI Catalyst · AI Competent · AI Ready · AI Aware · AI Unaware (index 0–4)
+- Courses configured: CWT (`levels:[1]` + pillar conditions), Course B (`levels:[0,1,2,3,4]`)
+- `recommended_courses` migration applied: `ALTER TABLE responses ADD COLUMN recommended_courses TEXT NOT NULL DEFAULT '[]'`
+  - Responses 7–10 have `[]` (submitted before courses were configured)
+  - Response 11 has `["CWT","Course B"]` — first response with correct programme tracking
 
 ---
 
 ## Pending / Watch Out For
-- `schema.sql` now includes all columns (sessions extra cols + `recommended_courses` on responses). A fresh `db:init` followed by `db:init --remote` is clean with no extra ALTER TABLE needed.
+- `schema.sql` now includes all columns (sessions extra cols + `recommended_courses` on responses). A fresh `db:init` is clean with no extra ALTER TABLE needed.
 - The `score_pct` column name is misleading — it stores the 0–5 mean, not a 0–100 percentage.
 - Dashboard code entry requires `DSAC` suffix — the raw company code is never entered directly. Placeholder hides this from end users.
 - Admin analytics PDF export captures the `analyticsRef` flex container — filters card is intentionally excluded.
-- `recommended_courses` is computed at submit time from the `courses` settings key. Responses submitted before courses were configured will have `[]` and won't appear in the Programs chart.
+- `recommended_courses` is computed at submit time from the `courses` settings key. Responses submitted before courses were configured will have `[]` and won't appear in the Programs chart — this affects all existing responses (7–10).
 - jsPDF and html2canvas are static imports (not dynamic) to avoid Cloudflare Pages chunk-fetch errors.
+- All current sessions have both rounds empty of the second session (ids 2 and 4 have 0 responses) — the multi-round tab structure shows but only one round has data.
+- Most Recommended Programs chart shows "No programme recommendations recorded yet" for old responses (7–10) which have `[]` in `recommended_courses` (submitted before courses were configured). Response 11 onward will populate the chart correctly. Backfill old responses via SQL UPDATE if needed.
+- Local dev: seed local D1 by exporting remote (`wrangler d1 export p-airi --remote --output=dump.sql`) then importing (`wrangler d1 execute p-airi --local --file=dump.sql`). `dump.sql` is gitignored. `.dev.vars` holds `ADMIN_PASSWORD=admin` locally (also gitignored).
 
 ---
 
