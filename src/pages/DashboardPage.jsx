@@ -464,7 +464,7 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
       return { mode: 'overall', totalAll, perRoundStats, mostImproved };
     }
     return { mode: 'single' };
-  }, [hasDepartments, activeDept, rawDepartments, activeRound, perRoundStats]);
+  }, [hasRoundDepts, roundDepts, activeDept, activeRound, perRoundStats]);
 
   // ── PDF export ────────────────────────────────────────────────────────────
   const exportPDF = async () => {
