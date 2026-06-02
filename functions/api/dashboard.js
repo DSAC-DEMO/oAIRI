@@ -29,21 +29,34 @@ export async function onRequestPost(context) {
       return new Response(JSON.stringify({ success: false, error: 'Invalid session code' }), { status: 401, headers: cors });
     }
     const codeHash = await hashCode(raw.slice(0, -4));
-    const session = await env.DB.prepare(
-      'SELECT id, name, created_at, company_uen, round_label FROM sessions WHERE code_hash = ?'
+    const rawSession = await env.DB.prepare(
+      'SELECT id, name, created_at, company_uen, round_label, dept_label, parent_session_id FROM sessions WHERE code_hash = ?'
     ).bind(codeHash).first();
 
-    if (!session) {
+    if (!rawSession) {
       return new Response(
         JSON.stringify({ success: false, error: 'Invalid session code' }),
         { status: 401, headers: cors }
       );
     }
 
+    // If user logged in with a dept session, find the parent round session
+    let session = rawSession;
+    let activeDeptLabel = null;
+    if (rawSession.parent_session_id) {
+      const parent = await env.DB.prepare(
+        'SELECT id, name, created_at, company_uen, round_label FROM sessions WHERE id = ?'
+      ).bind(rawSession.parent_session_id).first();
+      if (parent) {
+        session = parent;
+        activeDeptLabel = rawSession.dept_label;
+      }
+    }
+
     const [{ results: responses }, { results: questions }] = await Promise.all([
       env.DB.prepare(
         'SELECT id, answers_json, score_pct, readiness_level, recommended_courses, is_sp_staff, department, submitted_at FROM responses WHERE session_id = ? ORDER BY submitted_at DESC'
-      ).bind(session.id).all(),
+      ).bind(rawSession.id).all(),
       env.DB.prepare(
         'SELECT id, category, dimension, q_id FROM questions ORDER BY order_num ASC, id ASC'
       ).all(),
@@ -66,46 +79,45 @@ export async function onRequestPost(context) {
       if (olRow?.value) optionLevels = JSON.parse(olRow.value);
     } catch {}
 
-    // Fetch sibling sessions (same company_uen) for multi-round or department view
+    // Fetch round siblings (same company_uen, no parent = top-level rounds only)
     let rounds = [];
-    let departments = [];
     if (session.company_uen) {
-      const { results: siblings } = await env.DB.prepare(
-        'SELECT id, name, created_at, round_label, dept_label FROM sessions WHERE company_uen = ? ORDER BY created_at ASC'
+      const { results: roundSessions } = await env.DB.prepare(
+        'SELECT id, name, created_at, round_label FROM sessions WHERE company_uen = ? AND parent_session_id IS NULL ORDER BY created_at ASC'
       ).bind(session.company_uen).all();
 
-      const hasDepts = siblings.some(s => s.dept_label);
-
-      if (hasDepts && siblings.length > 1) {
-        // Department mode — group by dept_label
-        departments = await Promise.all(
-          siblings.filter(s => s.dept_label).map(async (s) => {
-            const { results: deptResponses } = await env.DB.prepare(
-              'SELECT id, answers_json, score_pct, readiness_level, recommended_courses, submitted_at FROM responses WHERE session_id = ? ORDER BY submitted_at DESC'
-            ).bind(s.id).all();
-            return {
-              label: s.dept_label,
-              sessionId: s.id,
-              name: s.name,
-              createdAt: s.created_at,
-              responses: deptResponses,
-            };
-          })
-        );
-      } else if (siblings.length > 1) {
-        // Multi-round mode (existing behaviour)
+      if (roundSessions.length > 1) {
         rounds = await Promise.all(
-          siblings.map(async (s, idx) => {
-            const { results: sibResponses } = await env.DB.prepare(
-              'SELECT id, answers_json, score_pct, readiness_level, recommended_courses, submitted_at FROM responses WHERE session_id = ? ORDER BY submitted_at DESC'
-            ).bind(s.id).all();
+          roundSessions.map(async (s, idx) => {
+            const [{ results: roundResponses }, { results: deptSessions }] = await Promise.all([
+              env.DB.prepare(
+                'SELECT id, answers_json, score_pct, readiness_level, recommended_courses, submitted_at FROM responses WHERE session_id = ? ORDER BY submitted_at DESC'
+              ).bind(s.id).all(),
+              env.DB.prepare(
+                'SELECT id, dept_label, created_at FROM sessions WHERE parent_session_id = ? ORDER BY created_at ASC'
+              ).bind(s.id).all(),
+            ]);
+
+            let departments = null;
+            if (deptSessions.length > 0) {
+              departments = await Promise.all(
+                deptSessions.map(async (d) => {
+                  const { results: deptResponses } = await env.DB.prepare(
+                    'SELECT id, answers_json, score_pct, readiness_level, recommended_courses, submitted_at FROM responses WHERE session_id = ? ORDER BY submitted_at DESC'
+                  ).bind(d.id).all();
+                  return { label: d.dept_label, sessionId: d.id, responses: deptResponses };
+                })
+              );
+            }
+
             return {
               roundNum: idx + 1,
               sessionId: s.id,
               label: s.round_label || null,
               createdAt: s.created_at,
               name: s.name,
-              responses: sibResponses,
+              responses: roundResponses,
+              departments,
             };
           })
         );
@@ -115,13 +127,12 @@ export async function onRequestPost(context) {
     return new Response(
       JSON.stringify({
         success: true,
-        session: { id: session.id, name: session.name, created_at: session.created_at },
+        session: { id: session.id, name: session.name, created_at: session.created_at, activeDeptLabel },
         responses,
         questions,
         readinessLevels,
         optionLevels,
         rounds,
-        departments,
       }),
       { status: 200, headers: cors }
     );

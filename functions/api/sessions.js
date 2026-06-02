@@ -34,7 +34,7 @@ export async function onRequestGet(context) {
 
   try {
     const { results: sessions } = await env.DB.prepare(`
-      SELECT s.id, s.name, s.sector, s.code, s.company_uen, s.round_label, s.dept_label, s.created_at,
+      SELECT s.id, s.name, s.sector, s.code, s.company_uen, s.round_label, s.dept_label, s.parent_session_id, s.created_at,
              COUNT(r.id) AS response_count
       FROM sessions s
       LEFT JOIN responses r ON r.session_id = s.id
@@ -66,14 +66,14 @@ export async function onRequestPost(context) {
 
   try {
     if (action === 'create') {
-      const { name, sector, company_uen, round_label, dept_label } = body;
+      const { name, sector, company_uen, round_label, dept_label, parent_session_id } = body;
       if (!name?.trim()) {
         return new Response(JSON.stringify({ error: 'name is required' }), { status: 400, headers: cors });
       }
       const code = await generateCode();
       const codeHash = await hashCode(code);
       await env.DB.prepare(
-        'INSERT INTO sessions (name, sector, code_hash, code, company_uen, round_label, dept_label) VALUES (?, ?, ?, ?, ?, ?, ?)'
+        'INSERT INTO sessions (name, sector, code_hash, code, company_uen, round_label, dept_label, parent_session_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
       ).bind(
         name.trim(),
         (sector || '').trim(),
@@ -82,6 +82,7 @@ export async function onRequestPost(context) {
         (company_uen || '').trim() || null,
         (round_label || '').trim() || null,
         (dept_label || '').trim() || null,
+        parent_session_id || null,
       ).run();
       logSecurityEvent('SESSION_CREATED', { ip, name: name.trim() });
       return new Response(JSON.stringify({ success: true, code }), { status: 200, headers: cors });
@@ -95,6 +96,34 @@ export async function onRequestPost(context) {
         env.DB.prepare('UPDATE sessions SET company_uen = ? WHERE id = ?').bind(gid, id).run()
       ));
       return new Response(JSON.stringify({ success: true, group_id: gid }), { status: 200, headers: cors });
+    }
+
+    if (action === 'add_dept') {
+      const { parent_session_id, dept_label } = body;
+      if (!parent_session_id || !dept_label?.trim()) {
+        return new Response(JSON.stringify({ error: 'parent_session_id and dept_label required' }), { status: 400, headers: cors });
+      }
+      const parent = await env.DB.prepare(
+        'SELECT id, name, sector, company_uen FROM sessions WHERE id = ?'
+      ).bind(parent_session_id).first();
+      if (!parent) {
+        return new Response(JSON.stringify({ error: 'Parent session not found' }), { status: 404, headers: cors });
+      }
+      const code = await generateCode();
+      const codeHash = await hashCode(code);
+      await env.DB.prepare(
+        'INSERT INTO sessions (name, sector, code_hash, code, company_uen, dept_label, parent_session_id) VALUES (?, ?, ?, ?, ?, ?, ?)'
+      ).bind(
+        parent.name,
+        parent.sector || '',
+        codeHash,
+        code,
+        parent.company_uen || null,
+        dept_label.trim(),
+        parent_session_id,
+      ).run();
+      logSecurityEvent('DEPT_SESSION_CREATED', { ip, parent_session_id, dept_label: dept_label.trim() });
+      return new Response(JSON.stringify({ success: true, code }), { status: 200, headers: cors });
     }
 
     if (action === 'delete') {

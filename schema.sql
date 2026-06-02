@@ -33,10 +33,11 @@ CREATE TABLE sessions (
   sector      TEXT NOT NULL DEFAULT '',
   code_hash   TEXT NOT NULL UNIQUE,
   code        TEXT,
-  company_uen TEXT,
-  round_label TEXT,
-  dept_label  TEXT,
-  created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
+  company_uen        TEXT,
+  round_label        TEXT,
+  dept_label         TEXT,
+  parent_session_id  INTEGER REFERENCES sessions(id),
+  created_at         DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE responses (

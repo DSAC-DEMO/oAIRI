@@ -400,7 +400,7 @@ function AdminPage() {
   const [pendingLink, setPendingLink] = useState(null); // { id, name, company_uen }
   const [newSessionRoundLabel, setNewSessionRoundLabel] = useState('');
   // Department creation state
-  const [addingDeptForUen, setAddingDeptForUen] = useState(null); // company_uen being expanded
+  const [addingDeptForSession, setAddingDeptForSession] = useState(null); // session id being expanded
   const [newDeptName, setNewDeptName] = useState('');
   const [deptSaving, setDeptSaving] = useState(false);
   // Company codes search filter
@@ -1551,7 +1551,7 @@ function AdminPage() {
                       <p className="text-sm text-gray-400 mb-4">No sessions match the current filters.</p>
                     ) : (
                       <div className="space-y-5 mb-5">
-                        {/* ── Multi-round / Department companies ── */}
+                        {/* ── Multi-round companies ── */}
                         {Object.keys(uenMap).length > 0 && (
                           <div>
                             <div className="flex items-center gap-2 mb-2">
@@ -1559,26 +1559,26 @@ function AdminPage() {
                               <span className="text-xs text-blue-400">{Object.keys(uenMap).length} group{Object.keys(uenMap).length !== 1 ? 's' : ''}</span>
                             </div>
                             <div className="space-y-3 max-h-[32rem] overflow-y-auto pr-1">
-                              {Object.entries(uenMap).map(([uen, sessions]) => {
-                                const deptSessions  = sessions.filter(s => s.dept_label);
-                                const roundSessions = sessions.filter(s => !s.dept_label);
-                                const companyName   = sessions[0].name;
-                                const isAddingDept  = addingDeptForUen === uen;
+                              {Object.entries(uenMap).map(([uen, groupSessions]) => {
+                                // Separate round sessions (no parent) from dept sessions (have parent)
+                                const roundSessions = groupSessions.filter(s => !s.parent_session_id);
+                                const deptSessions  = groupSessions.filter(s =>  s.parent_session_id);
+                                const companyName   = groupSessions[0].name;
 
-                                const addDepartment = async () => {
+                                const addDeptForSession = async (parentSession) => {
                                   if (!newDeptName.trim()) return;
                                   setDeptSaving(true);
                                   try {
                                     const res = await fetch('/api/sessions', {
                                       method: 'POST',
                                       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('adminToken')}` },
-                                      body: JSON.stringify({ action: 'create', name: companyName, sector: sessions[0].sector || '', company_uen: uen, dept_label: newDeptName.trim() }),
+                                      body: JSON.stringify({ action: 'add_dept', parent_session_id: parentSession.id, dept_label: newDeptName.trim() }),
                                     });
                                     const result = await res.json();
                                     if (!result.success) throw new Error(result.error);
                                     setGeneratedCode(result.code);
                                     setNewDeptName('');
-                                    setAddingDeptForUen(null);
+                                    setAddingDeptForSession(null);
                                     await fetchData(localStorage.getItem('adminToken'));
                                   } catch (err) { alert(`Failed: ${err.message}`); }
                                   finally { setDeptSaving(false); }
@@ -1589,58 +1589,63 @@ function AdminPage() {
                                     {/* Company header */}
                                     <div className="bg-blue-50 px-4 py-2 flex items-center gap-2">
                                       <span className="text-xs font-bold text-blue-700">{companyName}</span>
-                                      {roundSessions.length > 0 && (
-                                        <span className="text-xs text-blue-400">{roundSessions.length} round{roundSessions.length !== 1 ? 's' : ''}</span>
-                                      )}
+                                      <span className="text-xs text-blue-400">{roundSessions.length} round{roundSessions.length !== 1 ? 's' : ''}</span>
                                       {deptSessions.length > 0 && (
                                         <span className="text-xs bg-purple-100 text-purple-600 font-semibold px-2 py-0.5 rounded-full">{deptSessions.length} dept{deptSessions.length !== 1 ? 's' : ''}</span>
                                       )}
-                                      <button
-                                        type="button"
-                                        onClick={() => { setAddingDeptForUen(isAddingDept ? null : uen); setNewDeptName(''); }}
-                                        className="ml-auto text-xs bg-purple-600 hover:bg-purple-700 text-white px-2.5 py-0.5 rounded font-semibold transition-colors flex-shrink-0"
-                                      >
-                                        {isAddingDept ? 'Cancel' : '＋ Department'}
-                                      </button>
                                     </div>
 
-                                    {/* Inline add-department form */}
-                                    {isAddingDept && (
-                                      <div className="px-4 py-3 bg-purple-50 border-b border-purple-100 flex items-center gap-2">
-                                        <input
-                                          autoFocus
-                                          className="flex-1 border border-purple-200 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-purple-400 focus:border-transparent"
-                                          placeholder="Department name, e.g. HR, Finance, IT…"
-                                          value={newDeptName}
-                                          onChange={e => setNewDeptName(e.target.value)}
-                                          onKeyDown={e => { if (e.key === 'Enter') addDepartment(); if (e.key === 'Escape') setAddingDeptForUen(null); }}
-                                        />
-                                        <button
-                                          type="button"
-                                          disabled={!newDeptName.trim() || deptSaving}
-                                          onClick={addDepartment}
-                                          className="text-xs bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white px-3 py-1.5 rounded-lg font-semibold transition-colors flex-shrink-0"
-                                        >
-                                          {deptSaving ? 'Adding…' : 'Add & Generate Code'}
-                                        </button>
-                                      </div>
-                                    )}
-
                                     <div className="divide-y divide-gray-100">
-                                      {/* Round sessions */}
-                                      {roundSessions.map((s, idx) => (
-                                        <SessionRow key={s.id} s={s} roundLabel={`Round ${idx + 1}`} />
-                                      ))}
-                                      {/* Department sessions */}
-                                      {deptSessions.length > 0 && (
-                                        <>
-                                          {deptSessions.map(s => (
-                                            <div key={s.id} className="bg-purple-50/40">
-                                              <SessionRow s={s} roundLabel={null} deptLabel={s.dept_label} />
+                                      {roundSessions.map((s, idx) => {
+                                        const myDepts = deptSessions.filter(d => d.parent_session_id === s.id);
+                                        const isExpanding = addingDeptForSession === s.id;
+                                        return (
+                                          <div key={s.id}>
+                                            {/* Round row with inline Add Dept button */}
+                                            <div className="flex items-center bg-gray-50">
+                                              <div className="flex-1 min-w-0">
+                                                <SessionRow s={s} roundLabel={`Round ${idx + 1}`} />
+                                              </div>
+                                              <button
+                                                type="button"
+                                                onClick={() => { setAddingDeptForSession(isExpanding ? null : s.id); setNewDeptName(''); }}
+                                                className="mr-4 flex-shrink-0 text-xs bg-purple-100 hover:bg-purple-200 text-purple-700 px-2 py-0.5 rounded font-semibold transition-colors"
+                                              >
+                                                {isExpanding ? 'Cancel' : '＋ Dept'}
+                                              </button>
                                             </div>
-                                          ))}
-                                        </>
-                                      )}
+
+                                            {/* Inline dept-add form */}
+                                            {isExpanding && (
+                                              <div className="px-4 py-2.5 bg-purple-50 border-t border-purple-100 flex items-center gap-2">
+                                                <input
+                                                  autoFocus
+                                                  className="flex-1 border border-purple-200 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-purple-400 focus:border-transparent"
+                                                  placeholder="Department name, e.g. HR, Finance, IT…"
+                                                  value={newDeptName}
+                                                  onChange={e => setNewDeptName(e.target.value)}
+                                                  onKeyDown={e => { if (e.key === 'Enter') addDeptForSession(s); if (e.key === 'Escape') setAddingDeptForSession(null); }}
+                                                />
+                                                <button
+                                                  type="button"
+                                                  disabled={!newDeptName.trim() || deptSaving}
+                                                  onClick={() => addDeptForSession(s)}
+                                                  className="text-xs bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white px-3 py-1.5 rounded-lg font-semibold transition-colors flex-shrink-0"
+                                                >
+                                                  {deptSaving ? 'Adding…' : 'Add & Generate Code'}
+                                                </button>
+                                              </div>
+                                            )}
+
+                                            {/* Dept child sessions */}
+                                            {myDepts.map(d => (
+                                              <div key={d.id} className="border-t border-purple-100 bg-purple-50/30 pl-6">
+                                                <SessionRow s={d} roundLabel={null} deptLabel={d.dept_label} />
+                                              </div>
+                                            ))}
+                                          </div>
+                                        );
+                                      })}
                                     </div>
                                   </div>
                                 );
