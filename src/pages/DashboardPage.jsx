@@ -538,7 +538,6 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
                   <div>
                     <div className="flex items-baseline gap-1.5 flex-wrap" style={{ color: READINESS_LEVEL_STYLES[levelIdx].accent }}>
                       <span className="text-2xl font-bold tabular-nums">{overallAvg.toFixed(2)}</span>
-                      <span className="text-sm font-bold">({levelName})</span>
                     </div>
                     <div className="text-xs font-semibold text-gray-600 mt-0.5">Average Score</div>
                     <div className="text-xs text-gray-400 mt-0.5">out of 5.00</div>
@@ -586,7 +585,6 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
                     <div>
                       <div className="text-xs font-bold text-gray-800">{lvl.name ?? lvl}</div>
                       {lvl.persona && <div className="text-xs text-gray-400 italic">{lvl.persona}</div>}
-                      {lvl.description && <div className="text-xs text-gray-500 mt-0.5 leading-relaxed">{lvl.description}</div>}
                     </div>
                   </div>
                 ))}
