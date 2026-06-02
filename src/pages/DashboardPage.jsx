@@ -587,21 +587,6 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
                     <div className="text-xs font-semibold text-gray-600 mt-0.5">Average Score</div>
                     <div className="text-xs text-gray-400 mt-0.5">out of 5.00</div>
                   </div>
-                  <div className="w-full h-px bg-gray-100" />
-                  <div>
-                    <div className="text-xs font-semibold text-gray-600 mb-1">Top Pillar</div>
-                    {pillarList.length > 0 ? (() => {
-                      const top = [...pillarList].sort((a, b) => b.avg - a.avg)[0];
-                      return (
-                        <>
-                          <div className="text-sm font-bold text-gray-800 leading-tight">{top.name}</div>
-                          <div className="text-xl font-bold tabular-nums mt-0.5" style={{ color: accentColor }}>
-                            {top.avg.toFixed(2)} <span className="text-xs font-normal text-gray-400">/ 5</span>
-                          </div>
-                        </>
-                      );
-                    })() : <div className="text-sm text-gray-400">—</div>}
-                  </div>
                 </>
               )}
             </div>
@@ -636,23 +621,6 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
               </ul>
             </div>
 
-            <div className="w-full h-px bg-gray-100 my-4 flex-shrink-0" />
-
-            {/* Readiness level legend */}
-            <div className="flex-shrink-0">
-              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Readiness Levels</p>
-              <div className="space-y-3">
-                {readinessLevels.map((lvl, i) => (
-                  <div key={i} className="flex gap-2.5">
-                    <div className="w-2.5 h-2.5 rounded-full flex-shrink-0 mt-0.5" style={{ backgroundColor: LEVEL_COLORS[i] }} />
-                    <div>
-                      <div className="text-xs font-bold text-gray-800">{lvl.name ?? lvl}</div>
-                      {lvl.persona && <div className="text-xs text-gray-400 italic">{lvl.persona}</div>}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
           </div>
 
           {/* ── TOP MID: Radar ── */}
