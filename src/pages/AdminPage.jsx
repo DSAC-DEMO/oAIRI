@@ -1408,19 +1408,18 @@ function AdminPage() {
                     <div className="flex items-center justify-between gap-3">
                       <div>
                         <div className="flex items-center gap-2">
-                          <p className="text-sm font-semibold text-gray-800">{s.name}</p>
+                          <p className="text-sm font-semibold text-gray-800">
+                            {deptLabel ? `${deptLabel} Department` : s.name}
+                          </p>
                           {roundLabel && (
                             <span className="text-xs font-semibold bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">{roundLabel}</span>
                           )}
-                          {deptLabel && (
-                            <span className="text-xs font-semibold bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full">{deptLabel}</span>
-                          )}
-                          {s.round_label && (
+                          {!deptLabel && s.round_label && (
                             <span className="text-xs text-gray-400 italic">{s.round_label}</span>
                           )}
                         </div>
                         <p className="text-xs text-gray-400 mt-0.5">
-                          {s.sector && <span className="font-medium text-blue-600 mr-1">{s.sector} ·</span>}
+                          {!deptLabel && s.sector && <span className="font-medium text-blue-600 mr-1">{s.sector} ·</span>}
                           {s.response_count} response{s.response_count !== 1 ? 's' : ''} · Added {new Date(s.created_at).toLocaleDateString()}
                         </p>
                       </div>
