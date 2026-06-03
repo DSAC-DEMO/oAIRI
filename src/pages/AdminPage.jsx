@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import RadarChart from '../components/RadarChart';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
+import Footer from '../components/Footer';
 
 function PillarChart({ pillars }) {
   if (!pillars.length) return null;
@@ -2170,6 +2171,7 @@ function AdminPage() {
         </div>
       )}
 
+      <Footer />
     </div>
   );
 }

@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import QuestionCard from '../components/QuestionCard';
 import ProgressBar from '../components/ProgressBar';
+import Footer from '../components/Footer';
 
 function SurveyPage() {
   const navigate = useNavigate();
@@ -330,6 +331,7 @@ function SurveyPage() {
           </div>
         </form>
       </div>
+      <Footer />
     </div>
   );
 }

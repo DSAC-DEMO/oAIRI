@@ -1,6 +1,7 @@
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import RadarChart from '../components/RadarChart';
+import Footer from '../components/Footer';
 
 const LEVEL_ENCOURAGEMENT = [
   {
@@ -203,6 +204,7 @@ function ResultsPage() {
         </div>
 
       </div>
+      <Footer />
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
+import Footer from '../components/Footer';
 
 // ── Plotly light chart config ─────────────────────────────────────────────────
 const LIGHT = {
@@ -834,6 +835,7 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
       {expandedChart && (
         <ChartModal chart={expandedChart} onClose={() => setExpandedChart(null)} />
       )}
+      <Footer />
     </div>
   );
 }
