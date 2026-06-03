@@ -11,7 +11,7 @@ export default function Footer() {
         >
           Creative Commons Attribution 4.0 International (CC&nbsp;BY&nbsp;4.0)
         </a>
-        {' '}·{' '}Endorsed by DSAC{' '}·{' '}AI Readiness framework by AI Singapore (AISG)
+        {' '}·{' '}Supported by DSAC{' '}·{' '}AI Readiness framework by AI Singapore (AISG)
       </p>
     </footer>
   );
