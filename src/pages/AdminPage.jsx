@@ -1384,6 +1384,25 @@ function AdminPage() {
                   finally { setSessionSaving(false); }
                 };
 
+                const addDeptForSession = async (parentSession) => {
+                  if (!newDeptName.trim()) return;
+                  setDeptSaving(true);
+                  try {
+                    const res = await fetch('/api/sessions', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('adminToken')}` },
+                      body: JSON.stringify({ action: 'add_dept', parent_session_id: parentSession.id, dept_label: newDeptName.trim() }),
+                    });
+                    const result = await res.json();
+                    if (!result.success) throw new Error(result.error);
+                    setGeneratedCode(result.code);
+                    setNewDeptName('');
+                    setAddingDeptForSession(null);
+                    await fetchData(localStorage.getItem('adminToken'));
+                  } catch (err) { alert(`Failed: ${err.message}`); }
+                  finally { setDeptSaving(false); }
+                };
+
                 const SessionRow = ({ s, roundLabel, deptLabel }) => (
                   <div key={s.id} className="bg-gray-50 rounded-lg px-4 py-3 border border-gray-100">
                     <div className="flex items-center justify-between gap-3">
@@ -1566,25 +1585,6 @@ function AdminPage() {
                                 const deptSessions  = groupSessions.filter(s =>  s.parent_session_id);
                                 const companyName   = groupSessions[0].name;
 
-                                const addDeptForSession = async (parentSession) => {
-                                  if (!newDeptName.trim()) return;
-                                  setDeptSaving(true);
-                                  try {
-                                    const res = await fetch('/api/sessions', {
-                                      method: 'POST',
-                                      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('adminToken')}` },
-                                      body: JSON.stringify({ action: 'add_dept', parent_session_id: parentSession.id, dept_label: newDeptName.trim() }),
-                                    });
-                                    const result = await res.json();
-                                    if (!result.success) throw new Error(result.error);
-                                    setGeneratedCode(result.code);
-                                    setNewDeptName('');
-                                    setAddingDeptForSession(null);
-                                    await fetchData(localStorage.getItem('adminToken'));
-                                  } catch (err) { alert(`Failed: ${err.message}`); }
-                                  finally { setDeptSaving(false); }
-                                };
-
                                 return (
                                   <div key={uen} className="border border-blue-100 rounded-xl overflow-hidden">
                                     {/* Company header */}
@@ -1656,14 +1656,58 @@ function AdminPage() {
                         )}
 
                         {/* ── Standalone sessions ── */}
-                        {noUen.length > 0 && (
+                        {noUen.filter(s => !s.parent_session_id).length > 0 && (
                           <div>
                             <div className="flex items-center gap-2 mb-2">
                               <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Standalone Sessions</p>
-                              <span className="text-xs text-gray-300">{noUen.length} session{noUen.length !== 1 ? 's' : ''}</span>
+                              <span className="text-xs text-gray-300">{noUen.filter(s => !s.parent_session_id).length} session{noUen.filter(s => !s.parent_session_id).length !== 1 ? 's' : ''}</span>
                             </div>
-                            <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
-                              {noUen.map(s => <SessionRow key={s.id} s={s} roundLabel={null} />)}
+                            <div className="space-y-3 max-h-[32rem] overflow-y-auto pr-1">
+                              {noUen.filter(s => !s.parent_session_id).map(s => {
+                                const myDepts = noUen.filter(d => d.parent_session_id === s.id);
+                                const isExpanding = addingDeptForSession === s.id;
+                                return (
+                                  <div key={s.id} className="border border-gray-200 rounded-xl overflow-hidden">
+                                    <div className="flex items-center bg-gray-50">
+                                      <div className="flex-1 min-w-0">
+                                        <SessionRow s={s} roundLabel={null} />
+                                      </div>
+                                      <button
+                                        type="button"
+                                        onClick={() => { setAddingDeptForSession(isExpanding ? null : s.id); setNewDeptName(''); }}
+                                        className="mr-4 flex-shrink-0 text-xs bg-purple-100 hover:bg-purple-200 text-purple-700 px-2 py-0.5 rounded font-semibold transition-colors"
+                                      >
+                                        {isExpanding ? 'Cancel' : '＋ Dept'}
+                                      </button>
+                                    </div>
+                                    {isExpanding && (
+                                      <div className="px-4 py-2.5 bg-purple-50 border-t border-purple-100 flex items-center gap-2">
+                                        <input
+                                          autoFocus
+                                          className="flex-1 border border-purple-200 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-purple-400 focus:border-transparent"
+                                          placeholder="Department name, e.g. HR, Finance, IT…"
+                                          value={newDeptName}
+                                          onChange={e => setNewDeptName(e.target.value)}
+                                          onKeyDown={e => { if (e.key === 'Enter') addDeptForSession(s); if (e.key === 'Escape') setAddingDeptForSession(null); }}
+                                        />
+                                        <button
+                                          type="button"
+                                          disabled={!newDeptName.trim() || deptSaving}
+                                          onClick={() => addDeptForSession(s)}
+                                          className="text-xs bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white px-3 py-1.5 rounded-lg font-semibold transition-colors flex-shrink-0"
+                                        >
+                                          {deptSaving ? 'Adding…' : 'Add & Generate Code'}
+                                        </button>
+                                      </div>
+                                    )}
+                                    {myDepts.map(d => (
+                                      <div key={d.id} className="border-t border-purple-100 bg-purple-50/30 pl-6">
+                                        <SessionRow s={d} roundLabel={null} deptLabel={d.dept_label} />
+                                      </div>
+                                    ))}
+                                  </div>
+                                );
+                              })}
                             </div>
                           </div>
                         )}
