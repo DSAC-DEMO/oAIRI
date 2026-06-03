@@ -351,13 +351,28 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
 
   const radarTraces = useMemo(() => {
     if ((activeRound === 'overall' || compareMode) && effectivePerRoundStats) {
-      return effectivePerRoundStats.map((rs) => {
+      return effectivePerRoundStats.map((rs, traceIdx) => {
         if (rs.pillarList.length < 3) return null;
         const cats = [...rs.pillarList.map(p => p.name), rs.pillarList[0].name];
         const vals = [...rs.pillarList.map(p => p.avg), rs.pillarList[0].avg];
         const color = ROUND_COLORS[(rs.roundNum - 1) % ROUND_COLORS.length];
+        let mode = 'lines+markers';
+        let text, textposition, textfont;
+        if (compareMode && effectivePerRoundStats.length === 2 && traceIdx === 1) {
+          const other = effectivePerRoundStats[0];
+          const deltas = rs.pillarList.map(p => {
+            const op = other.pillarList.find(x => x.name === p.name);
+            return op != null ? p.avg - op.avg : 0;
+          });
+          const deltasClosed = [...deltas, deltas[0]];
+          mode = 'lines+markers+text';
+          text = deltasClosed.map(d => d >= 0 ? `+${d.toFixed(2)}` : d.toFixed(2));
+          textposition = 'top center';
+          textfont = { size: 9, color: '#374151' };
+        }
         return {
-          type: 'scatterpolar', r: vals, theta: cats, fill: 'toself', mode: 'lines+markers',
+          type: 'scatterpolar', r: vals, theta: cats, fill: 'toself', mode,
+          ...(text ? { text, textposition, textfont } : {}),
           fillcolor: `${color}22`, line: { color, width: 2.5 }, marker: { color, size: 6 },
           name: `Round ${rs.roundNum}${rs.label ? ` · ${rs.label}` : ''}`,
         };
@@ -707,10 +722,6 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
                 ) : (() => {
                   const [a, b] = kpiSection.selected;
                   const delta = b.avg - a.avg;
-                  const pillarDeltas = a.pillarList.map(p => {
-                    const bp = b.pillarList.find(x => x.name === p.name);
-                    return { name: p.name, delta: bp ? bp.avg - p.avg : 0 };
-                  }).sort((x, y) => Math.abs(y.delta) - Math.abs(x.delta));
                   return (
                     <>
                       <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
@@ -733,24 +744,6 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
                         </div>
                         <div className="text-xs text-gray-500 mt-0.5">score change R{a.roundNum} → R{b.roundNum}</div>
                       </div>
-                      {pillarDeltas.length > 0 && (
-                        <>
-                          <div className="w-full h-px bg-gray-100" />
-                          <div>
-                            <div className="text-xs font-semibold text-gray-600 mb-1.5">Pillar Changes</div>
-                            <div className="flex flex-col gap-1">
-                              {pillarDeltas.map(p => (
-                                <div key={p.name} className="flex items-center justify-between gap-2">
-                                  <span className="text-xs text-gray-600 truncate">{p.name}</span>
-                                  <span className={`text-xs font-bold tabular-nums flex-shrink-0 ${p.delta >= 0 ? 'text-green-500' : 'text-red-400'}`}>
-                                    {p.delta >= 0 ? '+' : ''}{p.delta.toFixed(2)}
-                                  </span>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        </>
-                      )}
                     </>
                   );
                 })()
