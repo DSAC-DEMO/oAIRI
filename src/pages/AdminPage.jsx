@@ -1670,7 +1670,7 @@ function AdminPage() {
                                   <div key={s.id} className="border border-gray-200 rounded-xl overflow-hidden">
                                     <div className="flex items-center bg-gray-50">
                                       <div className="flex-1 min-w-0">
-                                        <SessionRow s={s} roundLabel={null} />
+                                        <SessionRow s={s} roundLabel="Round 1" />
                                       </div>
                                       <button
                                         type="button"
