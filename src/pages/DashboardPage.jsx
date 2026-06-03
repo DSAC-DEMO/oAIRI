@@ -185,6 +185,7 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
   const [exporting, setExporting] = useState(false);
   const [expandedChart, setExpandedChart] = useState(null);
   const [deptDropdownOpen, setDeptDropdownOpen] = useState(null); // roundNum | null
+  const [compareRounds, setCompareRounds] = useState([]);
   const deptDropdownRef = useRef(null);
   useEffect(() => {
     const handler = (e) => { if (deptDropdownRef.current && !deptDropdownRef.current.contains(e.target)) setDeptDropdownOpen(null); };
@@ -201,7 +202,7 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
 
   // Dept state — scoped to the currently selected round
   const currentRoundData = useMemo(
-    () => hasMultipleRounds && activeRound !== 'overall' ? rounds.find(r => r.roundNum === activeRound) : null,
+    () => hasMultipleRounds && activeRound !== 'overall' && activeRound !== 'compare' ? rounds.find(r => r.roundNum === activeRound) : null,
     [hasMultipleRounds, activeRound, rounds]
   );
   const roundDepts = currentRoundData?.departments ?? null; // null = no depts for this round
@@ -221,6 +222,13 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
     setSelectedLevel(null);
   }, []);
 
+  const compareMode = activeRound === 'compare';
+  const toggleCompareRound = useCallback((roundNum) => {
+    setCompareRounds(prev =>
+      prev.includes(roundNum) ? prev.filter(r => r !== roundNum) : prev.length >= 2 ? [prev[1], roundNum] : [...prev, roundNum]
+    );
+  }, []);
+
   // When round changes, reset dept to overview if new round has depts
   const prevRoundRef = useRef(activeRound);
   if (prevRoundRef.current !== activeRound) {
@@ -236,11 +244,12 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
     }
     if (!hasMultipleRounds) return rawResponses;
     if (activeRound === 'overall') return rounds.flatMap(r => r.responses);
+    if (activeRound === 'compare') return compareRounds.length > 0 ? rounds.filter(r => compareRounds.includes(r.roundNum)).flatMap(r => r.responses) : [];
     return currentRoundData ? currentRoundData.responses : rawResponses;
-  }, [hasRoundDepts, roundDepts, activeDept, currentRoundData, hasMultipleRounds, activeRound, rounds, rawResponses]);
+  }, [hasRoundDepts, roundDepts, activeDept, currentRoundData, hasMultipleRounds, activeRound, rounds, rawResponses, compareRounds]);
 
   const perRoundStats = useMemo(() => {
-    if (activeRound !== 'overall' || !questions.length) return null;
+    if ((activeRound !== 'overall' && activeRound !== 'compare') || !questions.length) return null;
     return rounds.map((round) => {
       const pillarMap = {};
       const counts = [0, 0, 0, 0, 0];
@@ -266,6 +275,12 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
     });
   }, [activeRound, rounds, questions]);
 
+  const effectivePerRoundStats = useMemo(() => {
+    if (!perRoundStats) return null;
+    if (compareMode && compareRounds.length > 0) return perRoundStats.filter(rs => compareRounds.includes(rs.roundNum));
+    return perRoundStats;
+  }, [perRoundStats, compareMode, compareRounds]);
+
   const readinessCounts = useMemo(() => {
     const counts = [0, 0, 0, 0, 0];
     for (const r of responses) {
@@ -276,13 +291,13 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
   }, [responses]);
 
   const filteredResponses = useMemo(() =>
-    selectedLevel === null || activeRound === 'overall'
+    selectedLevel === null || activeRound === 'overall' || compareMode
       ? responses
       : responses.filter(r => {
           const s = r.score_pct || 0;
           return (s >= 4 ? 0 : s >= 3 ? 1 : s >= 2 ? 2 : s >= 1 ? 3 : 4) === selectedLevel;
         }),
-    [responses, selectedLevel, activeRound]
+    [responses, selectedLevel, activeRound, compareMode]
   );
 
   const { pillarList, overallAvg } = useMemo(() => {
@@ -328,19 +343,19 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
   const levelName     = (readinessLevels[levelIdx]?.name ?? readinessLevels[levelIdx]) || '—';
 
   const handleDistClick = useCallback((point) => {
-    if (activeRound === 'overall') return;
+    if (activeRound === 'overall' || compareMode) return;
     setSelectedLevel(prev => prev === point.pointIndex ? null : point.pointIndex);
-  }, [activeRound]);
+  }, [activeRound, compareMode]);
 
   // ── Chart traces / layouts ────────────────────────────────────────────────
 
   const radarTraces = useMemo(() => {
-    if (activeRound === 'overall' && perRoundStats) {
-      return perRoundStats.map((rs, i) => {
+    if ((activeRound === 'overall' || compareMode) && effectivePerRoundStats) {
+      return effectivePerRoundStats.map((rs) => {
         if (rs.pillarList.length < 3) return null;
         const cats = [...rs.pillarList.map(p => p.name), rs.pillarList[0].name];
         const vals = [...rs.pillarList.map(p => p.avg), rs.pillarList[0].avg];
-        const color = ROUND_COLORS[i % ROUND_COLORS.length];
+        const color = ROUND_COLORS[(rs.roundNum - 1) % ROUND_COLORS.length];
         return {
           type: 'scatterpolar', r: vals, theta: cats, fill: 'toself', mode: 'lines+markers',
           fillcolor: `${color}22`, line: { color, width: 2.5 }, marker: { color, size: 6 },
@@ -357,7 +372,7 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
       text: vals.map(v => v.toFixed(2)), textposition: 'top center', textfont: { size: 10, color: '#374151' },
       fillcolor: `${color}33`, line: { color, width: 2 }, marker: { color, size: 5 }, name: 'Avg Score',
     }];
-  }, [activeRound, perRoundStats, pillarList, selectedLevel]);
+  }, [activeRound, compareMode, effectivePerRoundStats, pillarList, selectedLevel]);
 
   const radarLayout = useMemo(() => ({
     polar: {
@@ -365,15 +380,15 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
       radialaxis: { visible: true, range: [0, 5], tickfont: { size: 10, color: '#6b7280' }, gridcolor: '#e5e7eb', linecolor: '#e5e7eb', tickvals: [1, 2, 3, 4, 5] },
       angularaxis: { tickfont: { size: 10, color: '#374151' }, gridcolor: '#e5e7eb', linecolor: '#e5e7eb' },
     },
-    showlegend: activeRound === 'overall',
+    showlegend: activeRound === 'overall' || compareMode,
     legend: { orientation: 'h', x: 0.5, xanchor: 'center', y: -0.18, font: { size: 9 } },
-    margin: { t: 20, b: activeRound === 'overall' ? 60 : 20, l: 56, r: 56 },
-  }), [activeRound]);
+    margin: { t: 20, b: (activeRound === 'overall' || compareMode) ? 60 : 20, l: 56, r: 56 },
+  }), [activeRound, compareMode]);
 
   const distTraces = useMemo(() => {
-    if (activeRound === 'overall' && perRoundStats) {
-      return perRoundStats.map((rs, i) => {
-        const color = ROUND_COLORS[i % ROUND_COLORS.length];
+    if ((activeRound === 'overall' || compareMode) && effectivePerRoundStats) {
+      return effectivePerRoundStats.map((rs) => {
+        const color = ROUND_COLORS[(rs.roundNum - 1) % ROUND_COLORS.length];
         return {
           type: 'bar',
           x: readinessLevels.map(l => l.name ?? l),
@@ -400,20 +415,20 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
       cliponaxis: false,
       hovertemplate: '%{x}: %{y}<extra></extra>',
     }];
-  }, [activeRound, perRoundStats, readinessLevels, readinessCounts, selectedLevel]);
+  }, [activeRound, compareMode, effectivePerRoundStats, readinessLevels, readinessCounts, selectedLevel]);
 
   const distLayout = useMemo(() => ({
-    barmode: activeRound === 'overall' ? 'group' : undefined,
+    barmode: (activeRound === 'overall' || compareMode) ? 'group' : undefined,
     xaxis: {
       tickfont: { size: 9 }, gridcolor: 'transparent', linecolor: '#e5e7eb', tickangle: -20,
       categoryorder: 'array',
       categoryarray: [...readinessLevels.map(l => l.name ?? l)].reverse(),
     },
     yaxis: { gridcolor: '#f3f4f6', linecolor: '#e5e7eb', tickfont: { size: 10 }, dtick: 1 },
-    showlegend: activeRound === 'overall',
+    showlegend: activeRound === 'overall' || compareMode,
     legend: { orientation: 'h', x: 0, y: 1.18, font: { size: 9 } },
-    margin: { t: activeRound === 'overall' ? 56 : 36, b: 70, l: 36, r: 16 },
-  }), [activeRound, readinessLevels]);
+    margin: { t: (activeRound === 'overall' || compareMode) ? 56 : 36, b: 70, l: 36, r: 16 },
+  }), [activeRound, compareMode, readinessLevels]);
 
   const programTraces = useMemo(() => {
     if (!programCounts.length) return [];
@@ -449,6 +464,10 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
       });
       return { mode: 'depts', totalAll: roundDepts.reduce((s, d) => s + d.responses.length, 0), deptStats };
     }
+    if (compareMode && perRoundStats && compareRounds.length > 0) {
+      const selected = perRoundStats.filter(rs => compareRounds.includes(rs.roundNum));
+      return { mode: 'compare', selected };
+    }
     if (activeRound === 'overall' && perRoundStats) {
       const totalAll = perRoundStats.reduce((s, rs) => s + rs.totalResponses, 0);
       const first = perRoundStats[0];
@@ -465,7 +484,7 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
       return { mode: 'overall', totalAll, perRoundStats, mostImproved };
     }
     return { mode: 'single' };
-  }, [hasRoundDepts, roundDepts, activeDept, activeRound, perRoundStats]);
+  }, [hasRoundDepts, roundDepts, activeDept, activeRound, perRoundStats, compareMode, compareRounds]);
 
   // ── PDF export ────────────────────────────────────────────────────────────
   const exportPDF = async () => {
@@ -502,7 +521,7 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
             <h1 className="text-sm font-bold text-gray-900 leading-tight">{session.name}</h1>
             <p className="text-xs text-gray-400">AI Readiness — Company Report</p>
           </div>
-          {selectedLevelName && activeRound !== 'overall' && (
+          {selectedLevelName && activeRound !== 'overall' && activeRound !== 'compare' && (
             <div
               className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border cursor-pointer"
               style={{ borderColor: accentColor, color: accentColor, backgroundColor: `${accentColor}18` }}
@@ -538,7 +557,39 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
             }`}
           >Overall</button>
 
+          <button
+            onClick={() => { switchRound('compare'); setDeptDropdownOpen(null); }}
+            className={`px-3 py-1 rounded-full text-xs font-semibold border transition-colors flex-shrink-0 ${
+              compareMode ? 'bg-violet-600 text-white border-violet-600' : 'bg-white text-gray-500 border-gray-200 hover:border-violet-400 hover:text-violet-600'
+            }`}
+          >Compare</button>
+
+          {compareMode && (
+            <span className="text-xs text-gray-400 flex-shrink-0">
+              {compareRounds.length === 0 ? '— select 2 rounds' : compareRounds.length === 1 ? '— select 1 more' : ''}
+            </span>
+          )}
+
           {rounds.map((r) => {
+            const isSelected = compareRounds.includes(r.roundNum);
+            const roundColor = ROUND_COLORS[(r.roundNum - 1) % ROUND_COLORS.length];
+
+            if (compareMode) {
+              return (
+                <button
+                  key={r.roundNum}
+                  onClick={() => toggleCompareRound(r.roundNum)}
+                  className={`px-3 py-1 rounded-full text-xs font-semibold border transition-colors flex-shrink-0 ${
+                    isSelected ? 'text-white' : 'bg-white text-gray-500 border-gray-200 hover:border-gray-400 hover:text-gray-700'
+                  }`}
+                  style={isSelected ? { backgroundColor: roundColor, borderColor: roundColor } : {}}
+                >
+                  {isSelected && <span className="mr-1 opacity-80">✓</span>}
+                  Round {r.roundNum}{r.label ? ` · ${r.label}` : ''}
+                </button>
+              );
+            }
+
             const isActive   = activeRound === r.roundNum;
             const isCurrent  = r.sessionId === session.id;
             const dateStr    = new Date(r.createdAt).toLocaleDateString('en-SG', { month: 'short', year: 'numeric' });
@@ -551,7 +602,6 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
                 <div className={`flex items-center rounded-full border text-xs font-semibold transition-colors ${
                   isActive ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-500 border-gray-200'
                 }`}>
-                  {/* Round label — click to select round */}
                   <button
                     onClick={() => { switchRound(r.roundNum); setDeptDropdownOpen(null); }}
                     className="pl-3 pr-2 py-1"
@@ -560,11 +610,9 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
                     <span className={`ml-1 ${isActive ? 'opacity-70' : 'text-gray-400'}`}>· {dateStr}</span>
                     {isCurrent && <span className={`ml-1 ${isActive ? 'opacity-80' : 'text-blue-400'}`}>★</span>}
                     {hasDepts && isActive && activeDeptForRound !== 'overview' && (
-                      <span className={`ml-1.5 text-purple-300 font-normal`}>· {activeDeptForRound}</span>
+                      <span className="ml-1.5 text-purple-300 font-normal">· {activeDeptForRound}</span>
                     )}
                   </button>
-
-                  {/* Dept chevron — only on rounds that have departments */}
                   {hasDepts && (
                     <button
                       onClick={() => { switchRound(r.roundNum); setDeptDropdownOpen(ddOpen ? null : r.roundNum); }}
@@ -579,8 +627,6 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
                     </button>
                   )}
                 </div>
-
-                {/* Dept dropdown */}
                 {hasDepts && ddOpen && (
                   <div className="absolute top-full left-0 mt-1.5 z-30 bg-white rounded-xl shadow-lg border border-gray-200 py-1 min-w-[160px]">
                     <button
@@ -655,6 +701,59 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
                     </div>
                   </div>
                 </>
+              ) : kpiSection.mode === 'compare' ? (
+                kpiSection.selected.length < 2 ? (
+                  <div className="text-xs text-gray-400">Select 2 rounds above to compare.</div>
+                ) : (() => {
+                  const [a, b] = kpiSection.selected;
+                  const delta = b.avg - a.avg;
+                  const pillarDeltas = a.pillarList.map(p => {
+                    const bp = b.pillarList.find(x => x.name === p.name);
+                    return { name: p.name, delta: bp ? bp.avg - p.avg : 0 };
+                  }).sort((x, y) => Math.abs(y.delta) - Math.abs(x.delta));
+                  return (
+                    <>
+                      <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
+                        {kpiSection.selected.map((rs) => {
+                          const color = ROUND_COLORS[(rs.roundNum - 1) % ROUND_COLORS.length];
+                          return (
+                            <div key={rs.roundNum}>
+                              <div className="text-xl font-bold tabular-nums" style={{ color }}>{rs.totalResponses}</div>
+                              <div className="text-xs text-gray-400 leading-tight">{rs.label || `Round ${rs.roundNum}`} responses</div>
+                              <div className="text-base font-bold tabular-nums mt-1" style={{ color }}>{rs.avg.toFixed(2)}</div>
+                              <div className="text-xs text-gray-400">avg score</div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <div className="w-full h-px bg-gray-100" />
+                      <div>
+                        <div className={`text-2xl font-bold tabular-nums ${delta >= 0 ? 'text-green-500' : 'text-red-400'}`}>
+                          {delta >= 0 ? '+' : ''}{delta.toFixed(2)}
+                        </div>
+                        <div className="text-xs text-gray-500 mt-0.5">score change R{a.roundNum} → R{b.roundNum}</div>
+                      </div>
+                      {pillarDeltas.length > 0 && (
+                        <>
+                          <div className="w-full h-px bg-gray-100" />
+                          <div>
+                            <div className="text-xs font-semibold text-gray-600 mb-1.5">Pillar Changes</div>
+                            <div className="flex flex-col gap-1">
+                              {pillarDeltas.map(p => (
+                                <div key={p.name} className="flex items-center justify-between gap-2">
+                                  <span className="text-xs text-gray-600 truncate">{p.name}</span>
+                                  <span className={`text-xs font-bold tabular-nums flex-shrink-0 ${p.delta >= 0 ? 'text-green-500' : 'text-red-400'}`}>
+                                    {p.delta >= 0 ? '+' : ''}{p.delta.toFixed(2)}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </>
+                      )}
+                    </>
+                  );
+                })()
               ) : kpiSection.mode === 'overall' ? (
                 <>
                   <div>
@@ -751,8 +850,10 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
                 {selectedLevelName} · {filteredTotal} respondent{filteredTotal !== 1 ? 's' : ''}
               </p>
             )}
-            {activeRound === 'overall' && (
-              <p className="text-xs text-gray-400 mb-1 flex-shrink-0">All rounds overlaid</p>
+            {(activeRound === 'overall' || compareMode) && (
+              <p className="text-xs text-gray-400 mb-1 flex-shrink-0">
+                {compareMode ? (compareRounds.length < 2 ? 'Select 2 rounds to compare' : `Round ${compareRounds[0]} vs Round ${compareRounds[1]}`) : 'All rounds overlaid'}
+              </p>
             )}
             <div className="flex-1 min-h-0">
               {radarTraces.length > 0
