@@ -680,19 +680,6 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
                       ))}
                     </div>
                   </div>
-                  <div className="w-full h-px bg-gray-100" />
-                  <div>
-                    <div className="text-xs font-semibold text-gray-600 mb-1">Most Improved Pillar</div>
-                    {kpiSection.mostImproved ? (
-                      <>
-                        <div className="text-sm font-bold text-gray-800 leading-tight">{kpiSection.mostImproved.name}</div>
-                        <div className={`text-xl font-bold tabular-nums mt-0.5 ${kpiSection.mostImproved.delta >= 0 ? 'text-green-500' : 'text-red-400'}`}>
-                          {kpiSection.mostImproved.delta >= 0 ? '+' : ''}{kpiSection.mostImproved.delta.toFixed(2)}
-                          <span className="text-xs font-normal text-gray-400 ml-1">R1 → R{perRoundStats.length}</span>
-                        </div>
-                      </>
-                    ) : <div className="text-sm text-gray-400">—</div>}
-                  </div>
                 </>
               ) : (
                 <>
@@ -715,25 +702,25 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
               )}
             </div>
 
-            <div className="w-full my-4 flex-shrink-0 border-t-2 border-dashed border-gray-200" />
+            <div className="w-full my-3 flex-shrink-0 border-t-2 border-dashed border-gray-200" />
 
             {/* Survey description */}
             <div className="flex-shrink-0">
-              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">About This Survey</p>
-              <p className="text-xs text-gray-500 leading-relaxed mb-2">
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1.5">About This Survey</p>
+              <p className="text-xs text-gray-500 leading-relaxed mb-1.5">
                 The <span className="font-semibold text-gray-700">pAIRI</span> (Personal AI Readiness Index) is a comprehensive instrument designed to measure an individual's maturity and capability in the rapidly evolving AI landscape.
               </p>
-              <p className="text-xs text-gray-500 leading-relaxed mb-1.5">
+              <p className="text-xs text-gray-500 leading-relaxed mb-1">
                 This instrument breaks down "AI Readiness" into a holistic framework consisting of 15 questions across <span className="font-semibold text-gray-700">5 Core Pillars</span>:
               </p>
-              <ol className="text-xs text-gray-500 space-y-1 mb-2 pl-3 list-decimal">
+              <ol className="text-xs text-gray-500 space-y-0.5 mb-1.5 pl-3 list-decimal">
                 <li><span className="font-semibold text-gray-700">Mindset:</span> Adaptability, continuous learning, and how you position your role for the AI era.</li>
                 <li><span className="font-semibold text-gray-700">Ethics &amp; Responsibility:</span> Awareness of bias, risks, and critical evaluation of AI outputs.</li>
                 <li><span className="font-semibold text-gray-700">Value Creation:</span> Identifying use cases and driving actual productivity gains.</li>
                 <li><span className="font-semibold text-gray-700">Data Literacy:</span> Understanding data quality and proficiency in preparing data for AI.</li>
                 <li><span className="font-semibold text-gray-700">Tools &amp; Technical Skills:</span> Prompt engineering, agent orchestration, and building AI workflows.</li>
               </ol>
-              <p className="text-xs text-gray-500 leading-relaxed mb-1.5">
+              <p className="text-xs text-gray-500 leading-relaxed mb-1">
                 Based on the final assessment score, the individual is placed into one of <span className="font-semibold text-gray-700">five maturity levels</span>:
               </p>
               <ul className="text-xs text-gray-500 space-y-0.5 pl-1">
