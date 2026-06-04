@@ -82,7 +82,9 @@ function ResultsPage() {
   function competencyBadge(avg) {
     const i = getCompetencyIndex(avg ?? 0);
     const s = LEVEL_STYLES[OPTION_LEVEL_COLORS[i]] || LEVEL_STYLES.yellow;
-    return <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${s.badge} w-28 text-center flex-shrink-0`}>{optionLevels[i]}</span>;
+    const badgePersona = readinessLevels[4 - i]?.persona;
+    const label = badgePersona ? `${optionLevels[i]} (${badgePersona})` : optionLevels[i];
+    return <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${s.badge} w-32 text-center leading-tight flex-shrink-0`}>{label}</span>;
   }
   const styles = LEVEL_STYLES[color] || LEVEL_STYLES.yellow;
 
