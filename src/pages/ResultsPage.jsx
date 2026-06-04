@@ -31,10 +31,10 @@ const LEVEL_ENCOURAGEMENT = [
 const OPTION_LEVEL_COLORS = ['red', 'orange', 'yellow', 'green', 'emerald'];
 
 function getCompetencyIndex(score) {
-  if (score >= 4.375) return 4;
-  if (score >= 3.125) return 3;
-  if (score >= 1.875) return 2;
-  if (score >= 0.625) return 1;
+  if (score >= 4.000) return 4;
+  if (score >= 3.000) return 3;
+  if (score >= 2.000) return 2;
+  if (score >= 1.000) return 1;
   return 0;
 }
 
@@ -82,9 +82,7 @@ function ResultsPage() {
   function competencyBadge(avg) {
     const i = getCompetencyIndex(avg ?? 0);
     const s = LEVEL_STYLES[OPTION_LEVEL_COLORS[i]] || LEVEL_STYLES.yellow;
-    const badgePersona = readinessLevels[4 - i]?.persona;
-    const label = badgePersona ? `${optionLevels[i]} (${badgePersona})` : optionLevels[i];
-    return <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${s.badge} w-32 text-center leading-tight flex-shrink-0`}>{label}</span>;
+    return <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${s.badge} w-32 text-center leading-tight flex-shrink-0`}>{optionLevels[i]}</span>;
   }
   const styles = LEVEL_STYLES[color] || LEVEL_STYLES.yellow;
 
