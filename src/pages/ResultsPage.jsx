@@ -223,7 +223,7 @@ function ResultsPage() {
         )}
 
         {/* ── Retake + Export ──────────────────────────────────────── */}
-        <div className="flex items-center justify-center gap-3 pb-4">
+        <div className="flex items-center justify-center gap-3 pb-16">
           <button
             onClick={() => navigate('/')}
             className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-10 rounded-lg transition-colors shadow-md"

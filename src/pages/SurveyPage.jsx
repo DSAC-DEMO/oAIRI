@@ -270,7 +270,7 @@ function SurveyPage() {
           )}
 
           {/* Sticky bottom bar */}
-          <div className="sticky bottom-0 bg-white border-t-2 border-gray-200 p-3 sm:p-4 shadow-lg rounded-t-lg">
+          <div className="sticky bottom-11 bg-white border-t-2 border-gray-200 p-3 sm:p-4 shadow-lg rounded-t-lg">
             <ProgressBar answeredCount={answeredCount} totalQuestions={questions.length} />
             <div className="flex gap-2 sm:gap-3">
               {currentPillarIndex > 0 && (

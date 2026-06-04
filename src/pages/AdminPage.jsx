@@ -2223,6 +2223,7 @@ function AdminPage() {
         </div>
       )}
 
+      <div className="h-11 flex-shrink-0" />
       <Footer />
     </div>
   );

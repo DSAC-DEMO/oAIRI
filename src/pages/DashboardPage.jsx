@@ -916,6 +916,7 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
       {expandedChart && (
         <ChartModal chart={expandedChart} onClose={() => setExpandedChart(null)} />
       )}
+      <div className="h-11 flex-shrink-0" />
       <Footer />
     </div>
   );
