@@ -107,7 +107,7 @@ export async function onRequestGet(context) {
     const courses = coursesRow ? JSON.parse(coursesRow.value) : [];
 
     const { results: sessions } = await env.DB.prepare(`
-      SELECT s.id, s.name, s.sector, s.code, s.company_uen, s.round_label, s.created_at, COUNT(r.id) AS response_count
+      SELECT s.id, s.name, s.sector, s.code, s.company_uen, s.round_label, s.dept_label, s.parent_session_id, s.created_at, COUNT(r.id) AS response_count
       FROM sessions s
       LEFT JOIN responses r ON r.session_id = s.id
       GROUP BY s.id
