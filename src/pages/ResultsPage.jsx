@@ -1,5 +1,7 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
 import RadarChart from '../components/RadarChart';
 import Footer from '../components/Footer';
 
@@ -49,6 +51,8 @@ function ResultsPage() {
   const location = useLocation();
   const navigate = useNavigate();
   const { readinessData } = location.state || {};
+  const resultsRef = useRef(null);
+  const [exporting, setExporting] = useState(false);
   const [optionLevels, setOptionLevels] = useState(['Unaware', 'Aware', 'Ready', 'Competent', 'Catalyst']);
   const [courses, setCourses] = useState([]);
   const [readinessLevels, setReadinessLevels] = useState([
@@ -107,9 +111,30 @@ function ResultsPage() {
   });
 
 
+  const exportPDF = async () => {
+    if (exporting || !resultsRef.current) return;
+    setExporting(true);
+    try {
+      const el = resultsRef.current;
+      const canvas = await html2canvas(el, { scale: 2, useCORS: true, backgroundColor: '#f3f4f6' });
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
+      const pageW = pdf.internal.pageSize.getWidth();
+      const pageH = pdf.internal.pageSize.getHeight();
+      const imgH = (canvas.height / canvas.width) * pageW;
+      const pages = Math.ceil(imgH / pageH);
+      for (let i = 0; i < pages; i++) {
+        if (i > 0) pdf.addPage();
+        pdf.addImage(imgData, 'PNG', 0, -i * pageH, pageW, imgH);
+      }
+      pdf.save('AI-Readiness-Results.pdf');
+    } catch (e) { console.error(e); }
+    finally { setExporting(false); }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 py-10 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-3xl mx-auto space-y-6">
+      <div ref={resultsRef} className="max-w-3xl mx-auto space-y-6">
 
         {/* ── Overall score ─────────────────────────────────────────── */}
         <div className={`rounded-xl shadow-sm border p-8 text-center ${styles.badge}`}>
@@ -184,7 +209,11 @@ function ResultsPage() {
                 <li key={i} className="flex gap-3 items-start">
                   <span className={`mt-0.5 font-bold flex-shrink-0 text-lg ${styles.icon}`}>→</span>
                   <div>
-                    <p className="text-gray-800 font-semibold">{course.name}</p>
+                    {course.link ? (
+                      <a href={course.link} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline font-semibold">{course.name}</a>
+                    ) : (
+                      <p className="text-gray-800 font-semibold">{course.name}</p>
+                    )}
                     {course.description && <p className="text-gray-500 text-sm mt-0.5 leading-relaxed">{course.description}</p>}
                   </div>
                 </li>
@@ -193,13 +222,20 @@ function ResultsPage() {
           </div>
         )}
 
-        {/* ── Retake ───────────────────────────────────────────────── */}
-        <div className="text-center pb-4">
+        {/* ── Retake + Export ──────────────────────────────────────── */}
+        <div className="flex items-center justify-center gap-3 pb-4">
           <button
             onClick={() => navigate('/')}
             className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-10 rounded-lg transition-colors shadow-md"
           >
             Retake Assessment
+          </button>
+          <button
+            onClick={exportPDF}
+            disabled={exporting}
+            className="bg-white hover:bg-gray-50 border border-gray-300 text-gray-700 font-bold py-3 px-6 rounded-lg transition-colors shadow-sm disabled:opacity-50"
+          >
+            {exporting ? 'Exporting…' : 'Export PDF'}
           </button>
         </div>
 

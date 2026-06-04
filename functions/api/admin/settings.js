@@ -100,6 +100,7 @@ export async function onRequestPost(context) {
         name: c.name.trim(),
         levels: Array.isArray(c.levels) ? c.levels.filter(l => Number.isInteger(l) && l >= 0 && l <= 4) : [],
         description: (c.description ?? '').trim(),
+        link: (c.link ?? '').trim(),
         pillarConditions: Array.isArray(c.pillarConditions)
           ? c.pillarConditions
               .filter(pc => pc?.pillar)

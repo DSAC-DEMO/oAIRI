@@ -1922,6 +1922,15 @@ function AdminPage() {
                             placeholder="Description shown on the results page…"
                           />
 
+                          {/* Link */}
+                          <input
+                            type="url"
+                            className="w-full border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                            value={course.link ?? ''}
+                            onChange={e => updateCourse(ci, c => ({ ...c, link: e.target.value }))}
+                            placeholder="Course URL (optional) — e.g. https://www.sp.edu.sg/…"
+                          />
+
                           {/* Pillar conditions */}
                           {(course.pillarConditions?.length > 0) && (
                             <div className="space-y-1.5 pt-1">
@@ -1979,7 +1988,7 @@ function AdminPage() {
                     <div className="flex items-center justify-between border-t border-gray-100 pt-4">
                       <button
                         type="button"
-                        onClick={() => setEditCourses([...workingCourses, { name: '', levels: [], description: '', pillarConditions: [] }])}
+                        onClick={() => setEditCourses([...workingCourses, { name: '', levels: [], description: '', link: '', pillarConditions: [] }])}
                         className="text-sm text-blue-600 hover:underline font-semibold"
                       >
                         + Add Course
