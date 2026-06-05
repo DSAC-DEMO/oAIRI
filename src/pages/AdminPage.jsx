@@ -1569,7 +1569,7 @@ function AdminPage() {
                     ) : filtered.length === 0 ? (
                       <p className="text-sm text-gray-400 mb-4">No sessions match the current filters.</p>
                     ) : (
-                      <div className="space-y-5 mb-5">
+                      <div className="space-y-5 mb-5 max-h-[36rem] overflow-y-auto pr-1">
                         {/* ── Multi-round companies ── */}
                         {Object.keys(uenMap).length > 0 && (
                           <div>
@@ -1577,7 +1577,7 @@ function AdminPage() {
                               <p className="text-xs font-bold text-blue-700 uppercase tracking-widest">Multi-Round Companies</p>
                               <span className="text-xs text-blue-400">{Object.keys(uenMap).length} group{Object.keys(uenMap).length !== 1 ? 's' : ''}</span>
                             </div>
-                            <div className="space-y-3 max-h-[32rem] overflow-y-auto pr-1">
+                            <div className="space-y-3">
                               {Object.entries(uenMap).map(([uen, groupSessions]) => {
                                 // Separate round sessions (no parent) from dept sessions (have parent)
                                 const roundSessions = groupSessions.filter(s => !s.parent_session_id);
@@ -1661,7 +1661,7 @@ function AdminPage() {
                               <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Standalone Sessions</p>
                               <span className="text-xs text-gray-300">{noUen.filter(s => !s.parent_session_id).length} session{noUen.filter(s => !s.parent_session_id).length !== 1 ? 's' : ''}</span>
                             </div>
-                            <div className="space-y-3 max-h-[32rem] overflow-y-auto pr-1">
+                            <div className="space-y-3">
                               {noUen.filter(s => !s.parent_session_id).map(s => {
                                 const myDepts = noUen.filter(d => d.parent_session_id === s.id);
                                 const isExpanding = addingDeptForSession === s.id;
