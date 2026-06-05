@@ -63,3 +63,6 @@ coverage
 *.tmp
 *.temp
 .cache
+
+# Local DB dump (used for seeding local D1 from remote)
+dump.sql

@@ -1,6 +1,6 @@
 export default function Footer() {
   return (
-    <footer className="fixed bottom-0 left-0 right-0 z-10 bg-blue-50 border-t border-blue-100 px-6 py-3 text-center">
+    <footer className="fixed bottom-0 left-0 right-0 z-10 bg-blue-200 border-t border-blue-300 px-6 py-3 text-center">
       <p className="text-xs text-blue-400 leading-relaxed">
         pAIRI v3.0 is licensed under{' '}
         <a
