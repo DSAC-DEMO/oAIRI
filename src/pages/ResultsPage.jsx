@@ -5,6 +5,26 @@ import jsPDF from 'jspdf';
 import RadarChart from '../components/RadarChart';
 import Footer from '../components/Footer';
 
+function CourseDescription({ text }) {
+  const lines = text.split('\n');
+  const bullets = lines.filter(l => l.trimStart().startsWith('-'));
+  const prose = lines.filter(l => !l.trimStart().startsWith('-'));
+  return (
+    <div className="text-gray-500 text-sm mt-0.5 leading-relaxed space-y-1">
+      {bullets.length > 0 && (
+        <ul className="list-disc list-inside space-y-0.5">
+          {bullets.map((l, i) => (
+            <li key={i}>{l.trimStart().replace(/^-\s*/, '')}</li>
+          ))}
+        </ul>
+      )}
+      {prose.filter(l => l.trim()).map((l, i) => (
+        <p key={i}>{l}</p>
+      ))}
+    </div>
+  );
+}
+
 const LEVEL_ENCOURAGEMENT = [
   {
     headline: 'Outstanding work — you are leading the way!',
@@ -82,7 +102,7 @@ function ResultsPage() {
   function competencyBadge(avg) {
     const i = getCompetencyIndex(avg ?? 0);
     const s = LEVEL_STYLES[OPTION_LEVEL_COLORS[i]] || LEVEL_STYLES.yellow;
-    return <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${s.badge} w-32 text-center leading-tight flex-shrink-0`}>{optionLevels[i]}</span>;
+    return <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${s.badge} w-32 flex-shrink-0 inline-flex items-center justify-center`}>{optionLevels[i]}</span>;
   }
   const styles = LEVEL_STYLES[color] || LEVEL_STYLES.yellow;
 
@@ -114,33 +134,56 @@ function ResultsPage() {
   const exportPDF = async () => {
     if (exporting || !resultsRef.current) return;
     setExporting(true);
+    const el = resultsRef.current;
+
+    // Inject temporary DSAC footer before capture
+    const footer = document.createElement('div');
+    footer.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:14px 0 6px;border-top:1px solid #e5e7eb;margin-top:8px;';
+    const logo = document.createElement('img');
+    logo.alt = 'DSAC';
+    logo.crossOrigin = 'anonymous';
+    logo.style.cssText = 'height:44px;width:auto;';
+    const note = document.createElement('span');
+    note.style.cssText = 'font-size:11px;color:#9ca3af;';
+    note.textContent = 'pAIRI AI Readiness Assessment · Digital Skills & AI Centre';
+    footer.appendChild(logo);
+    footer.appendChild(note);
+    el.appendChild(footer);
+
+    // Wait for logo to load before capturing
+    await new Promise(resolve => {
+      logo.onload = resolve;
+      logo.onerror = resolve;
+      logo.src = '/DSAC.png';
+      if (logo.complete && logo.naturalWidth > 0) resolve();
+    });
+
     try {
-      const el = resultsRef.current;
       const canvas = await html2canvas(el, { scale: 2, useCORS: true, backgroundColor: '#f3f4f6' });
       const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
-      const pageW = pdf.internal.pageSize.getWidth();
-      const pageH = pdf.internal.pageSize.getHeight();
+      // Single custom-height page — no content splits
+      const pageW = 595.28; // A4 width in pt
       const imgH = (canvas.height / canvas.width) * pageW;
-      const pages = Math.ceil(imgH / pageH);
-      for (let i = 0; i < pages; i++) {
-        if (i > 0) pdf.addPage();
-        pdf.addImage(imgData, 'PNG', 0, -i * pageH, pageW, imgH);
-      }
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: [pageW, imgH] });
+      pdf.addImage(imgData, 'PNG', 0, 0, pageW, imgH);
       pdf.save('AI-Readiness-Results.pdf');
     } catch (e) { console.error(e); }
-    finally { setExporting(false); }
+    finally {
+      el.removeChild(footer);
+      setExporting(false);
+    }
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 py-10 px-4 sm:px-6 lg:px-8">
-      <div ref={resultsRef} className="max-w-3xl mx-auto space-y-6">
+      <div className="max-w-3xl mx-auto">
+      <div ref={resultsRef} className="space-y-6">
 
         {/* ── Overall score ─────────────────────────────────────────── */}
         <div className={`rounded-xl shadow-sm border p-8 text-center ${styles.badge}`}>
           <p className="text-xs font-bold uppercase tracking-widest mb-5 opacity-60">Overall AI Readiness</p>
 
-          <div className="flex items-baseline justify-center gap-2 mb-3">
+          <div className="flex items-end justify-center gap-2 mb-3">
             <span className="text-8xl font-black leading-none tabular-nums">{(overallMean ?? 0).toFixed(2)}</span>
             <span className="text-3xl font-bold opacity-40">/ 5</span>
           </div>
@@ -214,7 +257,7 @@ function ResultsPage() {
                     ) : (
                       <p className="text-gray-800 font-semibold">{course.name}</p>
                     )}
-                    {course.description && <p className="text-gray-500 text-sm mt-0.5 leading-relaxed">{course.description}</p>}
+                    {course.description && <CourseDescription text={course.description} />}
                   </div>
                 </li>
               ))}
@@ -222,8 +265,10 @@ function ResultsPage() {
           </div>
         )}
 
+      </div>{/* end resultsRef */}
+
         {/* ── Retake + Export ──────────────────────────────────────── */}
-        <div className="flex items-center justify-center gap-3 pb-16">
+        <div className="flex items-center justify-center gap-3 py-8">
           <button
             onClick={() => navigate('/')}
             className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-10 rounded-lg transition-colors shadow-md"
@@ -239,7 +284,7 @@ function ResultsPage() {
           </button>
         </div>
 
-      </div>
+      </div>{/* end max-w-3xl wrapper */}
       <Footer />
     </div>
   );

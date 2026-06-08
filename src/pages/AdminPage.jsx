@@ -1867,13 +1867,13 @@ function AdminPage() {
                   <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                     <h2 className="text-lg font-bold text-gray-900 mb-1">Skills &amp; Training Courses</h2>
                     <p className="text-xs text-gray-500 mb-5">
-                      Define courses shown on the results page. Set overall readiness levels and optionally add pillar-specific conditions — a course appears if <span className="font-semibold">any</span> condition matches.
+                      Define courses shown on the results page. Add <span className="font-semibold">overall readiness</span> conditions and/or <span className="font-semibold">pillar</span> conditions — both are optional, and a course appears when any matched condition is met.
                     </p>
 
-                    {/* Column headers */}
-                    {workingCourses.length > 0 && (
+                    {/* Column headers — shown only when at least one course has conditions */}
+                    {workingCourses.length > 0 && workingCourses.some(c => c.levels != null || c.pillarConditions?.length > 0) && (
                       <div className="flex items-end gap-2 mb-1 px-4">
-                        <span className="flex-1 text-xs font-semibold text-gray-400">Course name / pillar</span>
+                        <span className="flex-1 text-xs font-semibold text-gray-400">Condition</span>
                         {workingReadiness.map((lvl, i) => (
                           <div key={i} className="w-12 text-center flex-shrink-0">
                             <span className={`text-xs font-semibold ${READINESS_LEVEL_STYLES[i].text}`} title={lvl.name}>
@@ -1893,17 +1893,13 @@ function AdminPage() {
                       {workingCourses.map((course, ci) => (
                         <div key={ci} className="bg-gray-50 rounded-lg px-4 py-3 border border-gray-100 space-y-2">
 
-                          {/* Overall readiness row */}
+                          {/* Course name row */}
                           <div className="flex items-center gap-2">
                             <input
                               className="flex-1 border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
                               value={course.name}
                               onChange={e => updateCourse(ci, c => ({ ...c, name: e.target.value }))}
                               placeholder="Course name"
-                            />
-                            <LevelCheckboxes
-                              levels={course.levels}
-                              onChange={next => updateCourse(ci, c => ({ ...c, levels: next }))}
                             />
                             <button
                               type="button"
@@ -1930,6 +1926,26 @@ function AdminPage() {
                             onChange={e => updateCourse(ci, c => ({ ...c, link: e.target.value }))}
                             placeholder="Course URL (optional) — e.g. https://www.sp.edu.sg/…"
                           />
+
+                          {/* Overall readiness condition */}
+                          {course.levels != null && (
+                            <div className="space-y-1.5 pt-1">
+                              <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Overall readiness</p>
+                              <div className="flex items-center gap-2">
+                                <span className="flex-1 text-sm text-gray-500 italic">Overall readiness level</span>
+                                <LevelCheckboxes
+                                  levels={course.levels}
+                                  onChange={next => updateCourse(ci, c => ({ ...c, levels: next }))}
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => updateCourse(ci, c => ({ ...c, levels: null }))}
+                                  className="w-6 text-red-400 hover:text-red-600 text-xl leading-none flex-shrink-0 text-center"
+                                  title="Remove overall readiness condition"
+                                >×</button>
+                              </div>
+                            </div>
+                          )}
 
                           {/* Pillar conditions */}
                           {(course.pillarConditions?.length > 0) && (
@@ -1968,17 +1984,28 @@ function AdminPage() {
                             </div>
                           )}
 
-                          {/* Add pillar condition */}
-                          <button
-                            type="button"
-                            onClick={() => updateCourse(ci, c => ({
-                              ...c,
-                              pillarConditions: [...(c.pillarConditions ?? []), { pillar: '', levels: [] }]
-                            }))}
-                            className="text-xs text-blue-500 hover:underline font-medium"
-                          >
-                            + Add pillar condition
-                          </button>
+                          {/* Add condition buttons */}
+                          <div className="flex items-center gap-3">
+                            {course.levels == null && (
+                              <button
+                                type="button"
+                                onClick={() => updateCourse(ci, c => ({ ...c, levels: [] }))}
+                                className="text-xs text-blue-500 hover:underline font-medium"
+                              >
+                                + Add overall readiness condition
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => updateCourse(ci, c => ({
+                                ...c,
+                                pillarConditions: [...(c.pillarConditions ?? []), { pillar: '', levels: [] }]
+                              }))}
+                              className="text-xs text-blue-500 hover:underline font-medium"
+                            >
+                              + Add pillar condition
+                            </button>
+                          </div>
 
                         </div>
                       ))}
@@ -1988,7 +2015,7 @@ function AdminPage() {
                     <div className="flex items-center justify-between border-t border-gray-100 pt-4">
                       <button
                         type="button"
-                        onClick={() => setEditCourses([...workingCourses, { name: '', levels: [], description: '', link: '', pillarConditions: [] }])}
+                        onClick={() => setEditCourses([...workingCourses, { name: '', levels: null, description: '', link: '', pillarConditions: [] }])}
                         className="text-sm text-blue-600 hover:underline font-semibold"
                       >
                         + Add Course

@@ -9,7 +9,9 @@
     "preview": "vite preview",
     "db:init": "wrangler d1 execute p-airi --local --file=schema.sql",
     "wrangler:dev": "wrangler pages dev dist --port 8788",
-    "start": "npm run build && npm run db:init && npm run wrangler:dev"
+    "db:sync": "node scripts/sync-db.js",
+    "start": "npm run build && npm run wrangler:dev",
+    "start:fresh": "npm run build && npm run db:init && npm run wrangler:dev"
   },
   "dependencies": {
     "html2canvas": "^1.4.1",
