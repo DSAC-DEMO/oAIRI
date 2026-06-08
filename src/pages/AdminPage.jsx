@@ -472,23 +472,63 @@ function AdminPage() {
     const el = analyticsRef.current;
     if (!el) return;
     setExportingPDF(true);
+
+    await document.fonts.ready;
+
     try {
-      const canvas = await html2canvas(el, {
+      // Capture from the already-rendered document so flex/grid layout is preserved
+      const rect = el.getBoundingClientRect();
+      const canvas = await html2canvas(document.documentElement, {
         scale: 2,
         useCORS: true,
         backgroundColor: '#f9fafb',
+        x: rect.left,
+        y: rect.top,
+        width: rect.width,
+        height: rect.height,
         scrollX: 0,
         scrollY: 0,
-        width: el.scrollWidth,
-        height: el.scrollHeight,
-        windowWidth: el.scrollWidth,
-        windowHeight: el.scrollHeight,
+        windowWidth: document.documentElement.offsetWidth,
+        windowHeight: document.documentElement.offsetHeight,
       });
+
       const imgData = canvas.toDataURL('image/png');
-      const w = canvas.width / 2;
-      const h = canvas.height / 2;
-      const pdf = new jsPDF({ orientation: w > h ? 'landscape' : 'portrait', unit: 'px', format: [w, h] });
-      pdf.addImage(imgData, 'PNG', 0, 0, w, h);
+      const cw = canvas.width / 2;
+      const ch = canvas.height / 2;
+      const footerH = 56;
+      const totalH = ch + footerH;
+      const pdf = new jsPDF({ orientation: cw > ch ? 'landscape' : 'portrait', unit: 'px', format: [cw, totalH] });
+      pdf.addImage(imgData, 'PNG', 0, 0, cw, ch);
+
+      // Footer separator
+      const mx = 16;
+      pdf.setDrawColor(229, 231, 235);
+      pdf.setLineWidth(0.5);
+      pdf.line(mx, ch + 12, cw - mx, ch + 12);
+
+      // DSAC logo
+      const logoData = await new Promise(resolve => {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => {
+          try {
+            const c = document.createElement('canvas');
+            c.width = img.naturalWidth; c.height = img.naturalHeight;
+            c.getContext('2d').drawImage(img, 0, 0);
+            const logoH = 28;
+            resolve({ data: c.toDataURL('image/png'), w: (img.naturalWidth / img.naturalHeight) * logoH, h: logoH });
+          } catch { resolve(null); }
+        };
+        img.onerror = () => resolve(null);
+        img.src = '/DSAC.png';
+      });
+      if (logoData) pdf.addImage(logoData.data, 'PNG', mx, ch + 14, logoData.w, logoData.h);
+
+      // Footer text
+      pdf.setFontSize(9);
+      pdf.setTextColor(156, 163, 175);
+      pdf.text('© 2026 DSAC · AISG  |  Licensed under CC BY 4.0', cw - mx, ch + 36, { align: 'right' });
+
       pdf.save(`Admin_Analytics_${new Date().toISOString().slice(0, 10)}.pdf`);
     } catch (err) {
       alert('PDF export failed: ' + err.message);

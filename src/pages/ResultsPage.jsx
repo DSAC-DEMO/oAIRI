@@ -145,7 +145,7 @@ function ResultsPage() {
     logo.style.cssText = 'height:44px;width:auto;';
     const note = document.createElement('span');
     note.style.cssText = 'font-size:11px;color:#9ca3af;';
-    note.textContent = 'pAIRI AI Readiness Assessment · Digital Skills & AI Centre';
+    note.textContent = '© 2026 DSAC · AISG  |  Licensed under CC BY 4.0';
     footer.appendChild(logo);
     footer.appendChild(note);
     el.appendChild(footer);
@@ -156,6 +156,20 @@ function ResultsPage() {
       logo.onerror = resolve;
       logo.src = '/DSAC.png';
       if (logo.complete && logo.naturalWidth > 0) resolve();
+    });
+
+    // Collect course link positions relative to el (measured after footer injected so layout is settled)
+    const elRect = el.getBoundingClientRect();
+    const linkAnnotations = [];
+    el.querySelectorAll('a[href]').forEach(a => {
+      const r = a.getBoundingClientRect();
+      linkAnnotations.push({
+        href: a.href,
+        x: r.left - elRect.left,
+        y: r.top - elRect.top,
+        w: r.width,
+        h: r.height,
+      });
     });
 
     try {
@@ -171,6 +185,13 @@ function ResultsPage() {
       pdf.setFillColor(243, 244, 246);
       pdf.rect(0, 0, pageW, pageH, 'F');
       pdf.addImage(imgData, 'PNG', margin, margin, contentW, contentH);
+
+      // Overlay clickable link annotations on course names
+      const ptPerPx = contentW / (canvas.width / 2);
+      linkAnnotations.forEach(({ href, x, y, w, h }) => {
+        pdf.link(margin + x * ptPerPx, margin + y * ptPerPx, w * ptPerPx, h * ptPerPx, { url: href });
+      });
+
       pdf.save('AI-Readiness-Results.pdf');
     } catch (e) { console.error(e); }
     finally {

@@ -506,8 +506,33 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
     const el = dashboardRef.current;
     if (!el) return;
     setExporting(true);
+
+    const footer = document.createElement('div');
+    // grid-column spans all 3 cols so it sits below the grid as a full-width row
+    footer.style.cssText = 'grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;padding:14px 6px 6px;border-top:1px solid #e5e7eb;margin-top:4px;background:#f9fafb;';
+    const logo = document.createElement('img');
+    logo.alt = 'DSAC'; logo.crossOrigin = 'anonymous';
+    logo.style.cssText = 'height:44px;width:auto;';
+    const note = document.createElement('span');
+    note.style.cssText = 'font-size:11px;color:#9ca3af;';
+    note.textContent = '© 2026 DSAC · AISG  |  Licensed under CC BY 4.0';
+    footer.appendChild(logo); footer.appendChild(note);
+    el.appendChild(footer);
+    await new Promise(resolve => {
+      logo.onload = resolve; logo.onerror = resolve;
+      logo.src = '/DSAC.png';
+      if (logo.complete && logo.naturalWidth > 0) resolve();
+    });
+
     try {
-      const canvas = await html2canvas(el, { scale: 2, useCORS: true, backgroundColor: '#f9fafb' });
+      const canvas = await html2canvas(el, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: '#f9fafb',
+        width: el.scrollWidth,
+        height: el.scrollHeight,
+      });
+      el.removeChild(footer);
       const imgData = canvas.toDataURL('image/png');
       const w = canvas.width / 2;
       const h = canvas.height / 2;
@@ -515,6 +540,7 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
       pdf.addImage(imgData, 'PNG', 0, 0, w, h);
       pdf.save(`${session.name}_AI_Readiness_Report.pdf`);
     } catch (err) {
+      if (el.contains(footer)) el.removeChild(footer);
       alert('PDF export failed: ' + err.message);
     } finally {
       setExporting(false);
@@ -534,7 +560,7 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
           </div>
           <div>
             <h1 className="text-sm font-bold text-gray-900 leading-tight">{session.name}</h1>
-            <p className="text-xs text-gray-400">AI Readiness — Company Report</p>
+            <p className="text-xs text-gray-400">pAIRI v3.0</p>
           </div>
           {selectedLevelName && activeRound !== 'overall' && activeRound !== 'compare' && (
             <div
