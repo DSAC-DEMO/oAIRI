@@ -102,7 +102,7 @@ function ResultsPage() {
   function competencyBadge(avg) {
     const i = getCompetencyIndex(avg ?? 0);
     const s = LEVEL_STYLES[OPTION_LEVEL_COLORS[i]] || LEVEL_STYLES.yellow;
-    return <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${s.badge} w-32 flex-shrink-0 inline-flex items-center justify-center`}>{optionLevels[i]}</span>;
+    return <span className={`px-2.5 pt-1.5 pb-3 rounded-full text-xs font-semibold border ${s.badge} w-32 flex-shrink-0 block text-center leading-snug`}>{optionLevels[i]}</span>;
   }
   const styles = LEVEL_STYLES[color] || LEVEL_STYLES.yellow;
 
@@ -161,11 +161,16 @@ function ResultsPage() {
     try {
       const canvas = await html2canvas(el, { scale: 2, useCORS: true, backgroundColor: '#f3f4f6' });
       const imgData = canvas.toDataURL('image/png');
-      // Single custom-height page — no content splits
+      // A4 width with side margins so content is centred on the page
       const pageW = 595.28; // A4 width in pt
-      const imgH = (canvas.height / canvas.width) * pageW;
-      const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: [pageW, imgH] });
-      pdf.addImage(imgData, 'PNG', 0, 0, pageW, imgH);
+      const margin = 28; // ~1 cm margin on each side
+      const contentW = pageW - margin * 2;
+      const contentH = (canvas.height / canvas.width) * contentW;
+      const pageH = contentH + margin * 2;
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: [pageW, pageH] });
+      pdf.setFillColor(243, 244, 246);
+      pdf.rect(0, 0, pageW, pageH, 'F');
+      pdf.addImage(imgData, 'PNG', margin, margin, contentW, contentH);
       pdf.save('AI-Readiness-Results.pdf');
     } catch (e) { console.error(e); }
     finally {
@@ -180,16 +185,16 @@ function ResultsPage() {
       <div ref={resultsRef} className="space-y-6">
 
         {/* ── Overall score ─────────────────────────────────────────── */}
-        <div className={`rounded-xl shadow-sm border p-8 text-center ${styles.badge}`}>
-          <p className="text-xs font-bold uppercase tracking-widest mb-5 opacity-60">Overall AI Readiness</p>
-
-          <div className="flex items-end justify-center gap-2 mb-3">
-            <span className="text-8xl font-black leading-none tabular-nums">{(overallMean ?? 0).toFixed(2)}</span>
-            <span className="text-3xl font-bold opacity-40">/ 5</span>
+        <div className={`rounded-xl shadow-sm border p-8 ${styles.badge}`}>
+          <div className="flex flex-col items-center text-center">
+            <p className="text-xs font-bold uppercase tracking-widest mb-5 opacity-60">Overall AI Readiness</p>
+            <div className="flex items-end justify-center gap-2 mb-8">
+              <span className="text-8xl font-black leading-none tabular-nums">{(overallMean ?? 0).toFixed(2)}</span>
+              <span className="text-3xl font-bold opacity-40">/ 5</span>
+            </div>
+            <p className="text-xl font-bold">{label}</p>
+            {persona && <p className="text-sm font-medium opacity-70 mt-1">{persona}</p>}
           </div>
-
-          <p className="text-xl font-bold">{label}</p>
-          {persona && <p className="text-sm font-medium opacity-70 mt-1">{persona}</p>}
         </div>
 
         {/* ── Radar chart ──────────────────────────────────────────── */}
@@ -235,8 +240,10 @@ function ResultsPage() {
           const encouragement = LEVEL_ENCOURAGEMENT[levelIdx] ?? LEVEL_ENCOURAGEMENT[4];
           return (
             <div className={`rounded-xl border p-8 ${styles.badge}`}>
-              <p className="text-lg font-bold mb-2">{encouragement.headline}</p>
-              <p className="text-sm leading-relaxed opacity-80">{encouragement.body}</p>
+              <div className="flex flex-col items-center text-center">
+                <p className="text-lg font-bold mb-2">{encouragement.headline}</p>
+                <p className="text-sm leading-relaxed opacity-80">{encouragement.body}</p>
+              </div>
             </div>
           );
         })()}
