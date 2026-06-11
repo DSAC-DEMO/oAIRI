@@ -383,6 +383,8 @@ function AdminPage() {
   const [levelsSaving, setLevelsSaving] = useState(false);
   const [editReadinessLevels, setEditReadinessLevels] = useState(null);
   const [readinessSaving, setReadinessSaving] = useState(false);
+  const [editRegistrationLabel, setEditRegistrationLabel] = useState(null);
+  const [regLabelSaving, setRegLabelSaving] = useState(false);
   // Company codes state
   const [newSessionName, setNewSessionName] = useState('');
   const [sessionSaving, setSessionSaving] = useState(false);
@@ -612,6 +614,7 @@ function AdminPage() {
     ],
     sessions: sessionsData = [],
     courses: coursesData = [],
+    registrationLabel: registrationLabelData = 'Company Name',
   } = data;
   const total = stats.total_responses || 0;
 
@@ -1207,6 +1210,25 @@ function AdminPage() {
             finally { setReadinessSaving(false); }
           };
 
+          const workingRegLabel = editRegistrationLabel ?? registrationLabelData;
+          const regLabelValid = workingRegLabel.trim().length > 0;
+
+          const saveRegLabel = async () => {
+            setRegLabelSaving(true);
+            try {
+              const res = await fetch('/api/admin/settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('adminToken')}` },
+                body: JSON.stringify({ action: 'update_registration_label', label: workingRegLabel })
+              });
+              const result = await res.json();
+              if (!result.success) throw new Error(result.error);
+              setEditRegistrationLabel(null);
+              await fetchData(localStorage.getItem('adminToken'));
+            } catch (err) { alert(`Failed: ${err.message}`); }
+            finally { setRegLabelSaving(false); }
+          };
+
           const workingCourses = editCourses ?? coursesData;
           const coursesValid = workingCourses.every(c => c.name?.trim().length > 0);
 
@@ -1228,6 +1250,39 @@ function AdminPage() {
 
           return (
             <div className="max-w-2xl space-y-6">
+
+              {/* Registration form label */}
+              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                <h2 className="text-lg font-bold text-gray-900 mb-1">Registration Form Label</h2>
+                <p className="text-xs text-gray-500 mb-4">
+                  The field label shown to users when they register their company on the survey page.
+                </p>
+                <input
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent mb-4"
+                  value={workingRegLabel}
+                  onChange={e => setEditRegistrationLabel(e.target.value)}
+                  placeholder="e.g. Company Name, Organisation Name"
+                />
+                <div className="flex gap-2">
+                  <button
+                    disabled={!regLabelValid || regLabelSaving}
+                    onClick={saveRegLabel}
+                    className={`px-5 py-2 rounded-lg text-sm font-semibold text-white transition-colors ${
+                      regLabelValid && !regLabelSaving ? 'bg-green-600 hover:bg-green-700' : 'bg-gray-300 cursor-not-allowed'
+                    }`}
+                  >
+                    {regLabelSaving ? 'Saving…' : 'Save'}
+                  </button>
+                  {editRegistrationLabel !== null && (
+                    <button
+                      onClick={() => setEditRegistrationLabel(null)}
+                      className="px-5 py-2 rounded-lg text-sm font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  )}
+                </div>
+              </div>
 
               {/* Readiness level names */}
               <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">

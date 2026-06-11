@@ -22,6 +22,7 @@ export async function onRequestGet(context) {
       'SELECT id, question_id, text, weight FROM question_options ORDER BY weight ASC'
     ).all();
 
+    let registrationLabel = 'Company Name';
     let levels = ['Unaware', 'Aware', 'Ready', 'Competent', 'Catalyst'];
     let readinessLevels = [
       { name: 'Expert Ready',     persona: 'Disciplined' },
@@ -33,16 +34,18 @@ export async function onRequestGet(context) {
     let companies = [];
     let courses = [];
     try {
-      const [levelsRow, rlRow, { results: sessionRows }, coursesRow] = await Promise.all([
+      const [levelsRow, rlRow, { results: sessionRows }, coursesRow, regLabelRow] = await Promise.all([
         env.DB.prepare("SELECT value FROM settings WHERE key = 'option_levels'").first(),
         env.DB.prepare("SELECT value FROM settings WHERE key = 'readiness_levels'").first(),
         env.DB.prepare('SELECT id, name FROM sessions ORDER BY name ASC').all(),
         env.DB.prepare("SELECT value FROM settings WHERE key = 'courses'").first(),
+        env.DB.prepare("SELECT value FROM settings WHERE key = 'registration_label'").first(),
       ]);
       if (levelsRow?.value) levels = JSON.parse(levelsRow.value);
       if (rlRow?.value) readinessLevels = JSON.parse(rlRow.value);
       companies = sessionRows;
       if (coursesRow?.value) courses = JSON.parse(coursesRow.value);
+      if (regLabelRow?.value) registrationLabel = regLabelRow.value;
     } catch {}
 
     const optsByQuestion = {};
@@ -54,7 +57,7 @@ export async function onRequestGet(context) {
     const result = questions.map(q => ({ ...q, options: optsByQuestion[q.id] || [] }));
 
     return new Response(
-      JSON.stringify({ success: true, questions: result, levels, readinessLevels, companies, courses }),
+      JSON.stringify({ success: true, questions: result, levels, readinessLevels, companies, courses, registrationLabel }),
       { status: 200, headers: corsHeaders }
     );
   } catch (error) {

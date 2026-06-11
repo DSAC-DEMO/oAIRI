@@ -15,11 +15,24 @@ function SurveyPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
 
+  // Registration label from settings
+  const [registrationLabel, setRegistrationLabel] = useState('Company Name');
+
   // Company code verification
   const [codeInput, setCodeInput] = useState('');
   const [verifiedCompany, setVerifiedCompany] = useState(null); // null | { id, name }
   const [codeVerifying, setCodeVerifying] = useState(false);
   const [codeError, setCodeError] = useState('');
+
+  // Pre-screen mode: 'code' | 'register'
+  const [preScreenMode, setPreScreenMode] = useState('code');
+
+  // Registration form
+  const [regName, setRegName] = useState('');
+  const [regLoading, setRegLoading] = useState(false);
+  const [regError, setRegError] = useState('');
+  const [registeredCode, setRegisteredCode] = useState(null); // shown after registration
+  const [codeCopied, setCodeCopied] = useState(false);
 
   useEffect(() => {
     fetch('/api/questions')
@@ -28,6 +41,7 @@ function SurveyPage() {
         if (!data.success) throw new Error('Failed to load questions');
         setQuestions(data.questions);
         if (data.levels) setLevels(data.levels);
+        if (data.registrationLabel) setRegistrationLabel(data.registrationLabel);
       })
       .catch(err => setQuestionsError(err.message))
       .finally(() => setQuestionsLoading(false));
@@ -100,6 +114,31 @@ function SurveyPage() {
     }
   };
 
+  // ── Company registration ──────────────────────────────────────────────────
+  const registerCompany = async () => {
+    const name = regName.trim();
+    if (!name) return;
+    setRegLoading(true);
+    setRegError('');
+    try {
+      const res = await fetch('/api/session/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ companyName: name }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setRegisteredCode({ id: data.id, name: data.name, code: data.code });
+      } else {
+        setRegError(data.error || 'Registration failed. Please try again.');
+      }
+    } catch {
+      setRegError('Could not register. Please try again.');
+    } finally {
+      setRegLoading(false);
+    }
+  };
+
   // ── Code verification pre-screen ──────────────────────────────────────────
   const verifyCode = async () => {
     const code = codeInput.trim();
@@ -127,39 +166,129 @@ function SurveyPage() {
   };
 
   if (!verifiedCompany) {
+    // ── Post-registration: show code then let user proceed ──────────────────
+    if (registeredCode) {
+      return (
+        <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 flex items-center justify-center px-4 py-10">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 max-w-lg w-full">
+            <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mb-4">
+              <svg className="w-6 h-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <p className="text-xs font-bold uppercase tracking-widest text-green-600 mb-1">Registration successful</p>
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">{registeredCode.name}</h1>
+            <p className="text-sm text-gray-500 mb-5">
+              Save the access code below — you'll need it to view your company's dashboard after completing the assessment.
+            </p>
+            <div className="bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 flex items-center justify-between mb-1">
+              <span className="font-mono text-lg font-bold text-gray-800 tracking-widest">{registeredCode.code}</span>
+              <button
+                type="button"
+                onClick={() => { navigator.clipboard.writeText(registeredCode.code); setCodeCopied(true); setTimeout(() => setCodeCopied(false), 2000); }}
+                className="text-xs text-green-600 font-semibold hover:text-green-700 ml-4 flex-shrink-0"
+              >
+                {codeCopied ? 'Copied!' : 'Copy'}
+              </button>
+            </div>
+            <p className="text-xs text-gray-400 mb-6">Keep this code safe — it cannot be recovered once you leave this page.</p>
+            <button
+              type="button"
+              onClick={() => setVerifiedCompany({ id: registeredCode.id, name: registeredCode.name })}
+              className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 rounded-lg transition-colors"
+            >
+              Start Assessment →
+            </button>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 flex items-center justify-center px-4 py-10">
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 max-w-lg w-full">
           <p className="text-xs font-bold uppercase tracking-widest text-green-600 mb-2">Before you begin</p>
-          <h1 className="text-2xl font-bold text-gray-900 mb-6">Enter your access code</h1>
 
-          <p className="text-sm text-gray-600 mb-5">
-            You need a valid access code provided by your organisation to start the assessment.
-          </p>
-
-          <div className="flex gap-2 mb-3">
-            <input
-              className="flex-1 border border-gray-300 rounded-lg px-3 py-2.5 text-sm font-mono focus:ring-2 focus:ring-green-500 focus:border-transparent"
-              value={codeInput}
-              onChange={e => { setCodeInput(e.target.value.toUpperCase()); setCodeError(''); }}
-              onKeyDown={e => e.key === 'Enter' && verifyCode()}
-              placeholder="e.g. X7K2HPNB"
-              autoFocus
-            />
+          {/* Mode tabs */}
+          <div className="flex border border-gray-200 rounded-lg p-1 mb-6">
             <button
               type="button"
-              onClick={verifyCode}
-              disabled={!codeInput.trim() || codeVerifying}
-              className={`px-4 py-2 rounded-lg text-sm font-semibold flex-shrink-0 transition-all ${
-                codeInput.trim() && !codeVerifying
-                  ? 'bg-green-600 hover:bg-green-700 text-white'
-                  : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-              }`}
+              onClick={() => { setPreScreenMode('code'); setCodeError(''); setRegError(''); }}
+              className={`flex-1 py-2 text-sm font-semibold rounded-md transition-all ${preScreenMode === 'code' ? 'bg-green-600 text-white' : 'text-gray-500 hover:text-gray-700'}`}
             >
-              {codeVerifying ? '…' : 'Verify'}
+              Enter Code
+            </button>
+            <button
+              type="button"
+              onClick={() => { setPreScreenMode('register'); setCodeError(''); setRegError(''); }}
+              className={`flex-1 py-2 text-sm font-semibold rounded-md transition-all ${preScreenMode === 'register' ? 'bg-green-600 text-white' : 'text-gray-500 hover:text-gray-700'}`}
+            >
+              Register Company
             </button>
           </div>
-          {codeError && <p className="mt-1 text-xs text-red-500">{codeError}</p>}
+
+          {preScreenMode === 'code' ? (
+            <>
+              <h1 className="text-xl font-bold text-gray-900 mb-2">Enter your access code</h1>
+              <p className="text-sm text-gray-600 mb-5">
+                Enter the access code that was provided to you to start the assessment.
+              </p>
+              <div className="flex gap-2 mb-3">
+                <input
+                  className="flex-1 border border-gray-300 rounded-lg px-3 py-2.5 text-sm font-mono focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  value={codeInput}
+                  onChange={e => { setCodeInput(e.target.value.toUpperCase()); setCodeError(''); }}
+                  onKeyDown={e => e.key === 'Enter' && verifyCode()}
+                  placeholder="e.g. X7K2HPNB"
+                  autoFocus
+                />
+                <button
+                  type="button"
+                  onClick={verifyCode}
+                  disabled={!codeInput.trim() || codeVerifying}
+                  className={`px-4 py-2 rounded-lg text-sm font-semibold flex-shrink-0 transition-all ${
+                    codeInput.trim() && !codeVerifying
+                      ? 'bg-green-600 hover:bg-green-700 text-white'
+                      : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                  }`}
+                >
+                  {codeVerifying ? '…' : 'Verify'}
+                </button>
+              </div>
+              {codeError && <p className="text-xs text-red-500">{codeError}</p>}
+            </>
+          ) : (
+            <>
+              <h1 className="text-xl font-bold text-gray-900 mb-2">Register your company</h1>
+              <p className="text-sm text-gray-600 mb-5">
+                Register your company to begin the assessment. An access code will be generated for your dashboard.
+              </p>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{registrationLabel}</label>
+              <div className="flex gap-2 mb-3">
+                <input
+                  className="flex-1 border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  value={regName}
+                  onChange={e => { setRegName(e.target.value); setRegError(''); }}
+                  onKeyDown={e => e.key === 'Enter' && registerCompany()}
+                  placeholder={`Enter ${registrationLabel.toLowerCase()}`}
+                  autoFocus
+                />
+                <button
+                  type="button"
+                  onClick={registerCompany}
+                  disabled={!regName.trim() || regLoading}
+                  className={`px-4 py-2 rounded-lg text-sm font-semibold flex-shrink-0 transition-all ${
+                    regName.trim() && !regLoading
+                      ? 'bg-green-600 hover:bg-green-700 text-white'
+                      : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                  }`}
+                >
+                  {regLoading ? '…' : 'Register'}
+                </button>
+              </div>
+              {regError && <p className="text-xs text-red-500">{regError}</p>}
+            </>
+          )}
         </div>
       </div>
     );

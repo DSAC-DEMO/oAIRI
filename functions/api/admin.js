@@ -106,6 +106,11 @@ export async function onRequestGet(context) {
     ).first();
     const courses = coursesRow ? JSON.parse(coursesRow.value) : [];
 
+    const regLabelRow = await env.DB.prepare(
+      "SELECT value FROM settings WHERE key = 'registration_label'"
+    ).first();
+    const registrationLabel = regLabelRow?.value ?? 'Company Name';
+
     const { results: sessions } = await env.DB.prepare(`
       SELECT s.id, s.name, s.sector, s.code, s.company_uen, s.round_label, s.dept_label, s.parent_session_id, s.created_at, COUNT(r.id) AS response_count
       FROM sessions s
@@ -115,7 +120,7 @@ export async function onRequestGet(context) {
     `).all();
 
     return new Response(
-      JSON.stringify({ success: true, stats, scoreBuckets, dailyTrend, responses, questions: questionsWithOptions, levels, readinessLevels, companies, sessions, courses }, null, 2),
+      JSON.stringify({ success: true, stats, scoreBuckets, dailyTrend, responses, questions: questionsWithOptions, levels, readinessLevels, companies, sessions, courses, registrationLabel }, null, 2),
       { status: 200, headers: cors }
     );
 
