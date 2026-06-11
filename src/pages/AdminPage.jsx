@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+﻿import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import RadarChart from '../components/RadarChart';
 import html2canvas from 'html2canvas';
@@ -79,14 +79,14 @@ function TrendChart({ trend, maxVal }) {
         {yLabels.map(({ y, val }) => (
           <text key={y} x={PAD.left - 3} y={y + 3.5} textAnchor="end" fontSize="9" fill="#9ca3af">{val}</text>
         ))}
-        <path d={fillPath} fill="#3b82f6" fillOpacity="0.1" />
-        <polyline fill="none" stroke="#3b82f6" strokeWidth="1.5" strokeLinejoin="round" points={linePts} />
+        <path d={fillPath} fill="#22c55e" fillOpacity="0.1" />
+        <polyline fill="none" stroke="#22c55e" strokeWidth="1.5" strokeLinejoin="round" points={linePts} />
         {pts.map((p, i) => (
           <g key={i} onMouseEnter={() => setHovered(p)} style={{ cursor: 'default' }}>
             <circle cx={p.x} cy={p.y} r="6" fill="transparent" />
-            <circle cx={p.x} cy={p.y} r={hovered === p ? 4 : 2.5} fill="#3b82f6" stroke="white" strokeWidth="1.5" />
+            <circle cx={p.x} cy={p.y} r={hovered === p ? 4 : 2.5} fill="#22c55e" stroke="white" strokeWidth="1.5" />
             {p.count > 0 && (
-              <text x={p.x} y={p.y - 7} textAnchor="middle" fontSize="9" fontWeight="600" fill="#3b82f6">{p.count}</text>
+              <text x={p.x} y={p.y - 7} textAnchor="middle" fontSize="9" fontWeight="600" fill="#22c55e">{p.count}</text>
             )}
           </g>
         ))}
@@ -154,19 +154,19 @@ const SECTORS = [
 
 const OPTION_LEVEL_COLORS = [
   'bg-slate-100 text-slate-600',   // 0: Unaware  (lightest)
-  'bg-blue-100 text-blue-600',     // 1: Aware
-  'bg-blue-200 text-blue-700',     // 2: Ready
-  'bg-blue-300 text-blue-800',     // 3: Competent
-  'bg-blue-500 text-white',        // 4: Catalyst (darkest)
+  'bg-green-100 text-green-600',     // 1: Aware
+  'bg-green-200 text-green-700',     // 2: Ready
+  'bg-green-300 text-green-800',     // 3: Competent
+  'bg-green-500 text-white',        // 4: Catalyst (darkest)
 ];
 
 // Indexed by position: 0=highest(≥4) … 4=lowest(<1) — blue intensity scale
 const READINESS_LEVEL_STYLES = [
-  { bg: 'bg-blue-100', text: 'text-blue-900', bar: 'bg-blue-800' },  // 0: Expert   (darkest)
-  { bg: 'bg-blue-100', text: 'text-blue-700', bar: 'bg-blue-600' },  // 1: Advanced
-  { bg: 'bg-blue-50',  text: 'text-blue-600', bar: 'bg-blue-400' },  // 2: Moderate
-  { bg: 'bg-blue-50',  text: 'text-blue-500', bar: 'bg-blue-300' },  // 3: Developing
-  { bg: 'bg-slate-50', text: 'text-slate-500', bar: 'bg-blue-200'},  // 4: Novice   (lightest)
+  { bg: 'bg-green-100', text: 'text-green-900', bar: 'bg-green-800' },  // 0: Expert   (darkest)
+  { bg: 'bg-green-100', text: 'text-green-700', bar: 'bg-green-600' },  // 1: Advanced
+  { bg: 'bg-green-50',  text: 'text-green-600', bar: 'bg-green-400' },  // 2: Moderate
+  { bg: 'bg-green-50',  text: 'text-green-500', bar: 'bg-green-300' },  // 3: Developing
+  { bg: 'bg-slate-50', text: 'text-slate-500', bar: 'bg-green-200'},  // 4: Novice   (lightest)
 ];
 
 function Bar({ pct, colorClass, color }) {
@@ -230,7 +230,7 @@ function QuestionForm({ initial, onSave, onCancel, existingCategories = [], leve
         <div>
           <label className="block text-xs font-semibold text-gray-600 mb-1">Dimension <span className="font-normal text-gray-400">(optional)</span></label>
           <input
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
             value={form.dimension}
             onChange={e => setField('dimension', e.target.value)}
             placeholder="e.g. Use Case Identification"
@@ -239,7 +239,7 @@ function QuestionForm({ initial, onSave, onCancel, existingCategories = [], leve
         <div>
           <label className="block text-xs font-semibold text-gray-600 mb-1">Question ID <span className="font-normal text-gray-400">(optional)</span></label>
           <input
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono"
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent font-mono"
             value={form.q_id}
             onChange={e => setField('q_id', e.target.value)}
             placeholder="e.g. survey_p3_q9_usecase"
@@ -250,7 +250,7 @@ function QuestionForm({ initial, onSave, onCancel, existingCategories = [], leve
         <div>
           <label className="block text-xs font-semibold text-gray-600 mb-1">Pillar</label>
           <select
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white"
             value={isNewCategory ? '__new__' : form.category}
             onChange={e => handleCategorySelect(e.target.value)}
           >
@@ -262,7 +262,7 @@ function QuestionForm({ initial, onSave, onCancel, existingCategories = [], leve
           </select>
           {isNewCategory && (
             <input
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent mt-2"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent mt-2"
               value={form.category}
               onChange={e => setField('category', e.target.value)}
               placeholder="Enter new pillar name"
@@ -274,7 +274,7 @@ function QuestionForm({ initial, onSave, onCancel, existingCategories = [], leve
           <label className="block text-xs font-semibold text-gray-600 mb-1">Question</label>
           <textarea
             rows={3}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
             value={form.question}
             onChange={e => setField('question', e.target.value)}
             placeholder="Enter the question text…"
@@ -288,7 +288,7 @@ function QuestionForm({ initial, onSave, onCancel, existingCategories = [], leve
           <button
             type="button"
             onClick={addOption}
-            className="text-xs text-blue-600 hover:underline font-medium"
+            className="text-xs text-green-600 hover:underline font-medium"
           >
             + Add option
           </button>
@@ -303,7 +303,7 @@ function QuestionForm({ initial, onSave, onCancel, existingCategories = [], leve
                   </span>
                 )}
                 <input
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
                   value={opt.text}
                   onChange={e => setOption(i, 'text', e.target.value)}
                   placeholder={`Option ${i + 1} text`}
@@ -315,7 +315,7 @@ function QuestionForm({ initial, onSave, onCancel, existingCategories = [], leve
                   min="0"
                   max="5"
                   step="1.25"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
                   value={opt.weight}
                   onChange={e => { const v = parseFloat(e.target.value); setOption(i, 'weight', isNaN(v) ? '' : v); }}
                   placeholder="Weight"
@@ -343,7 +343,7 @@ function QuestionForm({ initial, onSave, onCancel, existingCategories = [], leve
           disabled={!valid}
           onClick={() => onSave(form)}
           className={`px-5 py-2 rounded-lg text-sm font-semibold text-white transition-colors ${
-            valid ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-300 cursor-not-allowed'
+            valid ? 'bg-green-600 hover:bg-green-700' : 'bg-gray-300 cursor-not-allowed'
           }`}
         >
           Save
@@ -586,11 +586,11 @@ function AdminPage() {
             <label className="block text-sm font-medium text-gray-700 mb-2">Password</label>
             <input
               type="password" value={password} onChange={e => setPassword(e.target.value)}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent mb-4"
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent mb-4"
               placeholder="Enter admin password" required
             />
             {authError && <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">{authError}</div>}
-            <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg transition-colors">Login</button>
+            <button type="submit" className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 rounded-lg transition-colors">Login</button>
           </form>
         </div>
       </div>
@@ -850,7 +850,7 @@ function AdminPage() {
           }).length
         );
         // Harmonious palette — one stable color per company by its index in companyEntries
-        const COMPARE_COLORS = ['#3b82f6', '#f97316', '#22c55e', '#a855f7', '#ec4899', '#14b8a6'];
+        const COMPARE_COLORS = ['#22c55e', '#f97316', '#22c55e', '#a855f7', '#ec4899', '#14b8a6'];
         const companyColorMap = Object.fromEntries(
           companyEntries.map((e, i) => [e.key, COMPARE_COLORS[i % COMPARE_COLORS.length]])
         );
@@ -903,7 +903,7 @@ function AdminPage() {
                   <span className="text-xs text-gray-400">to</span>
                   <input type="date" className="border border-gray-200 rounded px-2 py-1 text-xs bg-gray-50" value={analyticsToDate} onChange={e => setAnalyticsToDate(e.target.value)} />
                   {(analyticsFromDate || analyticsToDate) && (
-                    <span className="text-xs text-blue-600 font-semibold">{companyFilteredResponses.length}/{responses.length}</span>
+                    <span className="text-xs text-green-600 font-semibold">{companyFilteredResponses.length}/{responses.length}</span>
                   )}
                 </div>
                 {/* Company compare dropdown */}
@@ -911,7 +911,7 @@ function AdminPage() {
                   <div ref={companyDropdownRef} className="relative flex-shrink-0">
                     <button
                       onClick={() => { setCompanyDropdownOpen(o => !o); setCompanySearchQuery(''); }}
-                      className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold border transition-colors ${selectedCompanyKeys.length > 0 ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-500 border-gray-200 hover:border-blue-400 hover:text-blue-600'}`}
+                      className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold border transition-colors ${selectedCompanyKeys.length > 0 ? 'bg-green-600 text-white border-green-600' : 'bg-white text-gray-500 border-gray-200 hover:border-green-400 hover:text-green-600'}`}
                     >
                       <span>Compare{selectedCompanyKeys.length > 0 ? ` (${selectedCompanyKeys.length})` : ''}</span>
                       <svg className={`w-3 h-3 transition-transform ${companyDropdownOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
@@ -925,7 +925,7 @@ function AdminPage() {
                             value={companySearchQuery}
                             onChange={e => setCompanySearchQuery(e.target.value)}
                             autoFocus
-                            className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                            className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs bg-gray-50 focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none"
                           />
                         </div>
                         <div className="max-h-52 overflow-y-auto py-1">
@@ -958,7 +958,7 @@ function AdminPage() {
                         </div>
                         {selectedCompanyKeys.length > 0 && (
                           <div className="border-t border-gray-100 p-2">
-                            <button onClick={() => setSelectedCompanyKeys([])} className="text-xs text-blue-500 hover:text-blue-700 font-semibold w-full text-center">Clear selection</button>
+                            <button onClick={() => setSelectedCompanyKeys([])} className="text-xs text-green-500 hover:text-green-700 font-semibold w-full text-center">Clear selection</button>
                           </div>
                         )}
                       </div>
@@ -970,13 +970,13 @@ function AdminPage() {
                   {hasActiveFilter && (
                     <button
                       onClick={() => { setSectorFilter(null); setLevelFilter(null); setAnalyticsFromDate(''); setAnalyticsToDate(''); setSelectedCompanyKeys([]); setCompanyDropdownOpen(false); }}
-                      className="text-xs text-blue-500 hover:text-blue-700 font-semibold transition-colors"
+                      className="text-xs text-green-500 hover:text-green-700 font-semibold transition-colors"
                     >Clear all</button>
                   )}
                   <button
                     onClick={exportAdminPDF}
                     disabled={exportingPDF}
-                    className="text-xs bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-semibold px-3 py-1 rounded-lg transition-colors"
+                    className="text-xs bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white font-semibold px-3 py-1 rounded-lg transition-colors"
                   >{exportingPDF ? 'Exporting…' : 'Export PDF'}</button>
                 </div>
               </div>
@@ -987,12 +987,12 @@ function AdminPage() {
                     <span className="text-xs text-gray-400 font-medium flex-shrink-0">Sector:</span>
                     <button
                       onClick={() => setSectorFilter(null)}
-                      className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border transition-colors ${sectorFilter === null ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-500 border-gray-200 hover:border-blue-400'}`}
+                      className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border transition-colors ${sectorFilter === null ? 'bg-green-600 text-white border-green-600' : 'bg-white text-gray-500 border-gray-200 hover:border-green-400'}`}
                     >All</button>
                     {availableSectors.map(sector => (
                       <button key={sector}
                         onClick={() => setSectorFilter(sectorFilter === sector ? null : sector)}
-                        className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border transition-colors ${sectorFilter === sector ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-500 border-gray-200 hover:border-blue-400'}`}
+                        className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border transition-colors ${sectorFilter === sector ? 'bg-green-600 text-white border-green-600' : 'bg-white text-gray-500 border-gray-200 hover:border-green-400'}`}
                       >{sector} ({sectorResponseCounts[sector]})</button>
                     ))}
                   </div>
@@ -1001,7 +1001,7 @@ function AdminPage() {
                   <span className="text-xs text-gray-400 font-medium flex-shrink-0">Level:</span>
                   <button
                     onClick={() => setLevelFilter(null)}
-                    className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border transition-colors ${levelFilter === null ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-500 border-gray-200 hover:border-blue-400'}`}
+                    className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border transition-colors ${levelFilter === null ? 'bg-green-600 text-white border-green-600' : 'bg-white text-gray-500 border-gray-200 hover:border-green-400'}`}
                   >All ({sectorFilteredResponses.length})</button>
                   {readinessLevels.map((lvl, i) => (
                     <button key={i}
@@ -1009,7 +1009,7 @@ function AdminPage() {
                       className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border transition-colors ${
                         levelFilter === i
                           ? `${READINESS_LEVEL_STYLES[i].bg} ${READINESS_LEVEL_STYLES[i].text} border-current`
-                          : 'bg-white text-gray-500 border-gray-200 hover:border-blue-400'
+                          : 'bg-white text-gray-500 border-gray-200 hover:border-green-400'
                       }`}
                     >{lvl.name} ({levelCounts[i]})</button>
                   ))}
@@ -1026,12 +1026,12 @@ function AdminPage() {
               {/* Row 1, Col 1 — KPI summary */}
               <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-3 flex flex-col gap-3 justify-center">
                 <div>
-                  <div className="text-2xl font-bold tabular-nums" style={{ color: '#2563eb' }}>{filteredTotal}</div>
+                  <div className="text-2xl font-bold tabular-nums" style={{ color: '#16a34a' }}>{filteredTotal}</div>
                   <div className="text-xs font-semibold text-gray-600 mt-0.5">Total Responses</div>
                 </div>
                 <div className="w-full h-px bg-gray-100" />
                 <div>
-                  <div className="text-2xl font-bold tabular-nums" style={{ color: '#1d4ed8' }}>{fAvg.toFixed(2)}</div>
+                  <div className="text-2xl font-bold tabular-nums" style={{ color: '#15803d' }}>{fAvg.toFixed(2)}</div>
                   <div className="text-xs font-semibold text-gray-600 mt-0.5">Average Score</div>
                   <div className="text-xs text-gray-400">out of 5.00</div>
                 </div>
@@ -1101,7 +1101,7 @@ function AdminPage() {
                   <div className="flex items-center gap-1">
                     <button
                       onClick={() => setCompareChartType('radar')}
-                      className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border transition-colors ${compareChartType === 'radar' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-500 border-gray-200 hover:border-blue-400'}`}
+                      className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border transition-colors ${compareChartType === 'radar' ? 'bg-green-600 text-white border-green-600' : 'bg-white text-gray-500 border-gray-200 hover:border-green-400'}`}
                     >Radar</button>
                     <button
                       onClick={() => selectedCompanyKeys.length >= 2 && setCompareChartType('bar')}
@@ -1109,8 +1109,8 @@ function AdminPage() {
                         selectedCompanyKeys.length < 2
                           ? 'bg-white text-gray-300 border-gray-100 cursor-not-allowed'
                           : compareChartType === 'bar'
-                            ? 'bg-blue-600 text-white border-blue-600'
-                            : 'bg-white text-gray-500 border-gray-200 hover:border-blue-400'
+                            ? 'bg-green-600 text-white border-green-600'
+                            : 'bg-white text-gray-500 border-gray-200 hover:border-green-400'
                       }`}
                     >Comparative Bar</button>
                   </div>
@@ -1244,7 +1244,7 @@ function AdminPage() {
                       <div className="flex-1 space-y-2">
                         <div className="grid grid-cols-2 gap-2">
                           <input
-                            className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
                             value={lvl.name}
                             onChange={e => {
                               const next = workingReadiness.map((l, j) => j === i ? { ...l, name: e.target.value } : l);
@@ -1253,7 +1253,7 @@ function AdminPage() {
                             placeholder="Level name"
                           />
                           <input
-                            className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
                             value={lvl.persona}
                             onChange={e => {
                               const next = workingReadiness.map((l, j) => j === i ? { ...l, persona: e.target.value } : l);
@@ -1275,7 +1275,7 @@ function AdminPage() {
                     disabled={!readinessValid || readinessSaving}
                     onClick={saveReadinessLevels}
                     className={`px-5 py-2 rounded-lg text-sm font-semibold text-white transition-colors ${
-                      readinessValid && !readinessSaving ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-300 cursor-not-allowed'
+                      readinessValid && !readinessSaving ? 'bg-green-600 hover:bg-green-700' : 'bg-gray-300 cursor-not-allowed'
                     }`}
                   >
                     {readinessSaving ? 'Saving…' : 'Save'}
@@ -1304,7 +1304,7 @@ function AdminPage() {
                         {name || '…'}
                       </span>
                       <input
-                        className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
                         value={name}
                         onChange={e => {
                           const next = [...workingOptionLevels];
@@ -1321,7 +1321,7 @@ function AdminPage() {
                     disabled={!optionLevelsValid || levelsSaving}
                     onClick={saveOptionLevels}
                     className={`px-5 py-2 rounded-lg text-sm font-semibold text-white transition-colors ${
-                      optionLevelsValid && !levelsSaving ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-300 cursor-not-allowed'
+                      optionLevelsValid && !levelsSaving ? 'bg-green-600 hover:bg-green-700' : 'bg-gray-300 cursor-not-allowed'
                     }`}
                   >
                     {levelsSaving ? 'Saving…' : 'Save'}
@@ -1452,14 +1452,14 @@ function AdminPage() {
                             {deptLabel ? `${deptLabel} Department` : s.name}
                           </p>
                           {roundLabel && (
-                            <span className="text-xs font-semibold bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">{roundLabel}</span>
+                            <span className="text-xs font-semibold bg-green-100 text-green-700 px-2 py-0.5 rounded-full">{roundLabel}</span>
                           )}
                           {!deptLabel && s.round_label && (
                             <span className="text-xs text-gray-400 italic">{s.round_label}</span>
                           )}
                         </div>
                         <p className="text-xs text-gray-400 mt-0.5">
-                          {!deptLabel && s.sector && <span className="font-medium text-blue-600 mr-1">{s.sector} ·</span>}
+                          {!deptLabel && s.sector && <span className="font-medium text-green-600 mr-1">{s.sector} ·</span>}
                           {s.response_count} response{s.response_count !== 1 ? 's' : ''} · Added {new Date(s.created_at).toLocaleDateString()}
                         </p>
                       </div>
@@ -1467,7 +1467,7 @@ function AdminPage() {
                         <button
                           type="button"
                           onClick={() => setShownCodes(prev => ({ ...prev, [s.id]: !prev[s.id] }))}
-                          className="text-xs text-blue-600 hover:underline font-medium"
+                          className="text-xs text-green-600 hover:underline font-medium"
                         >
                           {shownCodes[s.id] ? 'Hide' : 'Show'}
                         </button>
@@ -1484,14 +1484,14 @@ function AdminPage() {
                     {shownCodes[s.id] && (
                       <div className="mt-2 pt-2 border-t border-gray-200 flex items-center gap-3">
                         {s.code
-                          ? <span className="font-mono text-base font-bold text-blue-700 tracking-widest">{s.code}</span>
+                          ? <span className="font-mono text-base font-bold text-green-700 tracking-widest">{s.code}</span>
                           : <span className="text-xs text-gray-400 italic">Code not available (created before this feature)</span>
                         }
                         {s.code && (
                           <button
                             type="button"
                             onClick={() => navigator.clipboard.writeText(s.code)}
-                            className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-2.5 py-1 rounded font-semibold transition-colors"
+                            className="text-xs bg-green-600 hover:bg-green-700 text-white px-2.5 py-1 rounded font-semibold transition-colors"
                           >
                             Copy
                           </button>
@@ -1506,26 +1506,26 @@ function AdminPage() {
                     <h2 className="text-lg font-bold text-gray-900 mb-1">Company Codes</h2>
                     <p className="text-xs text-gray-500 mb-5">
                       Add a company by name — a code is generated automatically. Linking sessions to the same UEN groups them as rounds, letting companies track AI readiness over time.
-                      The company views results at <span className="font-mono text-blue-600">/dashboard</span>.
+                      The company views results at <span className="font-mono text-green-600">/dashboard</span>.
                     </p>
 
                     {/* Generated code banner */}
                     {generatedCode && (
-                      <div className="mb-5 bg-blue-50 border border-blue-200 rounded-lg p-4">
-                        <p className="text-xs font-semibold text-blue-700 mb-1">Code generated — share this with the company. You can also reveal it later via the Show button.</p>
+                      <div className="mb-5 bg-green-50 border border-green-200 rounded-lg p-4">
+                        <p className="text-xs font-semibold text-green-700 mb-1">Code generated — share this with the company. You can also reveal it later via the Show button.</p>
                         <div className="flex items-center gap-3 mt-2">
-                          <span className="font-mono text-xl font-bold text-blue-800 tracking-widest">{generatedCode}</span>
+                          <span className="font-mono text-xl font-bold text-green-800 tracking-widest">{generatedCode}</span>
                           <button
                             type="button"
                             onClick={() => { navigator.clipboard.writeText(generatedCode); setCodeCopied(true); setTimeout(() => setCodeCopied(false), 2000); }}
-                            className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg font-semibold transition-colors"
+                            className="text-xs bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-lg font-semibold transition-colors"
                           >
                             {codeCopied ? 'Copied!' : 'Copy'}
                           </button>
                           <button
                             type="button"
                             onClick={() => setGeneratedCode(null)}
-                            className="text-xs text-blue-500 hover:underline ml-auto"
+                            className="text-xs text-green-500 hover:underline ml-auto"
                           >
                             Dismiss
                           </button>
@@ -1537,7 +1537,7 @@ function AdminPage() {
                     {sessionsData.length > 0 && (
                       <div className="mb-4 space-y-2">
                         <input
-                          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50 placeholder-gray-400"
+                          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent bg-gray-50 placeholder-gray-400"
                           value={codeSearch}
                           onChange={e => setCodeSearch(e.target.value)}
                           placeholder="Search by company name…"
@@ -1546,14 +1546,14 @@ function AdminPage() {
                           <span className="text-xs text-gray-400 flex-shrink-0">Added from</span>
                           <input
                             type="date"
-                            className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-transparent flex-1"
+                            className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs bg-gray-50 focus:ring-2 focus:ring-green-500 focus:border-transparent flex-1"
                             value={codeFromDate}
                             onChange={e => setCodeFromDate(e.target.value)}
                           />
                           <span className="text-xs text-gray-400 flex-shrink-0">to</span>
                           <input
                             type="date"
-                            className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-transparent flex-1"
+                            className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs bg-gray-50 focus:ring-2 focus:ring-green-500 focus:border-transparent flex-1"
                             value={codeToDate}
                             onChange={e => setCodeToDate(e.target.value)}
                           />
@@ -1614,8 +1614,8 @@ function AdminPage() {
                         {Object.keys(uenMap).length > 0 && (
                           <div>
                             <div className="flex items-center gap-2 mb-2">
-                              <p className="text-xs font-bold text-blue-700 uppercase tracking-widest">Multi-Round Companies</p>
-                              <span className="text-xs text-blue-400">{Object.keys(uenMap).length} group{Object.keys(uenMap).length !== 1 ? 's' : ''}</span>
+                              <p className="text-xs font-bold text-green-700 uppercase tracking-widest">Multi-Round Companies</p>
+                              <span className="text-xs text-green-400">{Object.keys(uenMap).length} group{Object.keys(uenMap).length !== 1 ? 's' : ''}</span>
                             </div>
                             <div className="space-y-3">
                               {Object.entries(uenMap).map(([uen, groupSessions]) => {
@@ -1625,11 +1625,11 @@ function AdminPage() {
                                 const companyName   = groupSessions[0].name;
 
                                 return (
-                                  <div key={uen} className="border border-blue-100 rounded-xl overflow-hidden">
+                                  <div key={uen} className="border border-green-100 rounded-xl overflow-hidden">
                                     {/* Company header */}
-                                    <div className="bg-blue-50 px-4 py-2 flex items-center gap-2">
-                                      <span className="text-xs font-bold text-blue-700">{companyName}</span>
-                                      <span className="text-xs text-blue-400">{roundSessions.length} round{roundSessions.length !== 1 ? 's' : ''}</span>
+                                    <div className="bg-green-50 px-4 py-2 flex items-center gap-2">
+                                      <span className="text-xs font-bold text-green-700">{companyName}</span>
+                                      <span className="text-xs text-green-400">{roundSessions.length} round{roundSessions.length !== 1 ? 's' : ''}</span>
                                       {deptSessions.length > 0 && (
                                         <span className="text-xs bg-purple-100 text-purple-600 font-semibold px-2 py-0.5 rounded-full">{deptSessions.length} dept{deptSessions.length !== 1 ? 's' : ''}</span>
                                       )}
@@ -1758,27 +1758,27 @@ function AdminPage() {
                       <div className="flex gap-2">
                         <div className="flex-1">
                           <input
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
                             value={newSessionName}
                             onChange={e => setNewSessionName(e.target.value)}
                             placeholder="Company / organisation name"
                           />
                           {nameSuggestions.length > 0 && (
-                            <div className="mt-1.5 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 space-y-1.5">
-                              <p className="text-xs font-semibold text-blue-700">Possible match — add as a new round?</p>
+                            <div className="mt-1.5 bg-green-50 border border-green-200 rounded-lg px-3 py-2 space-y-1.5">
+                              <p className="text-xs font-semibold text-green-700">Possible match — add as a new round?</p>
                               {nameSuggestions.map(s => {
                                 const roundCount = s.company_uen
                                   ? sessionsData.filter(ss => ss.company_uen === s.company_uen).length
                                   : 1;
                                 return (
                                   <div key={s.id} className="flex items-center justify-between gap-2">
-                                    <span className="text-xs text-blue-600 truncate">
+                                    <span className="text-xs text-green-600 truncate">
                                       {s.name} · {roundCount} round{roundCount !== 1 ? 's' : ''}
                                     </span>
                                     <button
                                       type="button"
                                       onClick={() => setPendingLink({ id: s.id, name: s.name, company_uen: s.company_uen })}
-                                      className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-2.5 py-0.5 rounded font-semibold flex-shrink-0 transition-colors"
+                                      className="text-xs bg-green-600 hover:bg-green-700 text-white px-2.5 py-0.5 rounded font-semibold flex-shrink-0 transition-colors"
                                     >
                                       Link
                                     </button>
@@ -1789,7 +1789,7 @@ function AdminPage() {
                           )}
                         </div>
                         <select
-                          className="w-48 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white flex-shrink-0"
+                          className="w-48 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white flex-shrink-0"
                           value={newSessionSector}
                           onChange={e => setNewSessionSector(e.target.value)}
                         >
@@ -1799,17 +1799,17 @@ function AdminPage() {
                       </div>
                       <div className="flex gap-2 items-start">
                         {pendingLink ? (
-                          <div className="flex-1 flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
-                            <span className="text-xs text-blue-700 font-semibold flex-1 truncate">
+                          <div className="flex-1 flex items-center gap-2 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
+                            <span className="text-xs text-green-700 font-semibold flex-1 truncate">
                               → Linked to {pendingLink.name}
                             </span>
-                            <button type="button" onClick={() => setPendingLink(null)} className="text-blue-400 hover:text-blue-600 text-lg leading-none flex-shrink-0">×</button>
+                            <button type="button" onClick={() => setPendingLink(null)} className="text-green-400 hover:text-green-600 text-lg leading-none flex-shrink-0">×</button>
                           </div>
                         ) : (
                           <div className="flex-1 h-10" />
                         )}
                         <input
-                          className="w-48 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent flex-shrink-0"
+                          className="w-48 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent flex-shrink-0"
                           value={newSessionRoundLabel}
                           onChange={e => setNewSessionRoundLabel(e.target.value)}
                           placeholder="Label, e.g. Pre-Programme"
@@ -1865,7 +1865,7 @@ function AdminPage() {
                             finally { setSessionSaving(false); }
                           }}
                           className={`px-4 py-2 rounded-lg text-sm font-semibold text-white transition-colors flex-shrink-0 ${
-                            newSessionName.trim() && !sessionSaving ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-300 cursor-not-allowed'
+                            newSessionName.trim() && !sessionSaving ? 'bg-green-600 hover:bg-green-700' : 'bg-gray-300 cursor-not-allowed'
                           }`}
                         >
                           {sessionSaving ? 'Generating…' : 'Generate Code'}
@@ -1896,7 +1896,7 @@ function AdminPage() {
                               : (levels ?? []).filter(l => l !== li);
                             onChange(next);
                           }}
-                          className="w-4 h-4 text-blue-600 rounded accent-blue-600"
+                          className="w-4 h-4 text-green-600 rounded accent-green-600"
                         />
                       </div>
                     ))}
@@ -1936,7 +1936,7 @@ function AdminPage() {
                           {/* Course name row */}
                           <div className="flex items-center gap-2">
                             <input
-                              className="flex-1 border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                              className="flex-1 border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white"
                               value={course.name}
                               onChange={e => updateCourse(ci, c => ({ ...c, name: e.target.value }))}
                               placeholder="Course name"
@@ -1952,7 +1952,7 @@ function AdminPage() {
                           {/* Description */}
                           <textarea
                             rows={2}
-                            className="w-full border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white resize-none"
+                            className="w-full border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white resize-none"
                             value={course.description ?? ''}
                             onChange={e => updateCourse(ci, c => ({ ...c, description: e.target.value }))}
                             placeholder="Description shown on the results page…"
@@ -1961,7 +1961,7 @@ function AdminPage() {
                           {/* Link */}
                           <input
                             type="url"
-                            className="w-full border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                            className="w-full border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white"
                             value={course.link ?? ''}
                             onChange={e => updateCourse(ci, c => ({ ...c, link: e.target.value }))}
                             placeholder="Course URL (optional) — e.g. https://www.sp.edu.sg/…"
@@ -1994,7 +1994,7 @@ function AdminPage() {
                               {course.pillarConditions.map((pc, pi) => (
                                 <div key={pi} className="flex items-center gap-2">
                                   <select
-                                    className="flex-1 border border-gray-200 rounded-md px-2 py-1.5 text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    className="flex-1 border border-gray-200 rounded-md px-2 py-1.5 text-sm bg-white focus:ring-2 focus:ring-green-500 focus:border-transparent"
                                     value={pc.pillar}
                                     onChange={e => updateCourse(ci, c => ({
                                       ...c,
@@ -2030,7 +2030,7 @@ function AdminPage() {
                               <button
                                 type="button"
                                 onClick={() => updateCourse(ci, c => ({ ...c, levels: [] }))}
-                                className="text-xs text-blue-500 hover:underline font-medium"
+                                className="text-xs text-green-500 hover:underline font-medium"
                               >
                                 + Add overall readiness condition
                               </button>
@@ -2041,7 +2041,7 @@ function AdminPage() {
                                 ...c,
                                 pillarConditions: [...(c.pillarConditions ?? []), { pillar: '', levels: [] }]
                               }))}
-                              className="text-xs text-blue-500 hover:underline font-medium"
+                              className="text-xs text-green-500 hover:underline font-medium"
                             >
                               + Add pillar condition
                             </button>
@@ -2056,7 +2056,7 @@ function AdminPage() {
                       <button
                         type="button"
                         onClick={() => setEditCourses([...workingCourses, { name: '', levels: null, description: '', link: '', pillarConditions: [] }])}
-                        className="text-sm text-blue-600 hover:underline font-semibold"
+                        className="text-sm text-green-600 hover:underline font-semibold"
                       >
                         + Add Course
                       </button>
@@ -2075,7 +2075,7 @@ function AdminPage() {
                           disabled={!coursesValid || coursesSaving}
                           onClick={saveCourses}
                           className={`px-5 py-2 rounded-lg text-sm font-semibold text-white transition-colors ${
-                            coursesValid && !coursesSaving ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-300 cursor-not-allowed'
+                            coursesValid && !coursesSaving ? 'bg-green-600 hover:bg-green-700' : 'bg-gray-300 cursor-not-allowed'
                           }`}
                         >
                           {coursesSaving ? 'Saving…' : 'Save'}
@@ -2141,7 +2141,7 @@ function AdminPage() {
                 <div className="flex justify-end">
                   <button
                     onClick={() => openAddForm()}
-                    className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-5 py-2 rounded-lg transition-colors text-sm"
+                    className="bg-green-600 hover:bg-green-700 text-white font-semibold px-5 py-2 rounded-lg transition-colors text-sm"
                   >
                     + Add Question
                   </button>
@@ -2150,7 +2150,7 @@ function AdminPage() {
 
               {/* Global add form (no specific pillar) */}
               {showAddForm && !addFormCategory && (
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-blue-200">
+                <div className="bg-white p-6 rounded-xl shadow-sm border border-green-200">
                   <h3 className="text-base font-bold text-gray-900 mb-4">New Question</h3>
                   <QuestionForm
                     existingCategories={existingCategories}
@@ -2170,7 +2170,7 @@ function AdminPage() {
                 <div key={pillarName}>
                   {/* Pillar-specific add form renders above this pillar */}
                   {showAddForm && addFormCategory === pillarName && (
-                    <div className="bg-white p-6 rounded-xl shadow-sm border border-blue-200 mb-4">
+                    <div className="bg-white p-6 rounded-xl shadow-sm border border-green-200 mb-4">
                       <h3 className="text-base font-bold text-gray-900 mb-4">New Question — {pillarName}</h3>
                       <QuestionForm
                         initial={{ category: pillarName, question: '', dimension: '', q_id: '', options: DEFAULT_OPTIONS }}
@@ -2185,7 +2185,7 @@ function AdminPage() {
                   {/* Pillar header */}
                   <div className="flex items-center justify-between px-5 py-3 bg-gray-50 border-b border-gray-100">
                     <div className="flex items-center gap-3">
-                      <span className="w-7 h-7 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center flex-shrink-0">
+                      <span className="w-7 h-7 rounded-full bg-green-600 text-white text-xs font-bold flex items-center justify-center flex-shrink-0">
                         {pillarIdx + 1}
                       </span>
                       <span className="font-bold text-gray-800 text-base">{pillarName}</span>
@@ -2209,7 +2209,7 @@ function AdminPage() {
                         </div>
                         <button
                           onClick={() => openAddForm(pillarName)}
-                          className="text-xs text-blue-600 hover:underline font-semibold"
+                          className="text-xs text-green-600 hover:underline font-semibold"
                         >
                           + Add to this pillar
                         </button>
@@ -2230,7 +2230,7 @@ function AdminPage() {
                   {/* Questions in this pillar */}
                   <div className="divide-y divide-gray-50">
                     {pillarQs.map((q, qIdx) => (
-                      <div key={q.id} className={editingId === q.id ? 'border-l-4 border-blue-400' : ''}>
+                      <div key={q.id} className={editingId === q.id ? 'border-l-4 border-green-400' : ''}>
                         {editingId === q.id ? (
                           <div className="p-5">
                             <QuestionForm
@@ -2251,7 +2251,7 @@ function AdminPage() {
                               <div className="flex gap-3 flex-shrink-0 pt-0.5">
                                 <button
                                   onClick={() => { setEditingId(q.id); closeAddForm(); }}
-                                  className="text-xs text-blue-600 hover:underline font-medium"
+                                  className="text-xs text-green-600 hover:underline font-medium"
                                 >
                                   Edit
                                 </button>

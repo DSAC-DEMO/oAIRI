@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+﻿import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import QuestionCard from '../components/QuestionCard';
 import ProgressBar from '../components/ProgressBar';
@@ -130,7 +130,7 @@ function SurveyPage() {
     return (
       <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 flex items-center justify-center px-4 py-10">
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 max-w-lg w-full">
-          <p className="text-xs font-bold uppercase tracking-widest text-blue-600 mb-2">Before you begin</p>
+          <p className="text-xs font-bold uppercase tracking-widest text-green-600 mb-2">Before you begin</p>
           <h1 className="text-2xl font-bold text-gray-900 mb-6">Enter your access code</h1>
 
           <p className="text-sm text-gray-600 mb-5">
@@ -139,7 +139,7 @@ function SurveyPage() {
 
           <div className="flex gap-2 mb-3">
             <input
-              className="flex-1 border border-gray-300 rounded-lg px-3 py-2.5 text-sm font-mono focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="flex-1 border border-gray-300 rounded-lg px-3 py-2.5 text-sm font-mono focus:ring-2 focus:ring-green-500 focus:border-transparent"
               value={codeInput}
               onChange={e => { setCodeInput(e.target.value.toUpperCase()); setCodeError(''); }}
               onKeyDown={e => e.key === 'Enter' && verifyCode()}
@@ -152,7 +152,7 @@ function SurveyPage() {
               disabled={!codeInput.trim() || codeVerifying}
               className={`px-4 py-2 rounded-lg text-sm font-semibold flex-shrink-0 transition-all ${
                 codeInput.trim() && !codeVerifying
-                  ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                  ? 'bg-green-600 hover:bg-green-700 text-white'
                   : 'bg-gray-200 text-gray-400 cursor-not-allowed'
               }`}
             >
@@ -179,7 +179,7 @@ function SurveyPage() {
         <div className="text-center">
           <p className="text-red-600 text-lg font-semibold mb-2">Failed to load assessment</p>
           <p className="text-gray-500">{questionsError}</p>
-          <button onClick={() => window.location.reload()} className="mt-4 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+          <button onClick={() => window.location.reload()} className="mt-4 px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
             Retry
           </button>
         </div>
@@ -220,20 +220,20 @@ function SurveyPage() {
               <div key={pillar.name} className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
                 <div className={`flex flex-col items-center`}>
                   <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold border-2 transition-all ${
-                    done   ? 'bg-blue-600 border-blue-600 text-white' :
-                    active ? 'bg-white border-blue-600 text-blue-600' :
+                    done   ? 'bg-green-600 border-green-600 text-white' :
+                    active ? 'bg-white border-green-600 text-green-600' :
                              'bg-white border-gray-300 text-gray-400'
                   }`}>
                     {done ? '✓' : idx + 1}
                   </div>
                   <span className={`text-xs mt-1 max-w-16 text-center leading-tight hidden sm:block ${
-                    active ? 'text-blue-600 font-semibold' : done ? 'text-blue-400' : 'text-gray-400'
+                    active ? 'text-green-600 font-semibold' : done ? 'text-green-400' : 'text-gray-400'
                   }`}>
                     {pillar.name}
                   </span>
                 </div>
                 {idx < pillars.length - 1 && (
-                  <div className={`h-0.5 w-6 sm:w-10 mt-0 sm:-mt-4 transition-all ${done ? 'bg-blue-600' : 'bg-gray-200'}`} />
+                  <div className={`h-0.5 w-6 sm:w-10 mt-0 sm:-mt-4 transition-all ${done ? 'bg-green-600' : 'bg-gray-200'}`} />
                 )}
               </div>
             );
@@ -244,7 +244,7 @@ function SurveyPage() {
         <div className="mb-5 px-1">
           <div className="flex items-center gap-3">
             <div className="flex-1 h-px bg-gray-200" />
-            <span className="text-xs font-bold text-blue-600 uppercase tracking-widest whitespace-nowrap">
+            <span className="text-xs font-bold text-green-600 uppercase tracking-widest whitespace-nowrap">
               Pillar {currentPillarIndex + 1} of {totalPillars} — {currentPillar.name}
             </span>
             <div className="flex-1 h-px bg-gray-200" />
@@ -277,7 +277,7 @@ function SurveyPage() {
                 <button
                   type="button"
                   onClick={handlePrevious}
-                  className="flex-1 py-2.5 sm:py-3 px-4 sm:px-6 rounded-lg font-semibold text-sm sm:text-base text-blue-600 bg-white border-2 border-blue-600 hover:bg-blue-50 transition-all"
+                  className="flex-1 py-2.5 sm:py-3 px-4 sm:px-6 rounded-lg font-semibold text-sm sm:text-base text-green-600 bg-white border-2 border-green-600 hover:bg-green-50 transition-all"
                 >
                   ← Previous
                 </button>
@@ -290,7 +290,7 @@ function SurveyPage() {
                   disabled={!currentPillarAnswered}
                   className={`flex-1 py-2.5 sm:py-3 px-4 sm:px-6 rounded-lg font-semibold text-sm sm:text-base text-white transition-all ${
                     currentPillarAnswered
-                      ? 'bg-blue-600 hover:bg-blue-700 cursor-pointer shadow-md'
+                      ? 'bg-green-600 hover:bg-green-700 cursor-pointer shadow-md'
                       : 'bg-gray-400 cursor-not-allowed'
                   }`}
                 >

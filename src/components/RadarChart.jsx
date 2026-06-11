@@ -1,4 +1,4 @@
-function splitLabel(name) {
+﻿function splitLabel(name) {
   const words = name.split(' ');
   if (words.length <= 1) return [name];
   const mid = Math.ceil(words.length / 2);
@@ -7,7 +7,7 @@ function splitLabel(name) {
 
 // Single-series: pillars=[{name,pct}], color
 // Multi-series:  series=[{name, color, pillars:[{name,pct}]}]  — renders overlaid, responsive
-function RadarChart({ pillars, series, size = 240, color = '#3b82f6', title }) {
+function RadarChart({ pillars, series, size = 240, color = '#22c55e', title }) {
   const multi = series && series.length > 0;
   const allSeries = multi ? series : [{ name: '', color, pillars }];
   const axisPillars = allSeries[0].pillars;

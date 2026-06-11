@@ -1,4 +1,4 @@
-import { useLocation, useNavigate } from 'react-router-dom';
+﻿import { useLocation, useNavigate } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
@@ -281,7 +281,7 @@ function ResultsPage() {
                   <span className={`mt-0.5 font-bold flex-shrink-0 text-lg ${styles.icon}`}>→</span>
                   <div>
                     {course.link ? (
-                      <a href={course.link} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline font-semibold">{course.name}</a>
+                      <a href={course.link} target="_blank" rel="noopener noreferrer" className="text-green-600 hover:underline font-semibold">{course.name}</a>
                     ) : (
                       <p className="text-gray-800 font-semibold">{course.name}</p>
                     )}
@@ -299,7 +299,7 @@ function ResultsPage() {
         <div className="flex items-center justify-center gap-3 py-8">
           <button
             onClick={() => navigate('/')}
-            className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-10 rounded-lg transition-colors shadow-md"
+            className="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-10 rounded-lg transition-colors shadow-md"
           >
             Retake Assessment
           </button>

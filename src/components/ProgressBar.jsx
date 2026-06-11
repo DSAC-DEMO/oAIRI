@@ -1,4 +1,4 @@
-function ProgressBar({ answeredCount, totalQuestions }) {
+﻿function ProgressBar({ answeredCount, totalQuestions }) {
   const percentage = (answeredCount / totalQuestions) * 100;
 
   return (
@@ -9,7 +9,7 @@ function ProgressBar({ answeredCount, totalQuestions }) {
       </div>
       <div className="w-full bg-gray-200 rounded-full h-2">
         <div
-          className="bg-blue-600 h-2 rounded-full transition-all duration-300 ease-in-out"
+          className="bg-green-600 h-2 rounded-full transition-all duration-300 ease-in-out"
           style={{ width: `${percentage}%` }}
         />
       </div>

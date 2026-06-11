@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+﻿import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import Footer from '../components/Footer';
@@ -14,18 +14,18 @@ const LIGHT = {
 const CFG = { displayModeBar: false, responsive: true };
 
 // Admin analytics blue palette — index 0 = Expert (darkest) … 4 = Novice (lightest)
-const LEVEL_COLORS = ['#1e40af', '#2563eb', '#60a5fa', '#93c5fd', '#bfdbfe'];
+const LEVEL_COLORS = ['#166534', '#16a34a', '#4ade80', '#86efac', '#bbf7d0'];
 
 const READINESS_LEVEL_STYLES = [
-  { accent: '#1e40af' },
-  { accent: '#2563eb' },
-  { accent: '#60a5fa' },
-  { accent: '#93c5fd' },
-  { accent: '#bfdbfe' },
+  { accent: '#166534' },
+  { accent: '#16a34a' },
+  { accent: '#4ade80' },
+  { accent: '#86efac' },
+  { accent: '#bbf7d0' },
 ];
 
 // Distinct colours per round for progression view
-const ROUND_COLORS = ['#2563eb', '#7c3aed', '#059669', '#d97706', '#0891b2', '#dc2626'];
+const ROUND_COLORS = ['#16a34a', '#7c3aed', '#059669', '#d97706', '#0891b2', '#dc2626'];
 
 // ── Chart wrapper ─────────────────────────────────────────────────────────────
 function PlotlyChart({ traces, layout, onReady, onClickPoint }) {
@@ -137,7 +137,7 @@ function LoginScreen({ onLogin }) {
     <div className="h-screen bg-gray-50 flex items-center justify-center px-4">
       <div className="bg-white border border-gray-200 rounded-2xl p-10 w-full max-w-sm shadow-lg">
         <div className="mb-8 text-center">
-          <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center mx-auto mb-4">
+          <div className="w-12 h-12 bg-green-600 rounded-xl flex items-center justify-center mx-auto mb-4">
             <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
@@ -151,7 +151,7 @@ function LoginScreen({ onLogin }) {
             value={code}
             onChange={e => setCode(e.target.value)}
             placeholder="Enter your company code"
-            className="w-full border border-gray-300 text-gray-900 rounded-lg px-4 py-3 text-sm font-mono focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none mb-3"
+            className="w-full border border-gray-300 text-gray-900 rounded-lg px-4 py-3 text-sm font-mono focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none mb-3"
             autoFocus
           />
           {error && <p className="text-red-500 text-xs mb-3">{error}</p>}
@@ -159,7 +159,7 @@ function LoginScreen({ onLogin }) {
             type="submit"
             disabled={!code.trim() || loading}
             className={`w-full py-3 rounded-lg text-sm font-semibold transition-colors ${
-              code.trim() && !loading ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+              code.trim() && !loading ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-gray-200 text-gray-400 cursor-not-allowed'
             }`}
           >
             {loading ? 'Verifying…' : 'Access Dashboard →'}
@@ -381,7 +381,7 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
     if (pillarList.length < 3) return [];
     const cats  = [...pillarList.map(p => p.name), pillarList[0].name];
     const vals  = [...pillarList.map(p => p.avg), pillarList[0].avg];
-    const color = selectedLevel !== null ? LEVEL_COLORS[selectedLevel] : '#3b82f6';
+    const color = selectedLevel !== null ? LEVEL_COLORS[selectedLevel] : '#22c55e';
     return [{
       type: 'scatterpolar', r: vals, theta: cats, fill: 'toself', mode: 'lines+markers+text',
       text: vals.map(v => v.toFixed(2)), textposition: 'top center', textfont: { size: 10, color: '#374151' },
@@ -423,7 +423,7 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
       y: readinessCounts,
       marker: {
         color: LEVEL_COLORS.map((c, i) => selectedLevel === null || i === selectedLevel ? c : `${c}44`),
-        line: { width: LEVEL_COLORS.map((_, i) => i === selectedLevel ? 2 : 0), color: LEVEL_COLORS.map((_, i) => i === selectedLevel ? '#1e3a8a' : 'transparent') },
+        line: { width: LEVEL_COLORS.map((_, i) => i === selectedLevel ? 2 : 0), color: LEVEL_COLORS.map((_, i) => i === selectedLevel ? '#14532d' : 'transparent') },
       },
       text: readinessCounts.map(String),
       textposition: 'outside',
@@ -455,7 +455,7 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
       text: programCounts.map(p => String(p.count)),
       textposition: 'outside',
       cliponaxis: false,
-      marker: { color: '#2563eb', opacity: 0.85 },
+      marker: { color: '#16a34a', opacity: 0.85 },
       hovertemplate: '%{y}: %{x} participants<extra></extra>',
     }];
   }, [programCounts]);
@@ -466,7 +466,7 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
     margin: { t: 16, b: 36, l: 10, r: 60 },
   }), []);
 
-  const accentColor       = selectedLevel !== null ? LEVEL_COLORS[selectedLevel] : '#3b82f6';
+  const accentColor       = selectedLevel !== null ? LEVEL_COLORS[selectedLevel] : '#22c55e';
   const selectedLevelName = selectedLevel !== null ? (readinessLevels[selectedLevel]?.name ?? readinessLevels[selectedLevel]) : null;
 
   // ── KPI section ──────────────────────────────────────────────────────────
@@ -553,7 +553,7 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
       {/* ── Header ── */}
       <div className="flex-shrink-0 h-14 bg-white border-b border-gray-200 flex items-center justify-between px-6 shadow-sm">
         <div className="flex items-center gap-4">
-          <div className="w-7 h-7 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
+          <div className="w-7 h-7 bg-green-600 rounded-lg flex items-center justify-center flex-shrink-0">
             <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
@@ -575,7 +575,7 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
           )}
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={exportPDF} disabled={exporting} className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg transition-colors font-semibold disabled:opacity-50">
+          <button onClick={exportPDF} disabled={exporting} className="text-xs bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-lg transition-colors font-semibold disabled:opacity-50">
             {exporting ? 'Exporting…' : 'Export PDF'}
           </button>
           <button onClick={onRefresh} disabled={refreshing} className="text-xs bg-white hover:bg-gray-50 border border-gray-200 text-gray-600 px-3 py-1.5 rounded-lg transition-colors">
@@ -594,7 +594,7 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
           <button
             onClick={() => { switchRound('overall'); setDeptDropdownOpen(null); }}
             className={`px-3 py-1 rounded-full text-xs font-semibold border transition-colors flex-shrink-0 ${
-              activeRound === 'overall' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-500 border-gray-200 hover:border-blue-400 hover:text-blue-600'
+              activeRound === 'overall' ? 'bg-green-600 text-white border-green-600' : 'bg-white text-gray-500 border-gray-200 hover:border-green-400 hover:text-green-600'
             }`}
           >Overall</button>
 
@@ -641,7 +641,7 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
             return (
               <div key={r.roundNum} className="relative flex-shrink-0">
                 <div className={`flex items-center rounded-full border text-xs font-semibold transition-colors ${
-                  isActive ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-500 border-gray-200'
+                  isActive ? 'bg-green-600 text-white border-green-600' : 'bg-white text-gray-500 border-gray-200'
                 }`}>
                   <button
                     onClick={() => { switchRound(r.roundNum); setDeptDropdownOpen(null); }}
@@ -649,7 +649,7 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
                   >
                     Round {r.roundNum}{r.label ? ` · ${r.label}` : ''}
                     <span className={`ml-1 ${isActive ? 'opacity-70' : 'text-gray-400'}`}>· {dateStr}</span>
-                    {isCurrent && <span className={`ml-1 ${isActive ? 'opacity-80' : 'text-blue-400'}`}>★</span>}
+                    {isCurrent && <span className={`ml-1 ${isActive ? 'opacity-80' : 'text-green-400'}`}>★</span>}
                     {hasDepts && isActive && activeDeptForRound !== 'overview' && (
                       <span className="ml-1.5 text-purple-300 font-normal">· {activeDeptForRound}</span>
                     )}
@@ -658,7 +658,7 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
                     <button
                       onClick={() => { switchRound(r.roundNum); setDeptDropdownOpen(ddOpen ? null : r.roundNum); }}
                       className={`pr-2 pl-1 py-1 border-l transition-colors ${
-                        isActive ? 'border-blue-500 hover:bg-blue-700' : 'border-gray-200 hover:bg-gray-50'
+                        isActive ? 'border-green-500 hover:bg-green-700' : 'border-gray-200 hover:bg-gray-50'
                       } rounded-r-full`}
                       title="Select department"
                     >
@@ -776,7 +776,7 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
               ) : kpiSection.mode === 'overall' ? (
                 <>
                   <div>
-                    <div className="text-2xl font-bold tabular-nums text-blue-600">{kpiSection.totalAll}</div>
+                    <div className="text-2xl font-bold tabular-nums text-green-600">{kpiSection.totalAll}</div>
                     <div className="text-xs font-semibold text-gray-600 mt-0.5">Total Responses (All Rounds)</div>
                   </div>
                   <div className="w-full h-px bg-gray-100" />
