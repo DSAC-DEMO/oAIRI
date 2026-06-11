@@ -1,8 +1,8 @@
-name = "oairi"
+name = "p-airi"
 pages_build_output_dir = "dist"
 compatibility_date = "2024-01-01"
 
 [[d1_databases]]
 binding = "DB"
-database_name = "survey-db"
-database_id = "0b9e7a1b-3c70-4045-99a4-3e4c872b2d93"
+database_name = "p-airi"
+database_id = "0e1d2eb8-380f-41b9-8db5-7827f111eb08"

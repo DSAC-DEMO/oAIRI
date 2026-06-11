@@ -62,9 +62,59 @@ export async function onRequestPost(context) {
       }
       await env.DB.prepare(
         "INSERT INTO settings (key, value) VALUES ('readiness_levels', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value"
-      ).bind(JSON.stringify(readinessLevels.map(l => ({ name: l.name.trim(), persona: l.persona.trim() })))).run();
+      ).bind(JSON.stringify(readinessLevels.map(l => ({
+        name: l.name.trim(),
+        persona: l.persona.trim(),
+        description: (l.description ?? '').trim(),
+      })))).run();
 
       logSecurityEvent('ADMIN_READINESS_LEVELS_UPDATED', { ip });
+      return new Response(JSON.stringify({ success: true }), { status: 200, headers: cors });
+    }
+
+    if (action === 'update_companies') {
+      const { companies } = body;
+      if (!Array.isArray(companies) || companies.some(c => typeof c !== 'string' || !c.trim())) {
+        return new Response(
+          JSON.stringify({ error: 'companies must be an array of non-empty strings' }),
+          { status: 400, headers: cors }
+        );
+      }
+      await env.DB.prepare(
+        "INSERT INTO settings (key, value) VALUES ('companies', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value"
+      ).bind(JSON.stringify(companies.map(c => c.trim()))).run();
+
+      logSecurityEvent('ADMIN_COMPANIES_UPDATED', { ip });
+      return new Response(JSON.stringify({ success: true }), { status: 200, headers: cors });
+    }
+
+    if (action === 'update_courses') {
+      const { courses } = body;
+      if (!Array.isArray(courses) || courses.some(c => !c?.name?.trim())) {
+        return new Response(
+          JSON.stringify({ error: 'courses must be an array of objects with a non-empty name' }),
+          { status: 400, headers: cors }
+        );
+      }
+      const sanitised = courses.map(c => ({
+        name: c.name.trim(),
+        levels: (c.levels == null) ? null : Array.isArray(c.levels) ? c.levels.filter(l => Number.isInteger(l) && l >= 0 && l <= 4) : [],
+        description: (c.description ?? '').trim(),
+        link: (c.link ?? '').trim(),
+        pillarConditions: Array.isArray(c.pillarConditions)
+          ? c.pillarConditions
+              .filter(pc => pc?.pillar)
+              .map(pc => ({
+                pillar: pc.pillar,
+                levels: Array.isArray(pc.levels) ? pc.levels.filter(l => Number.isInteger(l) && l >= 0 && l <= 4) : [],
+              }))
+          : [],
+      }));
+      await env.DB.prepare(
+        "INSERT INTO settings (key, value) VALUES ('courses', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value"
+      ).bind(JSON.stringify(sanitised)).run();
+
+      logSecurityEvent('ADMIN_COURSES_UPDATED', { ip });
       return new Response(JSON.stringify({ success: true }), { status: 200, headers: cors });
     }
 

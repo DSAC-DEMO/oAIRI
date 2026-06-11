@@ -63,17 +63,16 @@ export async function onRequestGet(context) {
     const { results: dailyTrend } = await env.DB.prepare(`
       SELECT DATE(submitted_at) as date, COUNT(*) as count
       FROM responses
-      WHERE submitted_at >= DATE('now', '-30 days')
       GROUP BY DATE(submitted_at)
       ORDER BY date ASC
     `).all();
 
     const { results: responses } = await env.DB.prepare(
-      'SELECT id, readiness_level, total_score, score_pct, answers_json, is_sp_staff, department, submitted_at FROM responses ORDER BY submitted_at DESC'
+      'SELECT id, session_id, readiness_level, total_score, score_pct, answers_json, is_sp_staff, department, submitted_at FROM responses ORDER BY submitted_at DESC'
     ).all();
 
     const { results: questions } = await env.DB.prepare(
-      'SELECT id, category, question, dimension, q_id, order_num FROM questions ORDER BY order_num ASC, id ASC'
+      'SELECT id, category, question, order_num FROM questions ORDER BY order_num ASC, id ASC'
     ).all();
 
     const { results: questionOptions } = await env.DB.prepare(
@@ -97,8 +96,26 @@ export async function onRequestGet(context) {
     ).first();
     const readinessLevels = rlRow ? JSON.parse(rlRow.value) : ['Expert Ready', 'Advanced Ready', 'Moderately Ready', 'Developing', 'Novice'];
 
+    const companiesRow = await env.DB.prepare(
+      "SELECT value FROM settings WHERE key = 'companies'"
+    ).first();
+    const companies = companiesRow ? JSON.parse(companiesRow.value) : [];
+
+    const coursesRow = await env.DB.prepare(
+      "SELECT value FROM settings WHERE key = 'courses'"
+    ).first();
+    const courses = coursesRow ? JSON.parse(coursesRow.value) : [];
+
+    const { results: sessions } = await env.DB.prepare(`
+      SELECT s.id, s.name, s.sector, s.code, s.company_uen, s.round_label, s.dept_label, s.parent_session_id, s.created_at, COUNT(r.id) AS response_count
+      FROM sessions s
+      LEFT JOIN responses r ON r.session_id = s.id
+      GROUP BY s.id
+      ORDER BY s.created_at DESC
+    `).all();
+
     return new Response(
-      JSON.stringify({ success: true, stats, scoreBuckets, dailyTrend, responses, questions: questionsWithOptions, levels, readinessLevels }, null, 2),
+      JSON.stringify({ success: true, stats, scoreBuckets, dailyTrend, responses, questions: questionsWithOptions, levels, readinessLevels, companies, sessions, courses }, null, 2),
       { status: 200, headers: cors }
     );
 
