@@ -560,7 +560,7 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
           </div>
           <div>
             <h1 className="text-sm font-bold text-gray-900 leading-tight">{session.name}</h1>
-            <p className="text-xs text-gray-400">pAIRI v3.0</p>
+            <p className="text-xs text-gray-400">oAIRI v1.0</p>
           </div>
           {selectedLevelName && activeRound !== 'overall' && activeRound !== 'compare' && (
             <div
@@ -826,7 +826,7 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
             <div className="flex-shrink-0">
               <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1.5">About This Survey</p>
               <p className="text-xs text-gray-500 leading-relaxed mb-1.5">
-                The <span className="font-semibold text-gray-700">pAIRI</span> (Personal AI Readiness Index) is a comprehensive instrument designed to measure an individual's maturity and capability in the rapidly evolving AI landscape.
+                The <span className="font-semibold text-gray-700">oAIRI</span> (Organisational AI Readiness Index) is a comprehensive instrument designed to measure an organisation's collective maturity and capability in the rapidly evolving AI landscape.
               </p>
               <p className="text-xs text-gray-500 leading-relaxed mb-1">
                 This instrument breaks down "AI Readiness" into a holistic framework consisting of 15 questions across <span className="font-semibold text-gray-700">5 Core Pillars</span>:
@@ -839,7 +839,7 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
                 <li><span className="font-semibold text-gray-700">Tools &amp; Technical Skills:</span> Prompting, agent use, and building AI workflows.</li>
               </ol>
               <p className="text-xs text-gray-500 leading-relaxed mb-1">
-                Based on the final assessment score, the individual is placed into one of <span className="font-semibold text-gray-700">five maturity levels</span>:
+                Based on the final assessment score, the organisation is placed into one of <span className="font-semibold text-gray-700">five maturity levels</span>:
               </p>
               <ul className="text-xs text-gray-500 space-y-0.5 pl-1">
                 <li>· Level 0: <span className="font-semibold text-gray-700">AI Unaware</span> (Bystander) — Score &lt; 1.00</li>
