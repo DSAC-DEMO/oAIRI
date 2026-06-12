@@ -560,7 +560,7 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
           </div>
           <div>
             <h1 className="text-sm font-bold text-gray-900 leading-tight">{session.name}</h1>
-            <p className="text-xs text-gray-400">oAIRI v1.0</p>
+            <p className="text-xs text-gray-400">oAIRI v3.0</p>
           </div>
           {selectedLevelName && activeRound !== 'overall' && activeRound !== 'compare' && (
             <div
