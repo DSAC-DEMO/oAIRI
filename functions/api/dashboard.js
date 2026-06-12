@@ -83,7 +83,7 @@ export async function onRequestPost(context) {
     let rounds = [];
     if (session.company_uen) {
       const { results: roundSessions } = await env.DB.prepare(
-        'SELECT id, name, created_at, round_label FROM sessions WHERE company_uen = ? AND parent_session_id IS NULL ORDER BY created_at ASC'
+        'SELECT id, name, created_at, round_label, completed_courses FROM sessions WHERE company_uen = ? AND parent_session_id IS NULL ORDER BY created_at ASC'
       ).bind(session.company_uen).all();
 
       if (roundSessions.length > 1) {
@@ -110,6 +110,8 @@ export async function onRequestPost(context) {
               );
             }
 
+            let completedCourses = [];
+            try { completedCourses = JSON.parse(s.completed_courses || '[]'); } catch {}
             return {
               roundNum: idx + 1,
               sessionId: s.id,
@@ -118,6 +120,7 @@ export async function onRequestPost(context) {
               name: s.name,
               responses: roundResponses,
               departments,
+              completedCourses,
             };
           })
         );

@@ -322,20 +322,52 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
     return { pillarList, overallAvg };
   }, [filteredResponses, questions]);
 
-  // Aggregate recommended program counts from current filtered responses
+  // Aggregate recommended program counts — exclude courses completed in prior rounds
   const programCounts = useMemo(() => {
+    const priorCompleted = new Set();
+    if (hasMultipleRounds && activeRound !== 'overall' && !compareMode && currentRoundData) {
+      for (const r of rounds) {
+        if (r.roundNum < currentRoundData.roundNum) {
+          for (const c of (r.completedCourses ?? [])) priorCompleted.add(c);
+        }
+      }
+    }
     const counts = {};
     for (const r of filteredResponses) {
       let recs = [];
       try { recs = JSON.parse(r.recommended_courses || '[]'); } catch {}
       for (const name of recs) {
-        counts[name] = (counts[name] || 0) + 1;
+        if (!priorCompleted.has(name)) counts[name] = (counts[name] || 0) + 1;
       }
     }
-    return Object.entries(counts)
-      .map(([name, count]) => ({ name, count }))
-      .sort((a, b) => b.count - a.count);
-  }, [filteredResponses]);
+    return Object.entries(counts).map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count);
+  }, [filteredResponses, hasMultipleRounds, activeRound, compareMode, currentRoundData, rounds]);
+
+  // Per-round program counts for overall / compare view
+  const perRoundProgramCounts = useMemo(() => {
+    if (!hasMultipleRounds || (activeRound !== 'overall' && !compareMode)) return null;
+    const activeRoundsList = compareMode && compareRounds.length > 0
+      ? rounds.filter(r => compareRounds.includes(r.roundNum))
+      : rounds;
+    return activeRoundsList.map(round => {
+      const priorCompleted = new Set(
+        rounds.filter(r => r.roundNum < round.roundNum).flatMap(r => r.completedCourses ?? [])
+      );
+      const counts = {};
+      for (const r of round.responses) {
+        let recs = [];
+        try { recs = JSON.parse(r.recommended_courses || '[]'); } catch {}
+        for (const name of recs) {
+          if (!priorCompleted.has(name)) counts[name] = (counts[name] || 0) + 1;
+        }
+      }
+      return {
+        roundNum: round.roundNum,
+        label: round.label,
+        programCounts: Object.entries(counts).map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count),
+      };
+    });
+  }, [hasMultipleRounds, activeRound, compareMode, rounds, compareRounds]);
 
   const total         = responses.length;
   const filteredTotal = filteredResponses.length;
@@ -536,7 +568,8 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
       const imgData = canvas.toDataURL('image/png');
       const w = canvas.width / 2;
       const h = canvas.height / 2;
-      const pdf = new jsPDF({ orientation: w > h ? 'landscape' : 'portrait', unit: 'px', format: [w, h] });
+      const rightMargin = 20;
+      const pdf = new jsPDF({ orientation: w > h ? 'landscape' : 'portrait', unit: 'px', format: [w + rightMargin, h] });
       pdf.addImage(imgData, 'PNG', 0, 0, w, h);
       pdf.save(`${session.name}_AI_Readiness_Report.pdf`);
     } catch (err) {
@@ -912,7 +945,7 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
           <div className="bg-white border border-gray-200 rounded-xl p-4 col-span-2 flex flex-col min-h-0 shadow-sm">
             <div className="flex items-center justify-between flex-shrink-0 mb-2">
               <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Most Recommended Programs</p>
-              {programCounts.length > 0 && (
+              {!perRoundProgramCounts && programCounts.length > 0 && (
                 <button
                   onClick={() => setExpandedChart({ title: 'Most Recommended Programs', traces: programTraces, layout: programLayout })}
                   className="text-gray-300 hover:text-gray-500 transition-colors p-1 rounded hover:bg-gray-50"
@@ -922,8 +955,38 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
                 </button>
               )}
             </div>
-            <div className="flex-1 min-h-0">
-              {programCounts.length > 0
+            <div className="flex-1 min-h-0 overflow-auto">
+              {perRoundProgramCounts ? (
+                <div
+                  className="grid gap-4 h-full"
+                  style={{ gridTemplateColumns: `repeat(${perRoundProgramCounts.length}, minmax(0, 1fr))` }}
+                >
+                  {perRoundProgramCounts.map(({ roundNum, label, programCounts: counts }) => (
+                    <div key={roundNum} className="flex flex-col min-h-0">
+                      <div className="flex items-center gap-1.5 mb-2 pb-1.5 border-b border-gray-100 flex-shrink-0">
+                        <span className="text-xs font-bold" style={{ color: ROUND_COLORS[(roundNum - 1) % ROUND_COLORS.length] }}>
+                          Round {roundNum}
+                        </span>
+                        {label && <span className="text-xs text-gray-400">· {label}</span>}
+                        <span className="ml-auto text-xs text-gray-300">{counts.length} rec</span>
+                      </div>
+                      {counts.length === 0
+                        ? <p className="text-xs text-gray-300 mt-1">No recommendations</p>
+                        : (
+                          <div className="space-y-0.5 overflow-y-auto flex-1 pr-1">
+                            {counts.map(({ name, count }) => (
+                              <div key={name} className="flex items-center justify-between gap-2 py-0.5">
+                                <span className="text-xs text-gray-600 truncate leading-tight">{name}</span>
+                                <span className="text-xs font-bold text-gray-400 flex-shrink-0 bg-gray-50 px-1.5 py-0.5 rounded">{count}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )
+                      }
+                    </div>
+                  ))}
+                </div>
+              ) : programCounts.length > 0
                 ? <PlotlyChart traces={programTraces} layout={programLayout} />
                 : (
                   <div className="flex items-center justify-center h-full">

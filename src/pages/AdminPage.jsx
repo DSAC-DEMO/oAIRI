@@ -406,6 +406,10 @@ function AdminPage() {
   const [addingDeptForSession, setAddingDeptForSession] = useState(null); // session id being expanded
   const [newDeptName, setNewDeptName] = useState('');
   const [deptSaving, setDeptSaving] = useState(false);
+  // Completed courses per session
+  const [editingCompletedCourses, setEditingCompletedCourses] = useState(null); // session id
+  const [pendingCompletedCourses, setPendingCompletedCourses] = useState(new Set());
+  const [completedCoursesSaving, setCompletedCoursesSaving] = useState(false);
   // Company codes search filter
   const [codeSearch, setCodeSearch] = useState('');
   // Company codes date range filter
@@ -1498,6 +1502,22 @@ function AdminPage() {
                   finally { setDeptSaving(false); }
                 };
 
+                const saveCompletedCourses = async (sessionId) => {
+                  setCompletedCoursesSaving(true);
+                  try {
+                    const res = await fetch('/api/sessions', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('adminToken')}` },
+                      body: JSON.stringify({ action: 'update_completed_courses', id: sessionId, completed_courses: [...pendingCompletedCourses] }),
+                    });
+                    const result = await res.json();
+                    if (!result.success) throw new Error(result.error);
+                    await fetchData(localStorage.getItem('adminToken'));
+                    setEditingCompletedCourses(null);
+                  } catch (err) { alert(`Failed: ${err.message}`); }
+                  finally { setCompletedCoursesSaving(false); }
+                };
+
                 const SessionRow = ({ s, roundLabel, deptLabel }) => (
                   <div key={s.id} className="bg-gray-50 rounded-lg px-4 py-3 border border-gray-100">
                     <div className="flex items-center justify-between gap-3">
@@ -1694,21 +1714,85 @@ function AdminPage() {
                                       {roundSessions.map((s, idx) => {
                                         const myDepts = deptSessions.filter(d => d.parent_session_id === s.id);
                                         const isExpanding = addingDeptForSession === s.id;
+                                        const isEditingCourses = editingCompletedCourses === s.id;
+                                        const takenCount = (() => { try { return JSON.parse(s.completed_courses || '[]').length; } catch { return 0; } })();
                                         return (
                                           <div key={s.id}>
-                                            {/* Round row with inline Add Dept button */}
+                                            {/* Round row with inline buttons */}
                                             <div className="flex items-center bg-gray-50">
                                               <div className="flex-1 min-w-0">
                                                 <SessionRow s={s} roundLabel={`Round ${idx + 1}`} />
                                               </div>
                                               <button
                                                 type="button"
-                                                onClick={() => { setAddingDeptForSession(isExpanding ? null : s.id); setNewDeptName(''); }}
+                                                onClick={() => {
+                                                  if (isEditingCourses) {
+                                                    setEditingCompletedCourses(null);
+                                                  } else {
+                                                    const existing = (() => { try { return JSON.parse(s.completed_courses || '[]'); } catch { return []; } })();
+                                                    setPendingCompletedCourses(new Set(existing));
+                                                    setEditingCompletedCourses(s.id);
+                                                    setAddingDeptForSession(null);
+                                                  }
+                                                }}
+                                                className={`mr-2 flex-shrink-0 text-xs px-2 py-0.5 rounded font-semibold transition-colors ${isEditingCourses ? 'bg-amber-200 text-amber-800' : 'bg-amber-100 hover:bg-amber-200 text-amber-700'}`}
+                                              >
+                                                {isEditingCourses ? 'Cancel' : `✓ Taken${takenCount > 0 ? ` (${takenCount})` : ''}`}
+                                              </button>
+                                              <button
+                                                type="button"
+                                                onClick={() => { setAddingDeptForSession(isExpanding ? null : s.id); setNewDeptName(''); setEditingCompletedCourses(null); }}
                                                 className="mr-4 flex-shrink-0 text-xs bg-purple-100 hover:bg-purple-200 text-purple-700 px-2 py-0.5 rounded font-semibold transition-colors"
                                               >
                                                 {isExpanding ? 'Cancel' : '＋ Dept'}
                                               </button>
                                             </div>
+
+                                            {/* Inline completed-courses panel */}
+                                            {isEditingCourses && (
+                                              <div className="px-4 py-3 bg-amber-50 border-t border-amber-100">
+                                                <p className="text-xs font-bold text-amber-700 mb-2">Courses completed after Round {idx + 1} — these will be hidden from later rounds</p>
+                                                {coursesData.length === 0
+                                                  ? <p className="text-xs text-gray-400 mb-2">No courses configured yet. Add courses in the Courses section first.</p>
+                                                  : (
+                                                    <div className="grid grid-cols-2 gap-x-6 gap-y-1 mb-3 max-h-36 overflow-y-auto">
+                                                      {coursesData.map(c => (
+                                                        <label key={c.name} className="flex items-center gap-1.5 cursor-pointer py-0.5">
+                                                          <input
+                                                            type="checkbox"
+                                                            checked={pendingCompletedCourses.has(c.name)}
+                                                            onChange={e => setPendingCompletedCourses(prev => {
+                                                              const next = new Set(prev);
+                                                              e.target.checked ? next.add(c.name) : next.delete(c.name);
+                                                              return next;
+                                                            })}
+                                                            className="rounded text-amber-600 flex-shrink-0"
+                                                          />
+                                                          <span className="text-xs text-gray-700 truncate">{c.name}</span>
+                                                        </label>
+                                                      ))}
+                                                    </div>
+                                                  )
+                                                }
+                                                <div className="flex gap-2">
+                                                  <button
+                                                    type="button"
+                                                    disabled={completedCoursesSaving}
+                                                    onClick={() => saveCompletedCourses(s.id)}
+                                                    className="text-xs bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white px-3 py-1.5 rounded-lg font-semibold transition-colors"
+                                                  >
+                                                    {completedCoursesSaving ? 'Saving…' : 'Save'}
+                                                  </button>
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => setEditingCompletedCourses(null)}
+                                                    className="text-xs bg-white border border-gray-200 text-gray-500 px-3 py-1.5 rounded-lg font-semibold"
+                                                  >
+                                                    Cancel
+                                                  </button>
+                                                </div>
+                                              </div>
+                                            )}
 
                                             {/* Inline dept-add form */}
                                             {isExpanding && (
@@ -1760,6 +1844,8 @@ function AdminPage() {
                               {noUen.filter(s => !s.parent_session_id).map(s => {
                                 const myDepts = noUen.filter(d => d.parent_session_id === s.id);
                                 const isExpanding = addingDeptForSession === s.id;
+                                const isEditingCourses = editingCompletedCourses === s.id;
+                                const takenCount = (() => { try { return JSON.parse(s.completed_courses || '[]').length; } catch { return 0; } })();
                                 return (
                                   <div key={s.id} className="border border-gray-200 rounded-xl overflow-hidden">
                                     <div className="flex items-center bg-gray-50">
@@ -1768,12 +1854,72 @@ function AdminPage() {
                                       </div>
                                       <button
                                         type="button"
-                                        onClick={() => { setAddingDeptForSession(isExpanding ? null : s.id); setNewDeptName(''); }}
+                                        onClick={() => {
+                                          if (isEditingCourses) {
+                                            setEditingCompletedCourses(null);
+                                          } else {
+                                            const existing = (() => { try { return JSON.parse(s.completed_courses || '[]'); } catch { return []; } })();
+                                            setPendingCompletedCourses(new Set(existing));
+                                            setEditingCompletedCourses(s.id);
+                                            setAddingDeptForSession(null);
+                                          }
+                                        }}
+                                        className={`mr-2 flex-shrink-0 text-xs px-2 py-0.5 rounded font-semibold transition-colors ${isEditingCourses ? 'bg-amber-200 text-amber-800' : 'bg-amber-100 hover:bg-amber-200 text-amber-700'}`}
+                                      >
+                                        {isEditingCourses ? 'Cancel' : `✓ Taken${takenCount > 0 ? ` (${takenCount})` : ''}`}
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => { setAddingDeptForSession(isExpanding ? null : s.id); setNewDeptName(''); setEditingCompletedCourses(null); }}
                                         className="mr-4 flex-shrink-0 text-xs bg-purple-100 hover:bg-purple-200 text-purple-700 px-2 py-0.5 rounded font-semibold transition-colors"
                                       >
                                         {isExpanding ? 'Cancel' : '＋ Dept'}
                                       </button>
                                     </div>
+                                    {isEditingCourses && (
+                                      <div className="px-4 py-3 bg-amber-50 border-t border-amber-100">
+                                        <p className="text-xs font-bold text-amber-700 mb-2">Courses completed after Round 1 — these will be hidden from later rounds</p>
+                                        {coursesData.length === 0
+                                          ? <p className="text-xs text-gray-400 mb-2">No courses configured yet. Add courses in the Courses section first.</p>
+                                          : (
+                                            <div className="grid grid-cols-2 gap-x-6 gap-y-1 mb-3 max-h-36 overflow-y-auto">
+                                              {coursesData.map(c => (
+                                                <label key={c.name} className="flex items-center gap-1.5 cursor-pointer py-0.5">
+                                                  <input
+                                                    type="checkbox"
+                                                    checked={pendingCompletedCourses.has(c.name)}
+                                                    onChange={e => setPendingCompletedCourses(prev => {
+                                                      const next = new Set(prev);
+                                                      e.target.checked ? next.add(c.name) : next.delete(c.name);
+                                                      return next;
+                                                    })}
+                                                    className="rounded text-amber-600 flex-shrink-0"
+                                                  />
+                                                  <span className="text-xs text-gray-700 truncate">{c.name}</span>
+                                                </label>
+                                              ))}
+                                            </div>
+                                          )
+                                        }
+                                        <div className="flex gap-2">
+                                          <button
+                                            type="button"
+                                            disabled={completedCoursesSaving}
+                                            onClick={() => saveCompletedCourses(s.id)}
+                                            className="text-xs bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white px-3 py-1.5 rounded-lg font-semibold transition-colors"
+                                          >
+                                            {completedCoursesSaving ? 'Saving…' : 'Save'}
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() => setEditingCompletedCourses(null)}
+                                            className="text-xs bg-white border border-gray-200 text-gray-500 px-3 py-1.5 rounded-lg font-semibold"
+                                          >
+                                            Cancel
+                                          </button>
+                                        </div>
+                                      </div>
+                                    )}
                                     {isExpanding && (
                                       <div className="px-4 py-2.5 bg-purple-50 border-t border-purple-100 flex items-center gap-2">
                                         <input

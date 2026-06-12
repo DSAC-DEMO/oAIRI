@@ -37,6 +37,7 @@ CREATE TABLE sessions (
   round_label        TEXT,
   dept_label         TEXT,
   parent_session_id  INTEGER REFERENCES sessions(id),
+  completed_courses  TEXT NOT NULL DEFAULT '[]',
   created_at         DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 

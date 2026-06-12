@@ -32,6 +32,16 @@ export async function onRequestPost(context) {
   }
 
   try {
+    const existing = await env.DB.prepare(
+      'SELECT id FROM sessions WHERE LOWER(name) = LOWER(?) AND parent_session_id IS NULL'
+    ).bind(companyName.trim()).first();
+    if (existing) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'This company is already registered. Please use your existing access code to proceed.' }),
+        { status: 409, headers: cors }
+      );
+    }
+
     const code = await generateCode();
     const codeHash = await hashCode(code);
     await env.DB.prepare(

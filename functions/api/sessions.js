@@ -34,7 +34,7 @@ export async function onRequestGet(context) {
 
   try {
     const { results: sessions } = await env.DB.prepare(`
-      SELECT s.id, s.name, s.sector, s.code, s.company_uen, s.round_label, s.dept_label, s.parent_session_id, s.created_at,
+      SELECT s.id, s.name, s.sector, s.code, s.company_uen, s.round_label, s.dept_label, s.parent_session_id, s.completed_courses, s.created_at,
              COUNT(r.id) AS response_count
       FROM sessions s
       LEFT JOIN responses r ON r.session_id = s.id
@@ -124,6 +124,15 @@ export async function onRequestPost(context) {
       ).run();
       logSecurityEvent('DEPT_SESSION_CREATED', { ip, parent_session_id, dept_label: dept_label.trim() });
       return new Response(JSON.stringify({ success: true, code }), { status: 200, headers: cors });
+    }
+
+    if (action === 'update_completed_courses') {
+      const { id, completed_courses } = body;
+      if (!id) return new Response(JSON.stringify({ error: 'id required' }), { status: 400, headers: cors });
+      const arr = Array.isArray(completed_courses) ? completed_courses.filter(c => typeof c === 'string' && c.trim()) : [];
+      await env.DB.prepare('UPDATE sessions SET completed_courses = ? WHERE id = ?').bind(JSON.stringify(arr), id).run();
+      logSecurityEvent('SESSION_COMPLETED_COURSES_UPDATED', { ip, id });
+      return new Response(JSON.stringify({ success: true }), { status: 200, headers: cors });
     }
 
     if (action === 'delete') {
