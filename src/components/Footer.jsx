@@ -1,8 +1,8 @@
 ﻿export default function Footer() {
   return (
-    <footer className="fixed bottom-0 left-0 right-0 z-10 bg-green-200 border-t border-green-300 px-6 py-3 text-center">
+    <footer className="fixed bottom-0 left-0 right-0 z-10 bg-green-700 border-t border-green-800 px-6 py-3 text-center">
       <p className="text-xs text-white leading-relaxed">
-        pAIRI v3.0 is licensed under{' '}
+        oAIRI v3.0 is licensed under{' '}
         <a
           href="https://creativecommons.org/licenses/by/4.0/"
           target="_blank"
