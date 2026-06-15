@@ -33,6 +33,7 @@ function SurveyPage() {
   const [regError, setRegError] = useState('');
   const [registeredCode, setRegisteredCode] = useState(null); // shown after registration
   const [codeCopied, setCodeCopied] = useState(false);
+  const [hasCopied, setHasCopied] = useState(false);
 
   useEffect(() => {
     fetch('/api/questions')
@@ -179,25 +180,40 @@ function SurveyPage() {
             <p className="text-xs font-bold uppercase tracking-widest text-green-600 mb-1">Registration successful</p>
             <h1 className="text-2xl font-bold text-gray-900 mb-2">{registeredCode.name}</h1>
             <p className="text-sm text-gray-500 mb-5">
-              Save the access code below — you'll need it to view your company's dashboard after completing the assessment.
+              Copy your access code below and keep it safe — you'll need it to start the assessment and view your dashboard.
             </p>
             <div className="bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 flex items-center justify-between mb-1">
               <span className="font-mono text-lg font-bold text-gray-800 tracking-widest">{registeredCode.code}</span>
               <button
                 type="button"
-                onClick={() => { navigator.clipboard.writeText(registeredCode.code); setCodeCopied(true); setTimeout(() => setCodeCopied(false), 2000); }}
+                onClick={() => {
+                  navigator.clipboard.writeText(registeredCode.code);
+                  setCodeCopied(true);
+                  setHasCopied(true);
+                  setTimeout(() => setCodeCopied(false), 2000);
+                }}
                 className="text-xs text-green-600 font-semibold hover:text-green-700 ml-4 flex-shrink-0"
               >
                 {codeCopied ? 'Copied!' : 'Copy'}
               </button>
             </div>
-            <p className="text-xs text-gray-400 mb-6">Keep this code safe — it cannot be recovered once you leave this page.</p>
+            <p className="text-xs text-gray-400 mb-6">
+              {hasCopied ? 'Code copied — click Continue to proceed.' : 'Copy your code first before you can continue.'}
+            </p>
             <button
               type="button"
-              onClick={() => setVerifiedCompany({ id: registeredCode.id, name: registeredCode.name })}
-              className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 rounded-lg transition-colors"
+              disabled={!hasCopied}
+              onClick={() => {
+                setCodeInput(registeredCode.code);
+                setPreScreenMode('code');
+                setRegisteredCode(null);
+                setHasCopied(false);
+              }}
+              className={`w-full font-semibold py-3 rounded-lg transition-colors ${
+                hasCopied ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+              }`}
             >
-              Start Assessment →
+              Continue →
             </button>
           </div>
         </div>
