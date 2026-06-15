@@ -409,6 +409,7 @@ function AdminPage() {
   // Completed courses per session
   const [editingCompletedCourses, setEditingCompletedCourses] = useState(null); // session id
   const [pendingCompletedCourses, setPendingCompletedCourses] = useState(new Set());
+  const [lockedCompletedCourses, setLockedCompletedCourses] = useState(new Set()); // already saved — disabled in UI
   const [completedCoursesSaving, setCompletedCoursesSaving] = useState(false);
   // Company codes search filter
   const [codeSearch, setCodeSearch] = useState('');
@@ -1731,6 +1732,7 @@ function AdminPage() {
                                                     setEditingCompletedCourses(null);
                                                   } else {
                                                     setPendingCompletedCourses(new Set(groupTaken));
+                                                    setLockedCompletedCourses(new Set(groupTaken));
                                                     setEditingCompletedCourses(s.id);
                                                     setAddingDeptForSession(null);
                                                   }
@@ -1756,21 +1758,25 @@ function AdminPage() {
                                                   ? <p className="text-xs text-gray-400 mb-2">No courses configured yet. Add courses in the Courses section first.</p>
                                                   : (
                                                     <div className="grid grid-cols-2 gap-x-6 gap-y-1 mb-3 max-h-36 overflow-y-auto">
-                                                      {coursesData.map(c => (
-                                                        <label key={c.name} className="flex items-center gap-1.5 cursor-pointer py-0.5">
-                                                          <input
-                                                            type="checkbox"
-                                                            checked={pendingCompletedCourses.has(c.name)}
-                                                            onChange={e => setPendingCompletedCourses(prev => {
-                                                              const next = new Set(prev);
-                                                              e.target.checked ? next.add(c.name) : next.delete(c.name);
-                                                              return next;
-                                                            })}
-                                                            className="rounded text-amber-600 flex-shrink-0"
-                                                          />
-                                                          <span className="text-xs text-gray-700 truncate">{c.name}</span>
-                                                        </label>
-                                                      ))}
+                                                      {coursesData.map(c => {
+                                                        const locked = lockedCompletedCourses.has(c.name);
+                                                        return (
+                                                          <label key={c.name} className={`flex items-center gap-1.5 py-0.5 ${locked ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
+                                                            <input
+                                                              type="checkbox"
+                                                              checked={pendingCompletedCourses.has(c.name)}
+                                                              disabled={locked}
+                                                              onChange={e => setPendingCompletedCourses(prev => {
+                                                                const next = new Set(prev);
+                                                                e.target.checked ? next.add(c.name) : next.delete(c.name);
+                                                                return next;
+                                                              })}
+                                                              className="rounded text-amber-600 flex-shrink-0 disabled:cursor-not-allowed"
+                                                            />
+                                                            <span className="text-xs truncate text-gray-700">{c.name}</span>
+                                                          </label>
+                                                        );
+                                                      })}
                                                     </div>
                                                   )
                                                 }
@@ -1858,8 +1864,9 @@ function AdminPage() {
                                           if (isEditingCourses) {
                                             setEditingCompletedCourses(null);
                                           } else {
-                                            const existing = (() => { try { return JSON.parse(s.completed_courses || '[]'); } catch { return []; } })();
+                                            const existing = new Set((() => { try { return JSON.parse(s.completed_courses || '[]'); } catch { return []; } })());
                                             setPendingCompletedCourses(new Set(existing));
+                                            setLockedCompletedCourses(new Set(existing));
                                             setEditingCompletedCourses(s.id);
                                             setAddingDeptForSession(null);
                                           }
@@ -1883,21 +1890,25 @@ function AdminPage() {
                                           ? <p className="text-xs text-gray-400 mb-2">No courses configured yet. Add courses in the Courses section first.</p>
                                           : (
                                             <div className="grid grid-cols-2 gap-x-6 gap-y-1 mb-3 max-h-36 overflow-y-auto">
-                                              {coursesData.map(c => (
-                                                <label key={c.name} className="flex items-center gap-1.5 cursor-pointer py-0.5">
-                                                  <input
-                                                    type="checkbox"
-                                                    checked={pendingCompletedCourses.has(c.name)}
-                                                    onChange={e => setPendingCompletedCourses(prev => {
-                                                      const next = new Set(prev);
-                                                      e.target.checked ? next.add(c.name) : next.delete(c.name);
-                                                      return next;
-                                                    })}
-                                                    className="rounded text-amber-600 flex-shrink-0"
-                                                  />
-                                                  <span className="text-xs text-gray-700 truncate">{c.name}</span>
-                                                </label>
-                                              ))}
+                                              {coursesData.map(c => {
+                                                const locked = lockedCompletedCourses.has(c.name);
+                                                return (
+                                                  <label key={c.name} className={`flex items-center gap-1.5 py-0.5 ${locked ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
+                                                    <input
+                                                      type="checkbox"
+                                                      checked={pendingCompletedCourses.has(c.name)}
+                                                      disabled={locked}
+                                                      onChange={e => setPendingCompletedCourses(prev => {
+                                                        const next = new Set(prev);
+                                                        e.target.checked ? next.add(c.name) : next.delete(c.name);
+                                                        return next;
+                                                      })}
+                                                      className="rounded text-amber-600 flex-shrink-0 disabled:cursor-not-allowed"
+                                                    />
+                                                    <span className="text-xs truncate text-gray-700">{c.name}</span>
+                                                  </label>
+                                                );
+                                              })}
                                             </div>
                                           )
                                         }
