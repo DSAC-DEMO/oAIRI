@@ -1502,16 +1502,16 @@ function AdminPage() {
                   finally { setDeptSaving(false); }
                 };
 
-                const saveCompletedCourses = async (sessionId) => {
+                const saveCompletedCourses = async (sessionIds) => {
                   setCompletedCoursesSaving(true);
                   try {
-                    const res = await fetch('/api/sessions', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('adminToken')}` },
-                      body: JSON.stringify({ action: 'update_completed_courses', id: sessionId, completed_courses: [...pendingCompletedCourses] }),
-                    });
-                    const result = await res.json();
-                    if (!result.success) throw new Error(result.error);
+                    await Promise.all(sessionIds.map(id =>
+                      fetch('/api/sessions', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('adminToken')}` },
+                        body: JSON.stringify({ action: 'update_completed_courses', id, completed_courses: [...pendingCompletedCourses] }),
+                      }).then(r => r.json()).then(result => { if (!result.success) throw new Error(result.error); })
+                    ));
                     await fetchData(localStorage.getItem('adminToken'));
                     setEditingCompletedCourses(null);
                   } catch (err) { alert(`Failed: ${err.message}`); }
@@ -1715,7 +1715,8 @@ function AdminPage() {
                                         const myDepts = deptSessions.filter(d => d.parent_session_id === s.id);
                                         const isExpanding = addingDeptForSession === s.id;
                                         const isEditingCourses = editingCompletedCourses === s.id;
-                                        const takenCount = (() => { try { return JSON.parse(s.completed_courses || '[]').length; } catch { return 0; } })();
+                                        const groupTaken = new Set(roundSessions.flatMap(rs => { try { return JSON.parse(rs.completed_courses || '[]'); } catch { return []; } }));
+                                        const takenCount = groupTaken.size;
                                         return (
                                           <div key={s.id}>
                                             {/* Round row with inline buttons */}
@@ -1729,8 +1730,7 @@ function AdminPage() {
                                                   if (isEditingCourses) {
                                                     setEditingCompletedCourses(null);
                                                   } else {
-                                                    const existing = (() => { try { return JSON.parse(s.completed_courses || '[]'); } catch { return []; } })();
-                                                    setPendingCompletedCourses(new Set(existing));
+                                                    setPendingCompletedCourses(new Set(groupTaken));
                                                     setEditingCompletedCourses(s.id);
                                                     setAddingDeptForSession(null);
                                                   }
@@ -1751,7 +1751,7 @@ function AdminPage() {
                                             {/* Inline completed-courses panel */}
                                             {isEditingCourses && (
                                               <div className="px-4 py-3 bg-amber-50 border-t border-amber-100">
-                                                <p className="text-xs font-bold text-amber-700 mb-2">Courses completed after Round {idx + 1} — these will be hidden from later rounds</p>
+                                                <p className="text-xs font-bold text-amber-700 mb-2">Courses this company has completed — hidden from all round dashboards</p>
                                                 {coursesData.length === 0
                                                   ? <p className="text-xs text-gray-400 mb-2">No courses configured yet. Add courses in the Courses section first.</p>
                                                   : (
@@ -1778,7 +1778,7 @@ function AdminPage() {
                                                   <button
                                                     type="button"
                                                     disabled={completedCoursesSaving}
-                                                    onClick={() => saveCompletedCourses(s.id)}
+                                                    onClick={() => saveCompletedCourses(roundSessions.map(rs => rs.id))}
                                                     className="text-xs bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white px-3 py-1.5 rounded-lg font-semibold transition-colors"
                                                   >
                                                     {completedCoursesSaving ? 'Saving…' : 'Save'}
@@ -1878,7 +1878,7 @@ function AdminPage() {
                                     </div>
                                     {isEditingCourses && (
                                       <div className="px-4 py-3 bg-amber-50 border-t border-amber-100">
-                                        <p className="text-xs font-bold text-amber-700 mb-2">Courses completed after Round 1 — these will be hidden from later rounds</p>
+                                        <p className="text-xs font-bold text-amber-700 mb-2">Courses this company has completed — hidden from all round dashboards</p>
                                         {coursesData.length === 0
                                           ? <p className="text-xs text-gray-400 mb-2">No courses configured yet. Add courses in the Courses section first.</p>
                                           : (
@@ -1905,7 +1905,7 @@ function AdminPage() {
                                           <button
                                             type="button"
                                             disabled={completedCoursesSaving}
-                                            onClick={() => saveCompletedCourses(s.id)}
+                                            onClick={() => saveCompletedCourses([s.id])}
                                             className="text-xs bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white px-3 py-1.5 rounded-lg font-semibold transition-colors"
                                           >
                                             {completedCoursesSaving ? 'Saving…' : 'Save'}
