@@ -8,13 +8,13 @@ import Footer from '../components/Footer';
 function PillarChart({ pillars }) {
   if (!pillars.length) return null;
   return (
-    <div className="space-y-3 overflow-y-auto h-full">
+    <div className="space-y-2 overflow-y-auto h-full">
       {pillars.map(({ name, avg }) => {
         const pct = (avg / 5) * 100;
         const color = `hsl(142,${Math.round(60 + pct * 0.25)}%,${Math.round(62 - pct * 0.35)}%)`;
         return (
           <div key={name}>
-            <div className="flex justify-between text-xs mb-3 pb-0.5">
+            <div className="flex justify-between text-xs mb-1.5">
               <span className="font-semibold text-gray-700 truncate mr-2">{name}</span>
               <span className="text-gray-500 flex-shrink-0">{avg.toFixed(2)}</span>
             </div>
@@ -1123,9 +1123,9 @@ function AdminPage() {
                     >Comparative Bar</button>
                   </div>
                 </div>
-                <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+                <div className="flex-1 min-h-0 overflow-hidden flex flex-col justify-center">
                   {selectedCompanyKeys.length === 0 && (
-                    <p className="text-xs text-gray-400 text-center mt-4">Select companies using the Compare filter above.</p>
+                    <p className="text-xs text-gray-400 text-center">Select companies using the Compare filter above.</p>
                   )}
                   {selectedCompanyKeys.length >= 1 && (compareChartType === 'radar' || selectedCompanyKeys.length < 2) && (
                     <div className="flex-1 min-h-0 w-full">
@@ -1141,7 +1141,7 @@ function AdminPage() {
                             };
                           })
                           .filter(Boolean);
-                        if (radarSeries.length === 0) return <p className="text-xs text-gray-400 text-center mt-4">No data for selected companies.</p>;
+                        if (radarSeries.length === 0) return <p className="text-xs text-gray-400 text-center">No data for selected companies.</p>;
                         return <RadarChart series={radarSeries} />;
                       })()}
                     </div>
@@ -1161,7 +1161,7 @@ function AdminPage() {
                     };
                     return plotlyLib
                       ? <div className="flex-1 min-h-0"><CompanyPlotlyChart plotly={plotlyLib} data={traces} layout={layout} /></div>
-                      : <p className="text-xs text-gray-400 text-center mt-4">Loading chart…</p>;
+                      : <p className="text-xs text-gray-400 text-center">Loading chart…</p>;
                   })()}
                 </div>
               </div>

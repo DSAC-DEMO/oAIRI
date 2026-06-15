@@ -865,11 +865,11 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
                 This instrument breaks down "AI Readiness" into a holistic framework consisting of 15 questions across <span className="font-semibold text-gray-700">5 Core Pillars</span>:
               </p>
               <ol className="text-xs text-gray-500 space-y-0.5 mb-1.5 pl-3 list-decimal">
-                <li><span className="font-semibold text-gray-700">Mindset:</span> Adaptability, continuous learning, and embracing the AI era.</li>
-                <li><span className="font-semibold text-gray-700">Ethics &amp; Responsibility:</span> AI bias, risks, and critical output evaluation.</li>
-                <li><span className="font-semibold text-gray-700">Value Creation:</span> Identifying use cases and driving actual productivity gains.</li>
-                <li><span className="font-semibold text-gray-700">Data Literacy:</span> Understanding data quality and preparing it for AI use.</li>
-                <li><span className="font-semibold text-gray-700">Tools &amp; Technical Skills:</span> Prompting, agent use, and building AI workflows.</li>
+                <li><span className="font-semibold text-gray-700">Leadership &amp; Culture</span></li>
+                <li><span className="font-semibold text-gray-700">Ethics &amp; Governance</span></li>
+                <li><span className="font-semibold text-gray-700">Business Value</span></li>
+                <li><span className="font-semibold text-gray-700">Data Foundation</span></li>
+                <li><span className="font-semibold text-gray-700">Infrastructure &amp; Standards</span></li>
               </ol>
               <p className="text-xs text-gray-500 leading-relaxed mb-1">
                 Based on the final assessment score, the organisation is placed into one of <span className="font-semibold text-gray-700">five maturity levels</span>:
