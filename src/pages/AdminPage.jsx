@@ -11,7 +11,7 @@ function PillarChart({ pillars }) {
     <div className="space-y-2 overflow-y-auto h-full">
       {pillars.map(({ name, avg }) => {
         const pct = (avg / 5) * 100;
-        const color = `hsl(215,85%,${Math.round(72 - pct * 0.42)}%)`;
+        const color = `hsl(142,${Math.round(60 + pct * 0.25)}%,${Math.round(62 - pct * 0.35)}%)`;
         return (
           <div key={name}>
             <div className="flex justify-between text-xs mb-0.5">
