@@ -14,7 +14,7 @@ function PillarChart({ pillars }) {
         const color = `hsl(142,${Math.round(60 + pct * 0.25)}%,${Math.round(62 - pct * 0.35)}%)`;
         return (
           <div key={name}>
-            <div className="flex justify-between text-xs mb-1 leading-none">
+            <div className="flex justify-between text-xs mb-2">
               <span className="font-semibold text-gray-700 truncate mr-2">{name}</span>
               <span className="text-gray-500 flex-shrink-0">{avg.toFixed(2)}</span>
             </div>
@@ -1068,7 +1068,7 @@ function AdminPage() {
                     const colors = READINESS_LEVEL_STYLES[i];
                     return (
                       <div key={i}>
-                        <div className="flex justify-between text-xs mb-1 leading-none">
+                        <div className="flex justify-between text-xs mb-2">
                           <span className={`font-semibold ${colors.text}`}>{lvl.name}</span>
                           <span className="text-gray-500">{c}</span>
                         </div>
