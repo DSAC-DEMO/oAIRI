@@ -8,13 +8,13 @@ import Footer from '../components/Footer';
 function PillarChart({ pillars }) {
   if (!pillars.length) return null;
   return (
-    <div className="space-y-2 overflow-y-auto h-full">
+    <div className="space-y-3 overflow-y-auto h-full">
       {pillars.map(({ name, avg }) => {
         const pct = (avg / 5) * 100;
         const color = `hsl(142,${Math.round(60 + pct * 0.25)}%,${Math.round(62 - pct * 0.35)}%)`;
         return (
           <div key={name}>
-            <div className="flex justify-between text-xs mb-2">
+            <div className="flex justify-between text-xs mb-3 pb-0.5">
               <span className="font-semibold text-gray-700 truncate mr-2">{name}</span>
               <span className="text-gray-500 flex-shrink-0">{avg.toFixed(2)}</span>
             </div>
