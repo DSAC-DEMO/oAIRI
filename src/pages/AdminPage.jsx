@@ -813,7 +813,7 @@ function AdminPage() {
       <div className="flex-shrink-0 h-14 bg-white border-b border-gray-200 flex items-center justify-between px-6 shadow-sm">
         <div>
           <h1 className="text-base font-bold text-gray-900 leading-tight">Admin Dashboard</h1>
-          <p className="text-xs text-gray-400">Readiness Assessment Analytics</p>
+          <p className="text-xs text-gray-400">oAIRI — AI Readiness Analytics</p>
         </div>
         <div className="flex gap-2">
           <button onClick={exportCSV} className="text-xs bg-white hover:bg-gray-50 border border-gray-200 text-gray-600 px-3 py-1.5 rounded-lg font-semibold transition-colors">Export CSV</button>
