@@ -180,7 +180,7 @@ function SurveyPage() {
             <p className="text-xs font-bold uppercase tracking-widest text-green-600 mb-1">Registration successful</p>
             <h1 className="text-2xl font-bold text-gray-900 mb-2">{registeredCode.name}</h1>
             <p className="text-sm text-gray-500 mb-5">
-              Copy your access code below and keep it safe — you'll need it to start the assessment and view your dashboard.
+              Your unique access code has been generated. Copy it and save it somewhere accessible — such as your phone's notes app or a document on your laptop. You will need this code to start the assessment and to view your company's dashboard later.
             </p>
             <div className="bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 flex items-center justify-between mb-1">
               <span className="font-mono text-lg font-bold text-gray-800 tracking-widest">{registeredCode.code}</span>
@@ -197,7 +197,15 @@ function SurveyPage() {
                 {codeCopied ? 'Copied!' : 'Copy'}
               </button>
             </div>
-            <p className="text-xs text-gray-400 mb-6">
+            <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2.5 mb-5">
+              <svg className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+              </svg>
+              <p className="text-xs text-amber-700">
+                <span className="font-bold">Save this code before continuing.</span> Once you leave this page it cannot be recovered. Paste it in your notes app, email it to yourself, or screenshot this screen.
+              </p>
+            </div>
+            <p className="text-xs text-gray-400 mb-4">
               {hasCopied ? 'Code copied — click Continue to proceed.' : 'Copy your code first before you can continue.'}
             </p>
             <button
