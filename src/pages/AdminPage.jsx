@@ -476,6 +476,9 @@ function AdminPage() {
         scrollY: 0,
         windowWidth: document.documentElement.offsetWidth,
         windowHeight: document.documentElement.offsetHeight,
+        onclone: (clonedDoc) => {
+          clonedDoc.querySelectorAll('[data-pdf-hide]').forEach(node => { node.style.display = 'none'; });
+        },
       });
 
       const imgData = canvas.toDataURL('image/png');
@@ -1099,7 +1102,7 @@ function AdminPage() {
               <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-3 flex flex-col min-h-0 overflow-hidden">
                 <div className="flex items-center justify-between mb-1.5 flex-shrink-0">
                   <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Company Comparison</p>
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1" data-pdf-hide>
                     <button
                       onClick={() => setCompareChartType('radar')}
                       className={`inline-flex items-center justify-center h-6 px-3 rounded-full text-xs font-semibold border transition-colors ${compareChartType === 'radar' ? 'bg-green-600 text-white border-green-600' : 'bg-white text-gray-500 border-gray-200 hover:border-green-400'}`}
