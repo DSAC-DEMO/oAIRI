@@ -5,27 +5,6 @@ import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import Footer from '../components/Footer';
 
-function PillarChart({ pillars }) {
-  if (!pillars.length) return null;
-  return (
-    <div className="space-y-2 overflow-y-auto h-full">
-      {pillars.map(({ name, avg }) => {
-        const pct = (avg / 5) * 100;
-        const color = `hsl(142,${Math.round(60 + pct * 0.25)}%,${Math.round(62 - pct * 0.35)}%)`;
-        return (
-          <div key={name}>
-            <div className="flex justify-between text-xs mb-1.5">
-              <span className="font-semibold text-gray-700 truncate mr-2">{name}</span>
-              <span className="text-gray-500 flex-shrink-0">{avg.toFixed(2)}</span>
-            </div>
-            <Bar pct={pct} color={color} />
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
 function TrendChart({ trend, maxVal }) {
   const containerRef = useRef(null);
   const [dims, setDims] = useState(null);
@@ -1084,7 +1063,21 @@ function AdminPage() {
                 <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 flex-shrink-0">Performance by Pillar</p>
                 {bottomFilteredResponses.length === 0
                   ? <p className="text-sm text-gray-400">No data yet</p>
-                  : <div className="flex-1 min-h-0"><PillarChart pillars={bottomPillarPerfList} /></div>
+                  : <div className="flex-1 min-h-0 overflow-y-auto space-y-2">
+                      {bottomPillarPerfList.map(({ name, avg }) => {
+                        const pct = (avg / 5) * 100;
+                        const color = `hsl(142,${Math.round(60 + pct * 0.25)}%,${Math.round(62 - pct * 0.35)}%)`;
+                        return (
+                          <div key={name}>
+                            <div className="flex justify-between text-xs mb-2">
+                              <span className="font-semibold text-gray-700">{name}</span>
+                              <span className="text-gray-500">{avg.toFixed(2)}</span>
+                            </div>
+                            <Bar pct={pct} color={color} />
+                          </div>
+                        );
+                      })}
+                    </div>
                 }
               </div>
 
