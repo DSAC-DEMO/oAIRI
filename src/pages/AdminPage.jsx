@@ -1102,11 +1102,11 @@ function AdminPage() {
                   <div className="flex items-center gap-1">
                     <button
                       onClick={() => setCompareChartType('radar')}
-                      className={`inline-flex items-center justify-center leading-none px-2.5 py-1 rounded-full text-xs font-semibold border transition-colors ${compareChartType === 'radar' ? 'bg-green-600 text-white border-green-600' : 'bg-white text-gray-500 border-gray-200 hover:border-green-400'}`}
+                      className={`inline-flex items-center justify-center h-6 px-3 rounded-full text-xs font-semibold border transition-colors ${compareChartType === 'radar' ? 'bg-green-600 text-white border-green-600' : 'bg-white text-gray-500 border-gray-200 hover:border-green-400'}`}
                     >Radar</button>
                     <button
                       onClick={() => selectedCompanyKeys.length >= 2 && setCompareChartType('bar')}
-                      className={`inline-flex items-center justify-center leading-none px-2.5 py-1 rounded-full text-xs font-semibold border transition-colors ${
+                      className={`inline-flex items-center justify-center h-6 px-3 rounded-full text-xs font-semibold border transition-colors ${
                         selectedCompanyKeys.length < 2
                           ? 'bg-white text-gray-300 border-gray-100 cursor-not-allowed'
                           : compareChartType === 'bar'
