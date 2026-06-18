@@ -113,7 +113,7 @@ function ResultsPage() {
   const levelIdx      = (overallMean ?? 0) >= 4 ? 0 : (overallMean ?? 0) >= 3 ? 1 : (overallMean ?? 0) >= 2 ? 2 : (overallMean ?? 0) >= 1 ? 3 : 4;
   const levelPosition = 5 - levelIdx;
 
-  // Per-pillar competency index (0–4) for matching pillar conditions on courses
+  // Per-pillar competency index (0–4, 0=lowest) for matching pillar conditions on courses
   const pillarCompetencyMap = Object.fromEntries(
     pillarEntries.map(([name, { avg }]) => [name, getCompetencyIndex(avg ?? 0)])
   );
@@ -121,11 +121,12 @@ function ResultsPage() {
   const relevantCourses = courses.filter(c => {
     if (Array.isArray(c.levels) && c.levels.includes(levelIdx)) return true;
     if (Array.isArray(c.pillarConditions)) {
-      return c.pillarConditions.some(pc =>
-        pc.pillar &&
-        Array.isArray(pc.levels) &&
-        pc.levels.includes(pillarCompetencyMap[pc.pillar] ?? -1)
-      );
+      return c.pillarConditions.some(pc => {
+        const ci = pillarCompetencyMap[pc.pillar];
+        // Level checkboxes are stored left→right (0..4) but labelled 4..0 (highest→lowest),
+        // while competency index is 0=lowest..4=highest — invert to match the selected label.
+        return pc.pillar && Array.isArray(pc.levels) && ci !== undefined && pc.levels.includes(4 - ci);
+      });
     }
     return false;
   });

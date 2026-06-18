@@ -171,7 +171,9 @@ export async function onRequestPost(context) {
       if (!matches && course.pillarConditions?.length) {
         matches = course.pillarConditions.some(pc => {
           const pScore = pillarScores[pc.pillar]?.avg;
-          return pScore !== undefined && (pc.levels?.includes(getCompetencyIndex(pScore)) ?? false);
+          // Level checkboxes are stored left→right (0..4) but labelled 4..0 (highest→lowest),
+          // while getCompetencyIndex is 0=lowest..4=highest — invert to match the selected label.
+          return pScore !== undefined && (pc.levels?.includes(4 - getCompetencyIndex(pScore)) ?? false);
         });
       }
       if (matches) recommendedCourses.push(course.name);
