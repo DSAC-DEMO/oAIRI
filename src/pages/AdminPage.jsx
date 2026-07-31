@@ -4,6 +4,8 @@ import RadarChart from '../components/RadarChart';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import Footer from '../components/Footer';
+import QRCodePoster from '../components/QRCodePoster';
+import QRCode from 'qrcode';
 
 function TrendChart({ trend, maxVal }) {
   const containerRef = useRef(null);
@@ -369,6 +371,9 @@ function AdminPage() {
   const [sessionSaving, setSessionSaving] = useState(false);
   const [generatedCode, setGeneratedCode] = useState(null); // shown once after creation
   const [codeCopied, setCodeCopied] = useState(false);
+  const [copiedTableId, setCopiedTableId] = useState(null);
+  const [emailCopied, setEmailCopied] = useState(false);
+  const [showRoadshowQr, setShowRoadshowQr] = useState(false); // opt-in: reveal the roadshow QR (rare use)
   // Courses state
   const [editCourses, setEditCourses] = useState(null);
   const [coursesSaving, setCoursesSaving] = useState(false);
@@ -1554,27 +1559,106 @@ function AdminPage() {
                       </div>
                     </div>
                     {shownCodes[s.id] && (
-                      <div className="mt-2 pt-2 border-t border-gray-200 flex items-center gap-3">
+                      <div className="mt-2 pt-2 border-t border-gray-200 flex items-center gap-2 flex-wrap">
                         {s.code
-                          ? <span className="font-mono text-base font-bold text-green-700 tracking-widest">{s.code}</span>
+                          ? <span className="font-mono text-base font-bold text-green-700 tracking-widest mr-1">{s.code}</span>
                           : <span className="text-xs text-gray-400 italic">Code not available (created before this feature)</span>
                         }
                         {s.code && (
-                          <button
-                            type="button"
-                            onClick={() => navigator.clipboard.writeText(s.code)}
-                            className="text-xs bg-green-600 hover:bg-green-700 text-white px-2.5 py-1 rounded font-semibold transition-colors"
-                          >
-                            Copy
-                          </button>
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => navigator.clipboard.writeText(s.code)}
+                              className="text-xs bg-green-600 hover:bg-green-700 text-white px-2.5 py-1 rounded font-semibold transition-colors"
+                            >
+                              Copy code
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => copyTableForRow(s.code, s.id)}
+                              title="Copy the ready-to-email access table (survey link, code, dashboard access)"
+                              className="text-xs bg-white border border-green-200 text-green-700 hover:bg-green-50 px-2.5 py-1 rounded font-semibold transition-colors"
+                            >
+                              {copiedTableId === s.id ? 'Copied!' : 'Copy table'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => downloadQrPng(s.code)}
+                              title="Download a scan-to-start QR code (links to the survey landing page) as PNG"
+                              className="text-xs bg-white border border-green-200 text-green-700 hover:bg-green-50 px-2.5 py-1 rounded font-semibold transition-colors"
+                            >
+                              Download PNG
+                            </button>
+                          </>
                         )}
                       </div>
                     )}
                   </div>
                 );
 
+                // ── Per-code access helpers (email table + QR), reused by the generate panel AND each Show reveal ──
+                // Unlike pAIRI, the QR does not pre-fill the code — it just opens the landing page
+                // and the visitor types the code themselves into the empty "Enter your access code" box.
+                const APP_BASE_URL = 'https://o-airi.pages.dev';
+                const surveyUrlFor = () => APP_BASE_URL;
+                const buildEmailRows = (code) => [
+                  { purpose: 'Survey Application', detail: APP_BASE_URL },
+                  { purpose: 'Survey Code',        detail: code },
+                  { purpose: 'Dashboard',          detail: `${APP_BASE_URL}/dashboard` },
+                  { purpose: 'Dashboard Access',   detail: `${code}dsac` }, // backend strips last 4 chars, case-insensitive
+                ];
+
+                const copyRowsToClipboard = async (rows, onDone) => {
+                  const html =
+                    '<table border="1" cellpadding="6" cellspacing="0" style="border-collapse:collapse;font-family:Arial,sans-serif;font-size:14px">' +
+                    '<thead><tr><th align="left">Purpose</th><th align="left">Link / Details</th></tr></thead><tbody>' +
+                    rows.map(r => `<tr><td>${r.purpose}</td><td>${r.detail}</td></tr>`).join('') +
+                    '</tbody></table>';
+                  const text = ['Purpose\tLink / Details', ...rows.map(r => `${r.purpose}\t${r.detail}`)].join('\n');
+                  try {
+                    if (navigator.clipboard && window.ClipboardItem) {
+                      await navigator.clipboard.write([new ClipboardItem({
+                        'text/html':  new Blob([html], { type: 'text/html' }),
+                        'text/plain': new Blob([text], { type: 'text/plain' }),
+                      })]);
+                    } else {
+                      await navigator.clipboard.writeText(text);
+                    }
+                    onDone?.();
+                  } catch {
+                    try { await navigator.clipboard.writeText(text); onDone?.(); } catch {}
+                  }
+                };
+
+                // Downloads a high-res QR of the survey landing page (same output as QRCodePoster's Download PNG).
+                const downloadQrPng = async (code) => {
+                  try {
+                    const dataUrl = await QRCode.toDataURL(surveyUrlFor(), { width: 1024, margin: 2, errorCorrectionLevel: 'M' });
+                    const a = document.createElement('a');
+                    a.href = dataUrl;
+                    a.download = `oAIRI-survey-${code}.png`;
+                    a.click();
+                  } catch { /* ignore */ }
+                };
+
+                // Per-row "Copy table" (used inside each Show reveal).
+                const copyTableForRow = (code, id) =>
+                  copyRowsToClipboard(buildEmailRows(code), () => { setCopiedTableId(id); setTimeout(() => setCopiedTableId(null), 2000); });
+
+                // ── Generate-panel bindings (single freshly-created code) ──
+                // Survey landing page link — visitor lands on the empty code-entry box and types the code shown below.
+                const prefilledSurveyUrl = generatedCode ? surveyUrlFor() : '';
+                const emailRows = generatedCode ? buildEmailRows(generatedCode) : [];
+                const copyEmailTable = () =>
+                  copyRowsToClipboard(emailRows, () => { setEmailCopied(true); setTimeout(() => setEmailCopied(false), 2000); });
+
                 return (
-                  <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                  <div className={`bg-white p-6 rounded-xl shadow-sm border border-gray-100 ${
+                    generatedCode
+                      ? 'max-w-5xl lg:grid lg:grid-cols-[minmax(0,1fr)_24rem] lg:gap-6 lg:items-start'
+                      : 'max-w-2xl'
+                  }`}>
+                    <div className="min-w-0">
                     <h2 className="text-lg font-bold text-gray-900 mb-1">Company Codes</h2>
                     <p className="text-xs text-gray-500 mb-5">
                       Add a company by name — a code is generated automatically. Linking sessions to the same UEN groups them as rounds, letting companies track AI readiness over time.
@@ -2080,6 +2164,88 @@ function AdminPage() {
                         </button>
                       </div>
                     </div>
+                    </div>{/* /min-w-0 (left column) */}
+
+                    {/* ── Email-ready access table (right column) ── */}
+                    {generatedCode && (
+                      <div className="mt-6 lg:mt-0 lg:sticky lg:top-0">
+                        <div className="border border-green-200 rounded-xl overflow-hidden shadow-sm">
+                          <div className="bg-green-600 px-4 py-3 flex items-center justify-between gap-2">
+                            <div className="min-w-0">
+                              <p className="text-sm font-bold text-white">Ready-to-send access details</p>
+                              <p className="text-[11px] text-green-100">Copy &amp; email this table to the company.</p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={copyEmailTable}
+                              className="text-xs bg-white text-green-700 hover:bg-green-50 px-3 py-1.5 rounded-lg font-semibold flex-shrink-0 transition-colors"
+                            >
+                              {emailCopied ? 'Copied!' : 'Copy table'}
+                            </button>
+                          </div>
+                          <table className="w-full text-sm border-collapse">
+                            <thead>
+                              <tr className="bg-green-50 text-green-700">
+                                <th className="text-left font-semibold px-4 py-2 border-b border-green-100">Purpose</th>
+                                <th className="text-left font-semibold px-4 py-2 border-b border-green-100">Link / Details</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100">
+                              {emailRows.map((r, i) => (
+                                <tr key={i} className="align-top">
+                                  <td className="px-4 py-2.5 font-medium text-gray-600 whitespace-nowrap">{r.purpose}</td>
+                                  <td className="px-4 py-2.5 text-gray-800 break-all font-mono text-[13px]">{r.detail}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                        <p className="text-[11px] text-gray-400 mt-2 px-1">
+                          The dashboard access code is the survey code with a <span className="font-mono">dsac</span> suffix — share it only with the company's dashboard owner.
+                        </p>
+
+                        {/* ── Roadshow QR (opt-in): rarely needed, so kept behind a subtle toggle ── */}
+                        {!showRoadshowQr ? (
+                          <button
+                            type="button"
+                            onClick={() => setShowRoadshowQr(true)}
+                            className="mt-3 text-[11px] text-gray-400 hover:text-green-600 transition-colors"
+                          >
+                            Running a roadshow? + Add a scan-to-start QR code
+                          </button>
+                        ) : (
+                          <div className="mt-4 border border-gray-200 rounded-xl p-4">
+                            <div className="flex items-start justify-between gap-2">
+                              <div>
+                                <p className="text-sm font-bold text-gray-800">Roadshow QR — scan &amp; go</p>
+                                <p className="text-[11px] text-gray-500 mb-3">
+                                  Opens the survey landing page — visitors enter the code shown below themselves. Print the poster for a booth, or download the PNG.
+                                </p>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => setShowRoadshowQr(false)}
+                                className="text-[11px] text-gray-400 hover:text-gray-600 flex-shrink-0"
+                              >
+                                Hide
+                              </button>
+                            </div>
+                            <QRCodePoster url={prefilledSurveyUrl} code={generatedCode} title="AI Readiness Roadshow" />
+                            <div className="mt-3 flex items-center gap-2">
+                              <span className="text-[11px] text-gray-400 flex-shrink-0">Quick link</span>
+                              <code className="text-[11px] text-gray-600 break-all bg-gray-50 border border-gray-100 rounded px-2 py-1 flex-1">{prefilledSurveyUrl}</code>
+                              <button
+                                type="button"
+                                onClick={() => { navigator.clipboard.writeText(prefilledSurveyUrl); setEmailCopied(true); setTimeout(() => setEmailCopied(false), 2000); }}
+                                className="text-[11px] bg-green-600 hover:bg-green-700 text-white px-2.5 py-1 rounded font-semibold flex-shrink-0 transition-colors"
+                              >
+                                Copy
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 );
               })()}
