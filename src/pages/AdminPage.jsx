@@ -2664,7 +2664,7 @@ function AdminPage() {
         </div>
       )}
 
-      <div className="h-11 flex-shrink-0" />
+      <div className="hidden sm:block h-11 flex-shrink-0" />
       <Footer />
     </div>
   );

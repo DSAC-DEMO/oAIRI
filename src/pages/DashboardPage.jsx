@@ -581,7 +581,7 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
   };
 
   return (
-    <div className="h-screen bg-gray-50 text-gray-900 flex flex-col overflow-hidden">
+    <div className="h-screen bg-gray-50 text-gray-900 flex flex-col overflow-y-auto overflow-x-hidden">
 
       {/* ── Header ── */}
       <div className="flex-shrink-0 h-14 bg-white border-b border-gray-200 flex items-center justify-between px-6 shadow-sm">
@@ -746,10 +746,10 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
           </div>
         </div>
       ) : (
-        <div ref={dashboardRef} className="flex-1 grid grid-cols-3 grid-rows-2 gap-3 p-3 min-h-0">
+        <div ref={dashboardRef} className="flex-1 grid grid-cols-1 lg:grid-cols-3 lg:grid-rows-2 gap-3 p-3 lg:min-h-[760px]">
 
           {/* ── LEFT COL: KPIs + description + legend (row-span-2) ── */}
-          <div className="bg-white border border-gray-200 rounded-xl p-4 row-span-2 flex flex-col min-h-0 shadow-sm overflow-y-auto">
+          <div className="bg-white border border-gray-200 rounded-xl p-4 lg:row-span-2 flex flex-col min-h-0 shadow-sm overflow-y-auto">
 
             {/* KPIs */}
             <div className="flex flex-col gap-3 flex-shrink-0">
@@ -886,7 +886,7 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
           </div>
 
           {/* ── TOP MID: Radar ── */}
-          <div className="bg-white border border-gray-200 rounded-xl p-4 flex flex-col min-h-0 shadow-sm">
+          <div className="bg-white border border-gray-200 rounded-xl p-4 flex flex-col min-h-[320px] lg:min-h-0 shadow-sm">
             <div className="flex items-center justify-between flex-shrink-0 mb-2">
               <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Competency Profile</p>
               <button
@@ -916,7 +916,7 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
           </div>
 
           {/* ── TOP RIGHT: Readiness Distribution ── */}
-          <div className="bg-white border border-gray-200 rounded-xl p-4 flex flex-col min-h-0 shadow-sm">
+          <div className="bg-white border border-gray-200 rounded-xl p-4 flex flex-col min-h-[320px] lg:min-h-0 shadow-sm">
             <div className="flex items-center justify-between flex-shrink-0 mb-2">
               <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">
                 Readiness Distribution
@@ -942,7 +942,7 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
           </div>
 
           {/* ── BOTTOM (col-span-2): Most Recommended Programs ── */}
-          <div className="bg-white border border-gray-200 rounded-xl p-4 col-span-2 flex flex-col min-h-0 shadow-sm">
+          <div className="bg-white border border-gray-200 rounded-xl p-4 lg:col-span-2 flex flex-col min-h-[320px] lg:min-h-0 shadow-sm">
             <div className="flex items-center justify-between flex-shrink-0 mb-2">
               <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Most Recommended Programs</p>
               {!perRoundProgramCounts && programCounts.length > 0 && (
@@ -1005,7 +1005,7 @@ function Dashboard({ data, onRefresh, onLogout, refreshing }) {
       {expandedChart && (
         <ChartModal chart={expandedChart} onClose={() => setExpandedChart(null)} />
       )}
-      <div className="h-11 flex-shrink-0" />
+      <div className="hidden sm:block h-11 flex-shrink-0" />
       <Footer />
     </div>
   );
